@@ -21,6 +21,7 @@ import {
   ListOrdered,
   Phone,
   ArrowUpRight,
+  LogOut,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { expoOut } from "@/lib/motion";
@@ -53,7 +54,7 @@ export default function PublicShell({
   pageKicker,
   pageDescription,
 }: PublicShellProps) {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [location] = useLocation();
@@ -149,6 +150,18 @@ export default function PublicShell({
               <ArrowUpRight className="size-3.5" />
             </Link>
 
+            {profile && (
+              <button
+                type="button"
+                onClick={signOut}
+                className="hidden items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/70 transition-colors hover:border-rose-300/40 hover:text-rose-200 sm:inline-flex"
+                aria-label="Deconectează-te"
+              >
+                <LogOut className="size-3.5" />
+                <span>Ieși</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setMobileOpen((v) => !v)}
@@ -239,6 +252,16 @@ export default function PublicShell({
                 >
                   {profile ? "Dashboard" : "Intră în cont"}
                 </Link>
+                {profile && (
+                  <button
+                    type="button"
+                    onClick={() => { setMobileOpen(false); signOut(); }}
+                    className="grid size-12 place-items-center rounded-full border border-rose-300/30 bg-rose-300/10 text-rose-200"
+                    aria-label="Deconectează-te"
+                  >
+                    <LogOut className="size-5" />
+                  </button>
+                )}
                 <a
                   href="tel:0744311147"
                   className="grid size-12 place-items-center rounded-full border border-brand-cyan/40 bg-brand-cyan/10 text-brand-cyan"
