@@ -90,7 +90,7 @@ export default function MemberShell({ children, navLinks }: Props) {
               </div>
             )}
 
-            <NotificationBell />
+            {profile && <NotificationBell />}
 
             <Link
               href="/"

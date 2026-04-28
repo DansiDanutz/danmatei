@@ -43,9 +43,10 @@ const MENU_ITEMS: Array<{
   { label: "Login", href: "/login", icon: LogIn, primary: true },
 ];
 
-// Deterministic starfield — 60 dots, scattered with seeded jitter so they
-// don't reshuffle on every render. Visible only on tablet/desktop.
-const STARS = Array.from({ length: 60 }, (_, i) => {
+// Deterministic starfield — 20 dots (reduced from 60 for performance).
+// Scattered with seeded jitter so they don't reshuffle on every render.
+// Visible only on tablet/desktop.
+const STARS = Array.from({ length: 20 }, (_, i) => {
   const s = (i * 9301 + 49297) % 233280;
   return {
     left: (s % 1000) / 10, // 0–100

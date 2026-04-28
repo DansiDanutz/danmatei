@@ -111,46 +111,63 @@ export default function GroupsTab() {
     }
     setSaving(true);
     setServerError(null);
-    const { error } = await supabase.from("groups").insert({
-      label: v.label,
-      birth_year_min: v.birthYearMin,
-      birth_year_max: v.birthYearMax,
-      trainer_id: v.trainerId || null,
-    });
-    setSaving(false);
-    if (error) {
-      setServerError(error.message);
-      return;
+    try {
+      const { error } = await supabase.from("groups").insert({
+        label: v.label,
+        birth_year_min: v.birthYearMin,
+        birth_year_max: v.birthYearMax,
+        trainer_id: v.trainerId || null,
+      });
+      if (error) {
+        setServerError(error.message);
+        return;
+      }
+      reset();
+      loadAll();
+    } catch (e) {
+      setServerError(e instanceof Error ? e.message : "Eroare la salvare");
+    } finally {
+      setSaving(false);
     }
-    reset();
-    loadAll();
   };
 
   const assignGroupTrainer = async (groupId: string, trainerId: string | null) => {
-    const { error } = await supabase
-      .from("groups")
-      .update({ trainer_id: trainerId })
-      .eq("id", groupId);
-    if (error) setServerError(error.message);
-    else loadAll();
+    try {
+      const { error } = await supabase
+        .from("groups")
+        .update({ trainer_id: trainerId })
+        .eq("id", groupId);
+      if (error) setServerError(error.message);
+      else loadAll();
+    } catch (e) {
+      setServerError(e instanceof Error ? e.message : "Eroare");
+    }
   };
 
   const toggleGroupActive = async (groupId: string, active: boolean) => {
-    const { error } = await supabase
-      .from("groups")
-      .update({ active })
-      .eq("id", groupId);
-    if (error) setServerError(error.message);
-    else loadAll();
+    try {
+      const { error } = await supabase
+        .from("groups")
+        .update({ active })
+        .eq("id", groupId);
+      if (error) setServerError(error.message);
+      else loadAll();
+    } catch (e) {
+      setServerError(e instanceof Error ? e.message : "Eroare");
+    }
   };
 
   const assignChildToTrainer = async (childId: string, trainerId: string) => {
-    const { error } = await supabase
-      .from("children")
-      .update({ trainer_id: trainerId, assignment_status: "accepted" })
-      .eq("id", childId);
-    if (error) setServerError(error.message);
-    else loadAll();
+    try {
+      const { error } = await supabase
+        .from("children")
+        .update({ trainer_id: trainerId, assignment_status: "accepted" })
+        .eq("id", childId);
+      if (error) setServerError(error.message);
+      else loadAll();
+    } catch (e) {
+      setServerError(e instanceof Error ? e.message : "Eroare");
+    }
   };
 
   const trainerName = (t?: TrainerOption | null) => t?.profile?.full_name ?? "—";

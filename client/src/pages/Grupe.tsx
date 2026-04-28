@@ -42,18 +42,20 @@ export default function Grupe() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { data: trainers } = await supabase
-        .from("trainers")
-        .select(
-          "id, position, bio, age_min, age_max, certifications, active, display_order, profile:profiles!trainers_profile_id_fkey(full_name)",
-        )
-        .eq("active", true)
-        .order("display_order", { ascending: true });
+      const [trainersRes, kidsRes] = await Promise.all([
+        supabase
+          .from("trainers")
+          .select(
+            "id, position, bio, age_min, age_max, certifications, active, display_order, profile:profiles!trainers_profile_id_fkey(full_name)",
+          )
+          .eq("active", true)
+          .order("display_order", { ascending: true }),
+        supabase.from("children").select("trainer_id").eq("status", "active"),
+      ]);
+      const trainers = trainersRes.data;
+      const kids = kidsRes.data;
 
       const counts = new Map<string, number>();
-      const { data: kids } = await supabase
-        .from("children")
-        .select("trainer_id");
       (kids ?? []).forEach((c: { trainer_id: string | null }) => {
         if (c.trainer_id) counts.set(c.trainer_id, (counts.get(c.trainer_id) ?? 0) + 1);
       });

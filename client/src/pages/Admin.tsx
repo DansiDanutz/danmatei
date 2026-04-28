@@ -9,7 +9,7 @@
  * service role to call `auth.admin.inviteUserByEmail`. Everything else is
  * direct Supabase JS calls limited by RLS.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -61,6 +61,7 @@ type LandingRow = {
 
 export default function Admin() {
   const { profile } = useAuth();
+  const [tab, setTab] = useState("antrenori");
   return (
     <MemberShell
       navLinks={[
@@ -80,8 +81,8 @@ export default function Admin() {
         </p>
       </header>
 
-      <Tabs defaultValue="antrenori" className="mt-6">
-        <TabsList className="flex w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1">
+      <Tabs value={tab} onValueChange={setTab} className="mt-6">
+        <TabsList className="relative flex w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x">
           <Trigger value="antrenori" icon={<UserPlus className="size-3.5" />}>
             Antrenori
           </Trigger>
@@ -97,16 +98,24 @@ export default function Admin() {
         </TabsList>
 
         <TabsContent value="antrenori" className="mt-5">
-          <TrainersTab />
+          <LazyTab active={tab === "antrenori"}>
+            <TrainersTab />
+          </LazyTab>
         </TabsContent>
         <TabsContent value="grupe" className="mt-5">
-          <GroupsTab />
+          <LazyTab active={tab === "grupe"}>
+            <GroupsTab />
+          </LazyTab>
         </TabsContent>
         <TabsContent value="membri" className="mt-5">
-          <MembersTab />
+          <LazyTab active={tab === "membri"}>
+            <MembersTab />
+          </LazyTab>
         </TabsContent>
         <TabsContent value="pagina" className="mt-5">
-          <LandingTab />
+          <LazyTab active={tab === "pagina"}>
+            <LandingTab />
+          </LazyTab>
         </TabsContent>
       </Tabs>
     </MemberShell>
@@ -124,7 +133,7 @@ const Trigger = ({
 }) => (
   <TabsTrigger
     value={value}
-    className="flex-1 rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan"
+    className="flex-1 snap-center rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan"
   >
     <span className="inline-flex items-center gap-1.5">
       {icon}
@@ -168,19 +177,20 @@ function TrainersTab() {
 
   const refresh = useMemo(
     () => async () => {
-      const { data, error } = await supabase
-        .from("trainers")
-        .select(
-          "id, profile_id, position, bio, age_min, age_max, certifications, active, created_at, profile:profiles!trainers_profile_id_fkey(full_name, phone)"
-        )
-        .order("display_order", { ascending: true });
+      const [{ data, error }, counts] = await Promise.all([
+        supabase
+          .from("trainers")
+          .select(
+            "id, profile_id, position, bio, age_min, age_max, certifications, active, created_at, profile:profiles!trainers_profile_id_fkey(full_name, phone)"
+          )
+          .order("display_order", { ascending: true }),
+        supabase.from("children").select("trainer_id").eq("status", "active"),
+      ]);
       if (error) {
         setServerError(error.message);
         setLoading(false);
         return;
       }
-      // Pull child counts per trainer in one query, then merge.
-      const counts = await supabase.from("children").select("trainer_id");
       const map = new Map<string, number>();
       (counts.data ?? []).forEach(c => {
         if (c.trainer_id)
@@ -458,20 +468,22 @@ function MembersTab() {
 
   const refresh = useMemo(
     () => async () => {
-      const c = await supabase
-        .from("children")
-        .select(
-          "id, full_name, dob, age_group_label, status, trainer_id, parent:profiles!children_parent_id_fkey(id, full_name, phone)"
-        )
-        .order("created_at", { ascending: false });
+      const [c, t] = await Promise.all([
+        supabase
+          .from("children")
+          .select(
+            "id, full_name, dob, age_group_label, status, trainer_id, parent:profiles!children_parent_id_fkey(id, full_name, phone)"
+          )
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("trainers")
+          .select("id, profile:profiles!trainers_profile_id_fkey(full_name)"),
+      ]);
       if (c.error) {
         setError(c.error.message);
         setLoading(false);
         return;
       }
-      const t = await supabase
-        .from("trainers")
-        .select("id, profile:profiles!trainers_profile_id_fkey(full_name)");
       const nameMap: Record<string, string> = {};
       (
         t.data as unknown as
@@ -720,6 +732,15 @@ function LandingTab() {
       </div>
     </div>
   );
+}
+
+// ─── lazy tab wrapper (prevents all tabs mounting at once) ───────────────────
+
+function LazyTab({ active, children }: { active: boolean; children: ReactNode }) {
+  const [hasMounted, setHasMounted] = useState(false);
+  if (active && !hasMounted) setHasMounted(true);
+  if (!hasMounted) return null;
+  return <>{children}</>;
 }
 
 // ─── shared bits ──────────────────────────────────────────────────────────────

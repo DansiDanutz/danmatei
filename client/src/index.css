@@ -130,7 +130,10 @@
     padding-right: 1rem;
   }
 
-  .flex {
+  /* Removed global .flex override — it was breaking Tailwind flex layouts
+     and causing cards to collapse unexpectedly. If needed for specific
+     containers, use .flex-min-zero utility instead. */
+  .flex-min-zero {
     min-height: 0;
     min-width: 0;
   }
@@ -261,6 +264,16 @@
   /* Equipment-cyan utility shorthand used across the rebrand */
   .text-cyan-brand { color: oklch(0.75 0.12 230); }
   .bg-cyan { background-color: oklch(0.75 0.12 230); }
+
+  /* Hide scrollbar for Chrome, Safari, Opera */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  /* Hide scrollbar for IE, Edge, Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 /* Animated card rim — a soft cyan light traveling around the border.

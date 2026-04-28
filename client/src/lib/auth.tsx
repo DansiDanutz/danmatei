@@ -77,20 +77,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
         if (cancelled) return;
         setSession(data.session);
-        if (data.session?.user) await loadProfile(data.session.user.id);
-        setLoading(false);
+        if (data.session?.user) {
+          await loadProfile(data.session.user.id);
+        }
+        if (!cancelled) setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     const { data: sub } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         if (cancelled) return;
-        setSession(newSession);
+        // Skip if session hasn't actually changed (prevents loops)
+        setSession(prev => {
+          if (prev?.access_token === newSession?.access_token) return prev;
+          return newSession;
+        });
         if (newSession?.user) await loadProfile(newSession.user.id);
         else setProfile(null);
       }

@@ -46,25 +46,35 @@ export default function AtribuiriTab({ trainerId }: { trainerId: string }) {
   const handleAccept = async (childId: string) => {
     setActionId(childId);
     setError(null);
-    const { error: err } = await supabase
-      .from("children")
-      .update({ trainer_id: trainerId, assignment_status: "accepted" })
-      .eq("id", childId);
-    setActionId(null);
-    if (err) setError(err.message);
-    else loadPending();
+    try {
+      const { error: err } = await supabase
+        .from("children")
+        .update({ trainer_id: trainerId, assignment_status: "accepted" })
+        .eq("id", childId);
+      if (err) setError(err.message);
+      else loadPending();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Eroare la acceptare");
+    } finally {
+      setActionId(null);
+    }
   };
 
   const handleReject = async (childId: string) => {
     setActionId(childId);
     setError(null);
-    const { error: err } = await supabase
-      .from("children")
-      .update({ assignment_status: "rejected" })
-      .eq("id", childId);
-    setActionId(null);
-    if (err) setError(err.message);
-    else loadPending();
+    try {
+      const { error: err } = await supabase
+        .from("children")
+        .update({ assignment_status: "rejected" })
+        .eq("id", childId);
+      if (err) setError(err.message);
+      else loadPending();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Eroare la respingere");
+    } finally {
+      setActionId(null);
+    }
   };
 
   if (loading) {

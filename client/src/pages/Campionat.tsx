@@ -53,21 +53,24 @@ export default function Campionat() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { data: trainers } = await supabase
-        .from("trainers")
-        .select(
-          "id, age_min, age_max, profile:profiles!trainers_profile_id_fkey(full_name)",
-        )
-        .eq("active", true)
-        .order("display_order", { ascending: true });
-
-      const { data: events } = await supabase
-        .from("schedule_events")
-        .select(
-          "id, trainer_id, title, starts_at, location, opponent, kind, results:match_results!match_results_event_id_fkey(our_score, opponent_score, recap_md)",
-        )
-        .eq("kind", "match")
-        .order("starts_at", { ascending: false });
+      const [trainersRes, eventsRes] = await Promise.all([
+        supabase
+          .from("trainers")
+          .select(
+            "id, age_min, age_max, profile:profiles!trainers_profile_id_fkey(full_name)",
+          )
+          .eq("active", true)
+          .order("display_order", { ascending: true }),
+        supabase
+          .from("schedule_events")
+          .select(
+            "id, trainer_id, title, starts_at, location, opponent, kind, results:match_results!match_results_event_id_fkey(our_score, opponent_score, recap_md)",
+          )
+          .eq("kind", "match")
+          .order("starts_at", { ascending: false }),
+      ]);
+      const trainers = trainersRes.data;
+      const events = eventsRes.data;
 
       if (cancelled) return;
 

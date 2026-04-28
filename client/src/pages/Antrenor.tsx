@@ -9,7 +9,7 @@
  * stay in the trainer's own row; reassignment when age range changes is
  * deferred to the owner via /admin (matches the plan: never auto-reassign).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -186,6 +186,8 @@ export default function Antrenor() {
     );
   }
 
+  const [tab, setTab] = useState("grupa");
+
   return (
     <MemberShell>
       {/* Header */}
@@ -211,8 +213,8 @@ export default function Antrenor() {
         </div>
       </section>
 
-      <Tabs defaultValue="grupa" className="mt-6">
-        <TabsList className="flex w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1">
+      <Tabs value={tab} onValueChange={setTab} className="mt-6">
+        <TabsList className="relative flex w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x">
           <Trigger value="grupa" icon={<Users className="size-3.5" />}>
             Grupa
           </Trigger>
@@ -235,118 +237,125 @@ export default function Antrenor() {
 
         {/* GRUPA */}
         <TabsContent value="grupa" className="mt-5">
-          {children.length === 0 && (
-            <Empty hint="Nu ai încă jucători repartizați la grupa ta." />
-          )}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {children.map(c => (
-              <Link
-                key={c.id}
-                href={`/copil/${c.id}`}
-                className="group relative rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-4 transition-all hover:-translate-y-0.5 hover:border-brand-cyan/40 hover:bg-[oklch(0.15_0.03_250)]/85"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="grid size-10 place-items-center rounded-full border border-brand-cyan/30 bg-gradient-to-br from-[oklch(0.55_0.13_230)] via-[oklch(0.32_0.10_230)] to-[oklch(0.18_0.06_240)] font-heading text-sm font-bold text-white">
-                    {c.full_name
-                      .split(" ")
-                      .map(p => p[0])
-                      .slice(0, 2)
-                      .join("")
-                      .toUpperCase()}
+          <LazyTab active={tab === "grupa"}>
+            {children.length === 0 && (
+              <Empty hint="Nu ai încă jucători repartizați la grupa ta." />
+            )}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {children.map(c => (
+                <Link
+                  key={c.id}
+                  href={`/copil/${c.id}`}
+                  className="group relative rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-4 transition-all hover:-translate-y-0.5 hover:border-brand-cyan/40 hover:bg-[oklch(0.15_0.03_250)]/85"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="grid size-10 place-items-center rounded-full border border-brand-cyan/30 bg-gradient-to-br from-[oklch(0.55_0.13_230)] via-[oklch(0.32_0.10_230)] to-[oklch(0.18_0.06_240)] font-heading text-sm font-bold text-white">
+                      {c.full_name
+                        .split(" ")
+                        .map(p => p[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate font-heading text-sm font-semibold uppercase tracking-[0.04em] text-white">
+                        {c.full_name}
+                      </h3>
+                      <p className="font-body text-xs text-white/55">
+                        {currentAge(c.dob)} ani ·{" "}
+                        {c.age_group_label ?? "Nealocat"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate font-heading text-sm font-semibold uppercase tracking-[0.04em] text-white">
-                      {c.full_name}
-                    </h3>
-                    <p className="font-body text-xs text-white/55">
-                      {currentAge(c.dob)} ani ·{" "}
-                      {c.age_group_label ?? "Nealocat"}
+                  {c.parent && (
+                    <p className="mt-2 font-body text-xs text-white/50">
+                      Părinte: {c.parent.full_name}
+                      {c.parent.phone && ` · ${c.parent.phone}`}
                     </p>
-                  </div>
-                </div>
-                {c.parent && (
-                  <p className="mt-2 font-body text-xs text-white/50">
-                    Părinte: {c.parent.full_name}
-                    {c.parent.phone && ` · ${c.parent.phone}`}
-                  </p>
-                )}
-              </Link>
-            ))}
-          </div>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </LazyTab>
         </TabsContent>
 
         {/* ATRIBUIRI */}
         <TabsContent value="atribuiri" className="mt-5">
-          <AtribuiriTab trainerId={trainer!.id} />
+          <LazyTab active={tab === "atribuiri"}>
+            <AtribuiriTab trainerId={trainer!.id} />
+          </LazyTab>
         </TabsContent>
 
         {/* PROGRAM */}
         <TabsContent value="program" className="mt-5">
-          <div className="grid gap-5 lg:grid-cols-3">
-            <ScheduleForm trainerId={trainer.id} onCreated={() => refresh()} />
+          <LazyTab active={tab === "program"}>
+            <div className="grid gap-5 lg:grid-cols-3">
+              <ScheduleForm trainerId={trainer.id} onCreated={() => refresh()} />
 
-            <div className="lg:col-span-2">
-              {schedule.length === 0 && (
-                <Empty hint="Niciun eveniment salvat." />
-              )}
-              <div className="grid gap-3">
-                {schedule.map(e => (
-                  <article
-                    key={e.id}
-                    className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
-                  >
-                    <div className="flex flex-wrap items-baseline justify-between gap-3">
-                      <h3 className="font-heading text-base font-semibold uppercase tracking-[0.04em] text-white">
-                        {e.title}
-                        {e.opponent && (
-                          <span className="ml-2 text-white/55">
-                            vs {e.opponent}
-                          </span>
-                        )}
-                      </h3>
-                      <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
-                        {e.kind === "match"
-                          ? "Meci"
-                          : e.kind === "training"
-                            ? "Antrenament"
-                            : e.kind}
-                      </span>
-                    </div>
-                    <p className="mt-1 font-heading text-[11px] uppercase tracking-[0.18em] text-white/50">
-                      {new Date(e.starts_at).toLocaleString("ro-RO", {
-                        weekday: "short",
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      {e.location && ` · ${e.location}`}
-                    </p>
-                    {e.notes && (
-                      <p className="mt-2 font-body text-sm text-white/70">
-                        {e.notes}
+              <div className="lg:col-span-2">
+                {schedule.length === 0 && (
+                  <Empty hint="Niciun eveniment salvat." />
+                )}
+                <div className="grid gap-3">
+                  {schedule.map(e => (
+                    <article
+                      key={e.id}
+                      className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
+                    >
+                      <div className="flex flex-wrap items-baseline justify-between gap-3">
+                        <h3 className="font-heading text-base font-semibold uppercase tracking-[0.04em] text-white">
+                          {e.title}
+                          {e.opponent && (
+                            <span className="ml-2 text-white/55">
+                              vs {e.opponent}
+                            </span>
+                          )}
+                        </h3>
+                        <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
+                          {e.kind === "match"
+                            ? "Meci"
+                            : e.kind === "training"
+                              ? "Antrenament"
+                              : e.kind}
+                        </span>
+                      </div>
+                      <p className="mt-1 font-heading text-[11px] uppercase tracking-[0.18em] text-white/50">
+                        {new Date(e.starts_at).toLocaleString("ro-RO", {
+                          weekday: "short",
+                          day: "2-digit",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {e.location && ` · ${e.location}`}
                       </p>
-                    )}
-                  </article>
-                ))}
+                      {e.notes && (
+                        <p className="mt-2 font-body text-sm text-white/70">
+                          {e.notes}
+                        </p>
+                      )}
+                    </article>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          </LazyTab>
         </TabsContent>
 
         {/* MESAJE */}
         <TabsContent value="mesaje" className="mt-5">
-          <div className="grid gap-5 lg:grid-cols-3">
-            <MessageForm
-              trainerId={trainer.id}
-              children_={children}
-              onSent={() => refresh()}
-            />
-            <div className="lg:col-span-2">
-              {messages.length === 0 && (
-                <Empty hint="Nu ai trimis încă mesaje." />
-              )}
-              <div className="grid gap-3">
+          <LazyTab active={tab === "mesaje"}>
+            <div className="grid gap-5 lg:grid-cols-3">
+              <MessageForm
+                trainerId={trainer.id}
+                children_={children}
+                onSent={() => refresh()}
+              />
+              <div className="lg:col-span-2">
+                {messages.length === 0 && (
+                  <Empty hint="Nu ai trimis încă mesaje." />
+                )}
+                <div className="grid gap-3">
                 {messages.map(m => (
                   <article
                     key={m.id}
@@ -372,30 +381,42 @@ export default function Antrenor() {
                     </p>
                   </article>
                 ))}
+                </div>
               </div>
             </div>
-          </div>
+          </LazyTab>
         </TabsContent>
 
         {/* PROFIL */}
         <TabsContent value="profil" className="mt-5">
-          <TrainerProfileForm trainer={trainer} onSaved={t => setTrainer(t)} />
+          <LazyTab active={tab === "profil"}>
+            <TrainerProfileForm trainer={trainer} onSaved={t => setTrainer(t)} />
+          </LazyTab>
         </TabsContent>
 
         {/* AI · WHATSAPP */}
         <TabsContent value="ai" className="mt-5">
-          <TrainerAIPanel
-            trainerId={trainer.id}
-            initialWhatsapp={trainer.whatsapp_number}
-            initialAgentId={trainer.elevenlabs_agent_id}
-            onSaved={next =>
-              setTrainer(prev => (prev ? { ...prev, ...next } : prev))
-            }
-          />
+          <LazyTab active={tab === "ai"}>
+            <TrainerAIPanel
+              trainerId={trainer.id}
+              initialWhatsapp={trainer.whatsapp_number}
+              initialAgentId={trainer.elevenlabs_agent_id}
+              onSaved={next =>
+                setTrainer(prev => (prev ? { ...prev, ...next } : prev))
+              }
+            />
+          </LazyTab>
         </TabsContent>
       </Tabs>
     </MemberShell>
   );
+}
+
+function LazyTab({ active, children }: { active: boolean; children: ReactNode }) {
+  const [hasMounted, setHasMounted] = useState(false);
+  if (active && !hasMounted) setHasMounted(true);
+  if (!hasMounted) return null;
+  return <>{children}</>;
 }
 
 const Stat = ({ label, value }: { label: string; value: number }) => (
@@ -420,7 +441,7 @@ const Trigger = ({
 }) => (
   <TabsTrigger
     value={value}
-    className="flex-1 rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan"
+    className="flex-1 snap-center rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan"
   >
     <span className="inline-flex items-center gap-1.5">
       {icon}
