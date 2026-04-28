@@ -19,7 +19,7 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
-export type UserRole = "owner" | "trainer" | "parent";
+export type UserRole = "owner" | "super_admin" | "trainer" | "parent";
 
 export type Profile = {
   id: string;
@@ -37,6 +37,7 @@ export type AuthState = {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
+  profileComplete: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (input: {
     email: string;
@@ -165,12 +166,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session?.user) await loadProfile(session.user.id);
   }, [session, loadProfile]);
 
+  const profileComplete = useMemo(() => {
+    if (!profile) return false;
+    // Phone is the gate for Google sign-ups; full_name is pre-filled from Google
+    return !!profile.phone && profile.phone.trim().length >= 8;
+  }, [profile]);
+
   const value = useMemo<AuthState>(
     () => ({
       loading,
       session,
       user: session?.user ?? null,
       profile,
+      profileComplete,
       signIn,
       signUp,
       signInWithGoogle,
@@ -181,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       session,
       profile,
+      profileComplete,
       signIn,
       signUp,
       signInWithGoogle,

@@ -12,6 +12,7 @@ import NotificationBell from "@/components/notifications/NotificationBell";
 
 const ROLE_LABEL: Record<UserRole, string> = {
   owner: "Proprietar",
+  super_admin: "Admin",
   trainer: "Antrenor",
   parent: "Părinte",
 };

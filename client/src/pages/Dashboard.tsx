@@ -17,7 +17,7 @@ import { supabase } from "@/lib/supabase";
 import AuthCardShell from "@/components/AuthCardShell";
 
 export default function Dashboard() {
-  const { profile, loading } = useAuth();
+  const { profile, loading, profileComplete } = useAuth();
   const [, navigate] = useLocation();
   const [stuck, setStuck] = useState(false);
 
@@ -29,7 +29,11 @@ export default function Dashboard() {
 
     (async () => {
       if (!profile) return;
-      if (profile.role === "owner") {
+      if (!profileComplete) {
+        navigate("/completeaza-profil");
+        return;
+      }
+      if (profile.role === "owner" || profile.role === "super_admin") {
         navigate("/admin");
       } else if (profile.role === "trainer") {
         navigate("/antrenor");
@@ -52,7 +56,7 @@ export default function Dashboard() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [loading, profile, navigate]);
+  }, [loading, profile, profileComplete, navigate]);
 
   if (stuck) {
     return (

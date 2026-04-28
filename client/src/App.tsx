@@ -14,6 +14,7 @@ import Inregistrare from "./pages/Inregistrare";
 
 // Lazy-load heavy member pages (each is 200-800 lines)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const CompleteazaProfil = lazy(() => import("./pages/CompleteazaProfil"));
 const InregistrareCopil = lazy(() => import("./pages/InregistrareCopil"));
 const CopilProfil = lazy(() => import("./pages/CopilProfil"));
 const Antrenor = lazy(() => import("./pages/Antrenor"));
@@ -114,6 +115,13 @@ function Router() {
         <RequireAuth>
           <SuspenseWrap>
             <Dashboard />
+          </SuspenseWrap>
+        </RequireAuth>
+      </Route>
+      <Route path={"/completeaza-profil"}>
+        <RequireAuth>
+          <SuspenseWrap>
+            <CompleteazaProfil />
           </SuspenseWrap>
         </RequireAuth>
       </Route>
