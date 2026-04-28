@@ -140,14 +140,14 @@ function Router() {
         </RequireAuth>
       </Route>
       <Route path={"/antrenor"}>
-        <RequireRole roles={["trainer", "owner"]}>
+        <RequireRole roles={["trainer", "owner", "super_admin"]}>
           <SuspenseWrap>
             <Antrenor />
           </SuspenseWrap>
         </RequireRole>
       </Route>
       <Route path={"/admin"}>
-        <RequireRole roles={["owner"]}>
+        <RequireRole roles={["owner", "super_admin"]}>
           <SuspenseWrap>
             <Admin />
           </SuspenseWrap>
