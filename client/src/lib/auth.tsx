@@ -147,14 +147,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       redirectTo ??
       (import.meta.env.VITE_APP_URL as string | undefined) ??
       window.location.origin;
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${target}/dashboard`,
         queryParams: { prompt: "select_account" },
       },
     });
-    return error ? { error: error.message } : {};
+    if (error) return { error: error.message };
+    if (data?.url) window.location.href = data.url;
+    return {};
   }, []);
 
   const signOut = useCallback(async () => {
