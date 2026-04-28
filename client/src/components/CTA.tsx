@@ -1,111 +1,211 @@
 /**
- * Design: Stadium Tunnel — Cinematic Sports Brutalism
- * CTA: Full-bleed hero section with goal net image, dramatic overlay,
- * centered call-to-action with enrollment details.
+ * CTA — Floating gold particles, word-by-word title reveal,
+ * and magnetic hover effect on buttons.
  */
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring } from "framer-motion";
 import { useInView } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
+import { Phone, Mail, MapPin, Clock, Users } from "lucide-react";
+import { expoOut, staggerContainer, staggerItem, tapScale } from "@/lib/motion";
 
-const CTA_BG = "https://private-us-east-1.manuscdn.com/sessionFile/leHEqN1ffaQFmrsfheUxWA/sandbox/NFpOUD7TMDds6ZoJ0wNIEx-img-4_1771682008000_na1fn_Y3RhLWJn.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvbGVIRXFOMWZmYVFGbXJzZmhlVXhXQS9zYW5kYm94L05GcE9VRDdUTURkczZab0owd05JRXgtaW1nLTRfMTc3MTY4MjAwODAwMF9uYTFmbl9ZM1JoTFdKbi5qcGc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=NmK8ho55Nt1Z12HDxaxNdjCsq6-FPTiFIld8EU2j0cDIUmJmF~rMn~Rwwknd3ngA~30U7Y5uhBXNsHdoRroWYVYzzuO3Ykaku0KNUWgPuBxBARDa4jy3W4jcgdqltrOhdBSOHFCMLqwXl5RQSOB3zOA5QHWUyieV9x3YRZT24nIu83GhQdYMd9J3cOPQyV2P8OIuhctwTt~9YzMqG6haSmqYIBQJEt5to4xE3TEKHO23cdTvRnkSIrWRzYAc8kytS8HSYZwDNI6cMw8tFQG3EjAwY1iSQFexO90cfHe7~-D89XM3yXw9ikX~bl98JvdgnamqP619Jl4HmnzzzihG3A__";
+const CTA_BG = "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=1920&q=80";
+
+const infoItems = [
+  { icon: Users, title: "Categorii", description: "2006-2017" },
+  { icon: MapPin, title: "Locație", description: "Baza Sportivă Mănăștur" },
+  { icon: Clock, title: "Program", description: "Luni-Vineri 16-19" },
+];
+
+/** Gold floating particles */
+function GoldParticles() {
+  const particles = Array.from({ length: 12 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    size: 2 + Math.random() * 3,
+    delay: Math.random() * 4,
+    duration: 6 + Math.random() * 4,
+  }));
+
+  return (
+    <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          className="absolute rounded-full bg-brand-gold/30"
+          style={{
+            width: p.size,
+            height: p.size,
+            left: `${p.x}%`,
+            bottom: "-5%",
+          }}
+          animate={{
+            y: [0, -(typeof window !== "undefined" ? window.innerHeight : 800)],
+            opacity: [0, 0.6, 0.3, 0],
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Magnetic hover button wrapper */
+function MagneticButton({ children, className }: { children: React.ReactNode; className?: string }) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const springX = useSpring(x, { stiffness: 200, damping: 20 });
+  const springY = useSpring(y, { stiffness: 200, damping: 20 });
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    x.set((e.clientX - centerX) * 0.15);
+    y.set((e.clientY - centerY) * 0.15);
+  }, [x, y]);
+
+  const handleMouseLeave = useCallback(() => {
+    x.set(0);
+    y.set(0);
+  }, [x, y]);
+
+  return (
+    <motion.div
+      style={{ x: springX, y: springY }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 export default function CTA() {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const isInView = useInView(ref, { once: true, margin: "-60px" });
 
   return (
-    <section
-      id="enrollment"
-      className="relative py-32 overflow-hidden"
-      ref={ref}
-      style={{
-        backgroundImage: `url('${CTA_BG}')`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
-      }}
-    >
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[oklch(0.08_0.02_250/0.92)] via-[oklch(0.08_0.02_250/0.85)] to-[oklch(0.08_0.02_250/0.92)] -z-10" />
+    <section id="enrollment" className="relative py-20 sm:py-28 lg:py-32 overflow-hidden" ref={ref}>
+      {/* Background */}
+      <div className="absolute inset-0">
+        <img src={CTA_BG} alt="Teren de fotbal" className="w-full h-full object-cover" loading="lazy" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[oklch(0.06_0.02_250/0.95)] via-[oklch(0.06_0.02_250/0.88)] to-[oklch(0.08_0.02_250/0.95)]" />
+      </div>
 
-      <div className="container relative z-10 flex flex-col items-center justify-center text-center">
+      {/* Gold particles */}
+      <GoldParticles />
+
+      <div className="container relative z-10 flex flex-col items-center justify-center text-center px-4">
         {/* Badge */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={isInView ? { opacity: 1, scale: 1 } : {}}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 mb-6"
+          transition={{ duration: 0.5, ease: expoOut }}
+          className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 mb-5 sm:mb-6"
         >
-          <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
-          <span className="font-body text-sm text-white/80 tracking-wide">
-            Înscrierea este deschisă pentru toate categoriile
+          <motion.span
+            className="w-2 h-2 rounded-full bg-gold flex-shrink-0"
+            animate={{ scale: [1, 1.4, 1], opacity: [0.6, 1, 0.6] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <span className="font-body text-xs sm:text-sm text-white/80 tracking-wide">
+            Înscrieri deschise pentru toate categoriile
           </span>
         </motion.div>
 
-        {/* Main CTA */}
+        {/* Main CTA with word-by-word reveal */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, delay: 0.1 }}
+          transition={{ duration: 0.6, delay: 0.1, ease: expoOut }}
         >
-          <h2 className="font-heading text-5xl sm:text-6xl lg:text-7xl font-bold uppercase leading-[0.95] text-white mb-6">
-            Gata să devii<br />
-            <span className="text-gradient-cyan">Campion?</span>
+          <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold uppercase leading-[0.95] text-white mb-4 sm:mb-6">
+            <motion.span
+              initial={{ opacity: 0, y: 20 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.5, delay: 0.2, ease: expoOut }}
+              className="block"
+            >
+              Gata să devii
+            </motion.span>
+            <motion.span
+              initial={{ opacity: 0, y: 20 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.5, delay: 0.35, ease: expoOut }}
+              className="text-gradient-cyan block"
+            >
+              Campion?
+            </motion.span>
           </h2>
-          <p className="font-body text-xl text-white/70 max-w-2xl mx-auto mb-12 leading-relaxed">
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={isInView ? { opacity: 1 } : {}}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className="font-body text-base sm:text-lg md:text-xl text-white/70 max-w-xl sm:max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed px-2"
+          >
             Alătură-te Școlii de Fotbal Dan Matei și descoperă pasiunea pentru fotbal.
-            Antrenamente profesionale, antrenori cu licență UEFA și o comunitate dedicată succesului tău.
-          </p>
+            Antrenamente profesionale și o comunitate dedicată succesului tău.
+          </motion.p>
         </motion.div>
 
-        {/* CTA Buttons */}
+        {/* CTA Buttons with magnetic hover */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="flex flex-col sm:flex-row gap-4 justify-center"
+          transition={{ duration: 0.6, delay: 0.2, ease: expoOut }}
+          className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto px-4 sm:px-0"
         >
-          <a
-            href="tel:0744311147"
-            className="inline-flex items-center justify-center gap-2 bg-gold text-[oklch(0.10_0.02_250)] font-heading text-sm uppercase tracking-[0.15em] px-10 py-5 rounded hover:bg-[oklch(0.85_0.16_80)] transition-all duration-300 glow-gold"
-          >
-            Sună Acum: 0744 311 147
-          </a>
-          <a
-            href="mailto:zzizzou5@yahoo.com"
-            className="inline-flex items-center justify-center gap-2 border-2 border-cyan text-cyan font-heading text-sm uppercase tracking-[0.15em] px-10 py-5 rounded hover:bg-cyan/10 transition-all duration-300"
-          >
-            Trimite Email
-          </a>
+          <MagneticButton className="flex-shrink-0">
+            <a
+              href="tel:0744311147"
+              className="inline-flex items-center justify-center gap-2 bg-gold text-[oklch(0.08_0.02_250)] font-heading text-sm uppercase tracking-[0.12em] px-6 sm:px-10 py-4 rounded-xl hover:bg-[oklch(0.82_0.16_80)] transition-all duration-300 glow-gold touch-target"
+            >
+              <Phone className="w-4 h-4" />
+              Sună Acum: 0744 311 147
+            </a>
+          </MagneticButton>
+          <MagneticButton className="flex-shrink-0">
+            <a
+              href="mailto:zzizzou5@yahoo.com"
+              className="inline-flex items-center justify-center gap-2 border-2 border-cyan text-cyan font-heading text-sm uppercase tracking-[0.12em] px-6 sm:px-10 py-4 rounded-xl hover:bg-cyan/10 transition-all duration-300 touch-target"
+            >
+              <Mail className="w-4 h-4" />
+              Trimite Email
+            </a>
+          </MagneticButton>
         </motion.div>
 
-        {/* Enrollment Info Grid */}
+        {/* Info Grid */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="grid sm:grid-cols-3 gap-8 mt-16 pt-12 border-t border-white/10 w-full"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mt-12 sm:mt-16 pt-8 sm:pt-12 border-t border-white/10 w-full max-w-2xl lg:max-w-3xl"
+          variants={staggerContainer(0.1)}
+          initial="hidden"
+          animate={isInView ? "visible" : "hidden"}
         >
-          {[
-            {
-              title: "Categorii",
-              description: "2006-2011, 2012-2014, 2015-2017",
-            },
-            {
-              title: "Locație",
-              description: "Baza Sportivă Mănăștur, Cluj-Napoca",
-            },
-            {
-              title: "Program",
-              description: "Luni - Vineri, 16:00 - 19:00",
-            },
-          ].map((info) => (
-            <div key={info.title}>
-              <span className="font-heading text-sm uppercase tracking-[0.2em] text-gold block mb-2">
+          {infoItems.map((info) => (
+            <motion.div
+              key={info.title}
+              variants={staggerItem()}
+              className="flex flex-col items-center gap-2"
+            >
+              <motion.div
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-1"
+                whileHover={{ scale: 1.1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 15 }}
+              >
+                <info.icon className="w-5 h-5 sm:w-6 sm:h-6 text-gold" />
+              </motion.div>
+              <span className="font-heading text-xs sm:text-sm uppercase tracking-[0.15em] text-gold block">
                 {info.title}
               </span>
-              <span className="font-body text-white/70">{info.description}</span>
-            </div>
+              <span className="font-body text-sm sm:text-base text-white/70">{info.description}</span>
+            </motion.div>
           ))}
         </motion.div>
       </div>

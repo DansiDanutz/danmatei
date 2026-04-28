@@ -42,48 +42,54 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --font-heading: 'Oswald', sans-serif;
   --font-body: 'Source Sans 3', sans-serif;
-  --color-navy: oklch(0.15 0.03 250);
-  --color-navy-light: oklch(0.20 0.03 250);
-  --color-navy-dark: oklch(0.10 0.02 250);
-  --color-cyan: oklch(0.80 0.15 200);
-  --color-gold: oklch(0.80 0.16 80);
-  --color-pitch: oklch(0.45 0.12 145);
+  /* Brand colors extracted from official logo */
+  --color-brand-cyan: oklch(0.75 0.12 230);
+  --color-brand-cyan-dark: oklch(0.60 0.12 230);
+  --color-brand-navy: oklch(0.40 0.08 220);
+  --color-brand-navy-dark: oklch(0.25 0.06 220);
+  --color-brand-gold: oklch(0.75 0.14 85);
+  --color-brand-gold-light: oklch(0.82 0.12 85);
 }
 
 :root {
-  --radius: 0.5rem;
-  --background: oklch(0.12 0.02 250);
-  --foreground: oklch(0.95 0.005 250);
-  --card: oklch(0.17 0.025 250);
-  --card-foreground: oklch(0.95 0.005 250);
-  --popover: oklch(0.17 0.025 250);
-  --popover-foreground: oklch(0.95 0.005 250);
-  --primary: oklch(0.80 0.15 200);
-  --primary-foreground: oklch(0.12 0.02 250);
-  --secondary: oklch(0.20 0.025 250);
-  --secondary-foreground: oklch(0.85 0.01 250);
-  --muted: oklch(0.22 0.02 250);
-  --muted-foreground: oklch(0.65 0.02 250);
-  --accent: oklch(0.80 0.16 80);
-  --accent-foreground: oklch(0.12 0.02 250);
+  --radius: 0.75rem;
+  /* Dark theme - football school brand */
+  --background: oklch(0.10 0.02 250);
+  --foreground: oklch(0.95 0.01 250);
+  --card: oklch(0.15 0.04 250);
+  --card-foreground: oklch(0.95 0.01 250);
+  --popover: oklch(0.15 0.04 250);
+  --popover-foreground: oklch(0.95 0.01 250);
+  /* Primary: Logo cyan */
+  --primary: oklch(0.75 0.12 230);
+  --primary-foreground: oklch(0.10 0.02 250);
+  /* Secondary: Logo navy */
+  --secondary: oklch(0.20 0.06 220);
+  --secondary-foreground: oklch(0.85 0.02 250);
+  --muted: oklch(0.22 0.03 250);
+  --muted-foreground: oklch(0.65 0.03 250);
+  /* Accent: Logo gold */
+  --accent: oklch(0.75 0.14 85);
+  --accent-foreground: oklch(0.10 0.02 250);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.25 0.02 250);
-  --input: oklch(0.22 0.02 250);
-  --ring: oklch(0.80 0.15 200);
-  --chart-1: oklch(0.80 0.15 200);
-  --chart-2: oklch(0.80 0.16 80);
-  --chart-3: oklch(0.45 0.12 145);
-  --chart-4: oklch(0.60 0.10 200);
-  --chart-5: oklch(0.70 0.12 80);
-  --sidebar: oklch(0.14 0.025 250);
-  --sidebar-foreground: oklch(0.95 0.005 250);
-  --sidebar-primary: oklch(0.80 0.15 200);
-  --sidebar-primary-foreground: oklch(0.12 0.02 250);
-  --sidebar-accent: oklch(0.20 0.025 250);
-  --sidebar-accent-foreground: oklch(0.95 0.005 250);
-  --sidebar-border: oklch(0.25 0.02 250);
-  --sidebar-ring: oklch(0.80 0.15 200);
+  --border: oklch(0.22 0.03 250);
+  --input: oklch(0.20 0.03 250);
+  /* Ring: Cyan glow */
+  --ring: oklch(0.75 0.12 230);
+  --chart-1: oklch(0.75 0.12 230);
+  --chart-2: oklch(0.75 0.14 85);
+  --chart-3: oklch(0.40 0.08 220);
+  --chart-4: oklch(0.60 0.10 220);
+  --chart-5: oklch(0.82 0.12 85);
+  --sidebar: oklch(0.12 0.04 250);
+  --sidebar-foreground: oklch(0.95 0.01 250);
+  --sidebar-primary: oklch(0.75 0.12 230);
+  --sidebar-primary-foreground: oklch(0.10 0.02 250);
+  --sidebar-accent: oklch(0.20 0.06 220);
+  --sidebar-accent-foreground: oklch(0.95 0.01 250);
+  --sidebar-border: oklch(0.22 0.03 250);
+  --sidebar-ring: oklch(0.75 0.12 230);
 }
 
 @layer base {
@@ -91,11 +97,16 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-family: 'Source Sans 3', sans-serif;
+    -webkit-tap-highlight-color: transparent;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Oswald', sans-serif;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -139,36 +150,209 @@
     }
   }
 
-  .section-diagonal {
-    clip-path: polygon(0 6%, 100% 0, 100% 94%, 0 100%);
-    margin-top: -4rem;
-    padding-top: 7rem;
-    padding-bottom: 7rem;
-  }
-
+  /* Brand gradient text effects */
   .text-gradient-cyan {
-    background: linear-gradient(135deg, oklch(0.80 0.15 200), oklch(0.70 0.12 220));
+    background: linear-gradient(135deg, oklch(0.75 0.12 230), oklch(0.60 0.12 230));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-gold {
-    background: linear-gradient(135deg, oklch(0.80 0.16 80), oklch(0.75 0.14 60));
+    background: linear-gradient(135deg, oklch(0.75 0.14 85), oklch(0.82 0.12 85));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
+  .text-gradient-navy {
+    background: linear-gradient(135deg, oklch(0.40 0.08 220), oklch(0.60 0.10 220));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glow effects matching brand */
   .glow-cyan {
-    box-shadow: 0 0 20px oklch(0.80 0.15 200 / 0.3), 0 0 40px oklch(0.80 0.15 200 / 0.1);
+    box-shadow: 0 0 20px oklch(0.75 0.12 230 / 0.35), 0 0 40px oklch(0.75 0.12 230 / 0.15);
   }
 
   .glow-gold {
-    box-shadow: 0 0 20px oklch(0.80 0.16 80 / 0.3), 0 0 40px oklch(0.80 0.16 80 / 0.1);
+    box-shadow: 0 0 20px oklch(0.75 0.14 85 / 0.35), 0 0 40px oklch(0.75 0.14 85 / 0.15);
+  }
+
+  .glow-navy {
+    box-shadow: 0 0 20px oklch(0.40 0.08 220 / 0.35), 0 0 40px oklch(0.40 0.08 220 / 0.15);
+  }
+
+  /* Mobile-first touch targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Mobile section spacing */
+  .section-padding {
+    @apply py-16 sm:py-20 lg:py-24;
+  }
+
+  /* Card hover for mobile/desktop */
+  .card-hover {
+    @apply transition-all duration-300;
+  }
+  @media (hover: hover) {
+    .card-hover:hover {
+      @apply -translate-y-1;
+    }
+  }
+
+  /* Smooth scroll */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Huashu-inspired surface tokens — layered, thoughtful, generous */
+  .surface-card {
+    background:
+      linear-gradient(145deg, oklch(0.16 0.04 250 / 0.85), oklch(0.12 0.03 250 / 0.6));
+    border: 1px solid oklch(1 0 0 / 0.08);
+    border-radius: 1.25rem;
+  }
+  .surface-elevated {
+    background:
+      linear-gradient(145deg, oklch(0.18 0.05 250 / 0.95), oklch(0.13 0.03 250 / 0.7));
+    border: 1px solid oklch(0.75 0.12 230 / 0.18);
+    box-shadow:
+      0 30px 70px -28px oklch(0 0 0 / 0.55),
+      0 6px 20px -10px oklch(0.75 0.12 230 / 0.18);
+    border-radius: 1.5rem;
+  }
+  .surface-grid {
+    background-image:
+      linear-gradient(to right, oklch(0.75 0.12 230 / 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.75 0.12 230 / 0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Subtle, brand-tinted focus ring for interactive elements */
+  .focus-brand:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px oklch(0.08 0.02 250),
+      0 0 0 4px oklch(0.75 0.12 230 / 0.55);
+  }
+
+  /* Touch target — 44px minimum hit area on mobile */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Equipment-cyan utility shorthand used across the rebrand */
+  .text-cyan-brand { color: oklch(0.75 0.12 230); }
+  .bg-cyan { background-color: oklch(0.75 0.12 230); }
+}
+
+/* Animated card rim — a soft cyan light traveling around the border.
+   Registered as @property so the angle interpolates smoothly. */
+@property --rim-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rim-spin {
+  to {
+    --rim-angle: 360deg;
   }
 }
 
-html {
-  scroll-behavior: smooth;
+.card-rim-glow {
+  background: conic-gradient(
+    from var(--rim-angle),
+    oklch(0.75 0.12 230 / 0.05) 0deg,
+    oklch(0.92 0.16 230 / 0.85) 60deg,
+    oklch(0.75 0.12 230 / 0.05) 140deg,
+    oklch(0.75 0.12 230 / 0.05) 220deg,
+    oklch(0.85 0.14 230 / 0.55) 280deg,
+    oklch(0.75 0.12 230 / 0.05) 360deg
+  );
+  animation: rim-spin 6s linear infinite;
+  filter: blur(6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-rim-glow {
+    animation: none;
+    filter: blur(8px);
+    background: conic-gradient(
+      from 90deg,
+      oklch(0.75 0.12 230 / 0.4),
+      oklch(0.85 0.14 230 / 0.6),
+      oklch(0.75 0.12 230 / 0.4)
+    );
+  }
+}
+
+/* Wave shimmer — a bright highlight slides across the title from right
+   to left, then loops. Used on the "Școala de Fotbal Dan Matei" title. */
+@keyframes title-wave {
+  0%   { background-position: 220% 50%; }
+  100% { background-position: -120% 50%; }
+}
+
+.text-wave-white {
+  background-image: linear-gradient(
+    100deg,
+    oklch(1 0 0) 0%,
+    oklch(1 0 0) 38%,
+    oklch(0.95 0.18 230) 47%,
+    oklch(1 0.06 230) 50%,
+    oklch(0.95 0.18 230) 53%,
+    oklch(1 0 0) 62%,
+    oklch(1 0 0) 100%
+  );
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: title-wave 3.6s linear infinite;
+}
+
+.text-wave-cyan {
+  background-image: linear-gradient(
+    100deg,
+    oklch(0.75 0.12 230) 0%,
+    oklch(0.75 0.12 230) 38%,
+    oklch(0.95 0.16 230) 47%,
+    oklch(1 0.08 230) 50%,
+    oklch(0.95 0.16 230) 53%,
+    oklch(0.62 0.13 230) 62%,
+    oklch(0.62 0.13 230) 100%
+  );
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: title-wave 3.6s linear infinite;
+  animation-delay: 0.45s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-wave-white,
+  .text-wave-cyan {
+    animation: none;
+  }
 }

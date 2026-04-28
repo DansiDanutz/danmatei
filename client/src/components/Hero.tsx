@@ -1,113 +1,176 @@
 /**
- * Design: Stadium Tunnel — Cinematic Sports Brutalism
- * Hero: Full-viewport with cinematic stadium background, bold Oswald text,
- * diagonal overlay, and animated entrance. Dark image = white/cyan text.
+ * Responsive Hero - Mobile-first design
+ * Full-viewport with parallax background, count-up stats,
+ * breathing badge glow, and staggered reveals.
  */
-import { motion } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { useRef } from "react";
+import { ChevronDown, MapPin } from "lucide-react";
+import { CountUpSpan } from "@/hooks/useCountUp";
+import { expoOut, dur } from "@/lib/motion";
 
-const HERO_BG = "https://private-us-east-1.manuscdn.com/sessionFile/leHEqN1ffaQFmrsfheUxWA/sandbox/NFpOUD7TMDds6ZoJ0wNIEx-img-1_1771681999000_na1fn_aGVyby1iZw.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvbGVIRXFOMWZmYVFGbXJzZmhlVXhXQS9zYW5kYm94L05GcE9VRDdUTURkczZab0owd05JRXgtaW1nLTFfMTc3MTY4MTk5OTAwMF9uYTFmbl9hR1Z5YnkxaVp3LmpwZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSx3XzE5MjAsaF8xOTIwL2Zvcm1hdCx3ZWJwL3F1YWxpdHkscV84MCIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc5ODc2MTYwMH19fV19&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=TY-cwFg2Ql2jARQqlCP4F1MOAxKhNOBEgK3BM4nKrvq-vGVBCIHSTmkSU6VuO3jrbLwaZRBQeaqluhJNK21RrJrl9fb8zi-~H4LuAn0gVbkyjOHjEMjQDbWuHJe7wZdGYM3Sok8hAUSNdrwdrvykCkhoy6rI9XZOzqkckgISx9xHpse2n4jjdh4iS9Ug~3JDROWubnqXY2VagB2fhV0fjCE4C8AMExJySLBYpKlPRHKAHEi~UAb368UKsuyE-F56gzP~BbMF1-vRK91uywp3X1qbnWolVdAjK~LWJhdg~7QS4pL98ToI6bO3b8vrkGH~9bcVGCut2oQrsLryirhVAA__";
+const HERO_BG = "https://images.unsplash.com/photo-1522778119026-d647f0565c6a?w=1920&q=80";
 
 export default function Hero() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
+
   return (
-    <section id="acasa" className="relative min-h-screen flex items-center overflow-hidden">
-      {/* Background Image */}
-      <div className="absolute inset-0">
+    <section
+      ref={sectionRef}
+      id="acasa"
+      className="relative min-h-[100dvh] flex items-center overflow-hidden"
+    >
+      {/* Background Image with Parallax */}
+      <motion.div className="absolute inset-0" style={{ y: bgY }}>
         <img
           src={HERO_BG}
-          alt="Stadium at dusk"
-          className="w-full h-full object-cover"
+          alt="Stadion de fotbal"
+          className="w-full h-full object-cover scale-110"
+          loading="eager"
         />
         {/* Dark overlay gradient */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[oklch(0.08_0.02_250/0.92)] via-[oklch(0.08_0.02_250/0.75)] to-[oklch(0.08_0.02_250/0.5)]" />
-        {/* Bottom gradient for smooth transition */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[oklch(0.12_0.02_250)] to-transparent" />
-      </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-[oklch(0.06_0.02_250/0.95)] via-[oklch(0.06_0.02_250/0.80)] to-[oklch(0.08_0.02_250/0.95)]" />
+        {/* Bottom gradient */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[oklch(0.08_0.02_250)] to-transparent" />
+      </motion.div>
+
+      {/* Top animated gradient line */}
+      <motion.div
+        aria-hidden="true"
+        className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand-cyan/50 to-transparent"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0.3, 0.7, 0.3] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+      />
 
       {/* Content */}
-      <div className="container relative z-10 pt-24 pb-16">
+      <div className="container relative z-10 pt-20 pb-16 sm:pt-24 sm:pb-20">
         <div className="max-w-3xl">
-          {/* Badge */}
+          {/* Badge with breathing glow */}
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded px-4 py-2 mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2, ease: expoOut }}
+            className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-sm border border-brand-cyan/20 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 mb-5 sm:mb-6 shadow-[0_0_20px_-4px_oklch(0.75_0.12_230/0.25)]"
           >
-            <span className="w-2 h-2 rounded-full bg-cyan animate-pulse" />
-            <span className="font-body text-sm text-white/80 tracking-wide">
-              Din 2017 • Cluj-Napoca, România
+            <motion.span
+              className="w-2 h-2 rounded-full bg-cyan flex-shrink-0"
+              animate={{ scale: [1, 1.4, 1], opacity: [0.6, 1, 0.6] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <span className="font-body text-xs sm:text-sm text-white/80 tracking-wide flex items-center gap-1.5">
+              <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              Cluj-Napoca, România
             </span>
           </motion.div>
 
           {/* Main Title */}
           <motion.h1
-            initial={{ opacity: 0, y: 40 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            className="font-heading text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold uppercase leading-[0.9] mb-6"
+            transition={{ duration: 0.8, delay: 0.4, ease: expoOut }}
+            className="font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold uppercase leading-[0.92] sm:leading-[0.9] mb-5 sm:mb-6"
           >
-            <span className="text-white">Școala de</span>
-            <br />
-            <span className="text-white">Fotbal</span>
-            <br />
-            <span className="text-gradient-cyan">Dan Matei</span>
+            <motion.span
+              className="text-white block"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: dur.slow, delay: 0.5, ease: expoOut }}
+            >
+              Școala de
+            </motion.span>
+            <motion.span
+              className="text-white block"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: dur.slow, delay: 0.6, ease: expoOut }}
+            >
+              Fotbal
+            </motion.span>
+            <motion.span
+              className="text-gradient-cyan block mt-1"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: dur.slow, delay: 0.7, ease: expoOut }}
+            >
+              Dan Matei
+            </motion.span>
           </motion.h1>
 
           {/* Subtitle */}
           <motion.p
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.7 }}
-            className="font-body text-lg sm:text-xl text-white/70 max-w-xl mb-8 leading-relaxed"
+            transition={{ duration: 0.7, delay: 0.9, ease: expoOut }}
+            className="font-body text-base sm:text-lg md:text-xl text-white/70 max-w-lg sm:max-w-xl mb-7 sm:mb-8 leading-relaxed"
           >
             Formăm viitorul fotbalului românesc prin pasiune, educație și fair-play.
-            Antrenamente profesionale pentru copii și tineri la Baza Sportivă Mănăștur.
+            Antrenamente profesionale pentru copii și tineri.
           </motion.p>
 
           {/* CTA Buttons */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.9 }}
-            className="flex flex-wrap gap-4"
+            transition={{ duration: 0.7, delay: 1.1, ease: expoOut }}
+            className="flex flex-col sm:flex-row gap-3 sm:gap-4"
           >
-            <a
+            <motion.a
               href="#programe"
-              className="inline-flex items-center gap-2 bg-cyan text-[oklch(0.10_0.02_250)] font-heading text-sm uppercase tracking-[0.15em] px-8 py-4 rounded hover:bg-[oklch(0.85_0.15_200)] transition-all duration-300 glow-cyan"
+              className="inline-flex items-center justify-center gap-2 bg-cyan text-[oklch(0.08_0.02_250)] font-heading text-sm uppercase tracking-[0.12em] px-6 sm:px-8 py-4 rounded-xl hover:bg-[oklch(0.82_0.15_200)] transition-all duration-300 glow-cyan touch-target"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
             >
               Programele Noastre
-            </a>
-            <a
+            </motion.a>
+            <motion.a
               href="#contact"
-              className="inline-flex items-center gap-2 border border-white/20 text-white font-heading text-sm uppercase tracking-[0.15em] px-8 py-4 rounded hover:bg-white/5 hover:border-white/40 transition-all duration-300"
+              className="inline-flex items-center justify-center gap-2 border-2 border-white/20 text-white font-heading text-sm uppercase tracking-[0.12em] px-6 sm:px-8 py-4 rounded-xl hover:bg-white/5 hover:border-white/40 transition-all duration-300 touch-target"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
             >
               Înscrie-ți Copilul
-            </a>
+            </motion.a>
           </motion.div>
 
-          {/* Stats Bar */}
+          {/* Stats with Count-Up */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 1.1 }}
-            className="flex flex-wrap gap-8 mt-12 pt-8 border-t border-white/10"
+            transition={{ duration: 0.7, delay: 1.3, ease: expoOut }}
+            className="mt-10 sm:mt-12 pt-6 sm:pt-8 border-t border-white/10"
           >
-            {[
-              { number: "2017", label: "Anul Înființării" },
-              { number: "8+", label: "Ani de Experiență" },
-              { number: "100+", label: "Sportivi Formați" },
-              { number: "UEFA", label: "Licență Antrenor" },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <span className="font-heading text-3xl sm:text-4xl font-bold text-gradient-gold">
-                  {stat.number}
-                </span>
-                <span className="block font-body text-xs uppercase tracking-[0.15em] text-white/50 mt-1">
-                  {stat.label}
-                </span>
-              </div>
-            ))}
+            <div className="flex gap-6 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
+              {[
+                { number: 2017, label: "Înființare", isYear: true },
+                { number: 8, label: "Ani Exp.", suffix: "+" },
+                { number: 100, label: "Sportivi", suffix: "+" },
+                { number: 0, label: "Licență", text: "UEFA" },
+              ].map((stat) => (
+                <div key={stat.label} className="flex-shrink-0 snap-start min-w-[80px] sm:min-w-0">
+                  <span className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient-gold block">
+                    {stat.text ? (
+                      stat.text
+                    ) : stat.isYear ? (
+                      <CountUpSpan target={stat.number} delay={1600} />
+                    ) : (
+                      <>
+                        <CountUpSpan target={stat.number} delay={1600} />
+                        {stat.suffix}
+                      </>
+                    )}
+                  </span>
+                  <span className="font-body text-[10px] sm:text-xs uppercase tracking-[0.12em] text-white/50 mt-1 block">
+                    {stat.label}
+                  </span>
+                </div>
+              ))}
+            </div>
           </motion.div>
         </div>
       </div>
@@ -117,11 +180,16 @@ export default function Hero() {
         href="#despre"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1.5 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-white/40 hover:text-cyan transition-colors"
+        transition={{ delay: 1.8 }}
+        className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-white/40 hover:text-cyan transition-colors hidden sm:flex"
       >
         <span className="font-body text-xs uppercase tracking-[0.2em]">Scroll</span>
-        <ChevronDown className="w-5 h-5 animate-bounce" />
+        <motion.div
+          animate={{ y: [0, 6, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <ChevronDown className="w-5 h-5" />
+        </motion.div>
       </motion.a>
     </section>
   );
