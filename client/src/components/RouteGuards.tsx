@@ -61,25 +61,14 @@ export function RequireRole({
 
 export function PublicOnly({ children }: { children: ReactNode }) {
   const { loading, user } = useAuth();
-  const [, navigate] = useLocation();
-
-  useEffect(() => {
-    if (!loading && user) {
-      // Use native navigation as a reliable fallback when wouter's
-      // client-side navigate doesn't trigger from inside a guard that
-      // returns early (e.g. LoadingShell).
-      navigate("/dashboard");
-      // Fallback: if wouter doesn't re-route within 100ms, force reload.
-      const t = setTimeout(() => {
-        if (window.location.pathname === "/login" || window.location.pathname === "/inregistrare") {
-          window.location.replace("/dashboard");
-        }
-      }, 150);
-      return () => clearTimeout(t);
-    }
-  }, [loading, user, navigate]);
 
   if (loading) return <LoadingShell />;
-  if (user) return <LoadingShell />;
+  if (user) {
+    // Force a full browser redirect. Client-side wouter navigate
+    // can deadlock when called from inside an early-return guard,
+    // leaving logged-in users stuck on "Se încarcă" forever.
+    window.location.replace("/dashboard");
+    return <LoadingShell />;
+  }
   return <>{children}</>;
 }
