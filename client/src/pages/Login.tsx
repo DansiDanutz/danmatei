@@ -4,7 +4,7 @@
  * resulting session and the route guard on /dashboard redirects by role
  * (parent → /dashboard, trainer → /antrenor, owner → /admin).
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Loader2 } from "lucide-react";
 import AuthCardShell from "@/components/AuthCardShell";
@@ -15,9 +15,18 @@ export default function Login() {
   const { signInWithGoogle } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [showFallback, setShowFallback] = useState(false);
+
+  // If redirect doesn't happen within 4s, show a fallback direct link.
+  useEffect(() => {
+    if (!submitting) return;
+    const t = setTimeout(() => setShowFallback(true), 4000);
+    return () => clearTimeout(t);
+  }, [submitting]);
 
   const handleGoogle = async (): Promise<void> => {
     setServerError(null);
+    setShowFallback(false);
     setSubmitting(true);
     try {
       const { error } = await signInWithGoogle();
@@ -25,7 +34,7 @@ export default function Login() {
         setServerError(error);
         setSubmitting(false);
       }
-      // Otherwise the page navigates to Google.
+      // Otherwise the browser navigates away to Google.
     } catch (e) {
       setServerError(e instanceof Error ? e.message : "Eroare la conectare");
       setSubmitting(false);
@@ -68,11 +77,25 @@ export default function Login() {
           </p>
         )}
 
-        {submitting && !serverError && (
+        {submitting && !serverError && !showFallback && (
           <p className="inline-flex items-center justify-center gap-2 font-body text-xs text-white/55">
             <Loader2 className="size-3 animate-spin" />
             Așteaptă redirecționarea…
           </p>
+        )}
+
+        {showFallback && !serverError && (
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-brand-cyan/30 bg-brand-cyan/10 px-4 py-3">
+            <p className="text-center font-body text-xs text-brand-cyan">
+              Redirecționarea este blocată de browser.
+            </p>
+            <a
+              href={`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(`${window.location.origin}/dashboard`)}&prompt=select_account`}
+              className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-white underline underline-offset-2 hover:text-brand-cyan"
+            >
+              Apasă aici pentru conectare directă
+            </a>
+          </div>
         )}
 
         <p className="text-balance text-center font-body text-xs leading-relaxed text-white/45">
