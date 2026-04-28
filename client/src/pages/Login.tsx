@@ -19,12 +19,17 @@ export default function Login() {
   const handleGoogle = async (): Promise<void> => {
     setServerError(null);
     setSubmitting(true);
-    const { error } = await signInWithGoogle();
-    if (error) {
-      setServerError(error);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        setServerError(error);
+        setSubmitting(false);
+      }
+      // Otherwise the page navigates to Google.
+    } catch (e) {
+      setServerError(e instanceof Error ? e.message : "Eroare la conectare");
       setSubmitting(false);
     }
-    // Otherwise the page navigates to Google.
   };
 
   return (
