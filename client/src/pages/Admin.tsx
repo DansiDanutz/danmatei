@@ -21,11 +21,13 @@ import {
   Send,
   Users,
   UserPlus,
+  UsersRound,
 } from "lucide-react";
 import MemberShell from "@/components/MemberShell";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { currentAge } from "@/lib/age";
+import GroupsTab from "@/components/admin/GroupsTab";
 
 type TrainerRow = {
   id: string;
@@ -83,6 +85,9 @@ export default function Admin() {
           <Trigger value="antrenori" icon={<UserPlus className="size-3.5" />}>
             Antrenori
           </Trigger>
+          <Trigger value="grupe" icon={<UsersRound className="size-3.5" />}>
+            Grupe
+          </Trigger>
           <Trigger value="membri" icon={<Users className="size-3.5" />}>
             Membri
           </Trigger>
@@ -93,6 +98,9 @@ export default function Admin() {
 
         <TabsContent value="antrenori" className="mt-5">
           <TrainersTab />
+        </TabsContent>
+        <TabsContent value="grupe" className="mt-5">
+          <GroupsTab />
         </TabsContent>
         <TabsContent value="membri" className="mt-5">
           <MembersTab />

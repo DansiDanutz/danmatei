@@ -22,8 +22,10 @@ import {
   Send,
   UserCog,
   Users,
+  UsersRound,
 } from "lucide-react";
 import TrainerAIPanel from "@/components/TrainerAIPanel";
+import AtribuiriTab from "@/components/trainer/AtribuiriTab";
 import { Link } from "wouter";
 import MemberShell from "@/components/MemberShell";
 import { supabase } from "@/lib/supabase";
@@ -214,6 +216,9 @@ export default function Antrenor() {
           <Trigger value="grupa" icon={<Users className="size-3.5" />}>
             Grupa
           </Trigger>
+          <Trigger value="atribuiri" icon={<UsersRound className="size-3.5" />}>
+            Atribuiri
+          </Trigger>
           <Trigger value="program" icon={<CalendarDays className="size-3.5" />}>
             Program
           </Trigger>
@@ -268,6 +273,11 @@ export default function Antrenor() {
               </Link>
             ))}
           </div>
+        </TabsContent>
+
+        {/* ATRIBUIRI */}
+        <TabsContent value="atribuiri" className="mt-5">
+          <AtribuiriTab trainerId={trainer!.id} />
         </TabsContent>
 
         {/* PROGRAM */}
