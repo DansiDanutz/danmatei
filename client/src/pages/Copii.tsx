@@ -30,6 +30,7 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "numeric",
   month: "short",
   year: "numeric",
+  timeZone: "Europe/Bucharest",
 });
 
 function ageInYears(dob: string): number {

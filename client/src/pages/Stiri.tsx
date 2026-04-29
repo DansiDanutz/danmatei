@@ -7,8 +7,15 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, Tag } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
+import DemoBanner from "@/components/DemoBanner";
 import { supabase } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
+
+function resolveNewsCoverUrl(path: string | null): string | undefined {
+  if (!path) return undefined;
+  const clean = path.replace(/^news\//, "");
+  return supabase.storage.from("fotbal-news-public").getPublicUrl(clean).data.publicUrl;
+}
 
 interface NewsRow {
   id: string;
@@ -44,11 +51,13 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "numeric",
   month: "long",
   year: "numeric",
+  timeZone: "Europe/Bucharest",
 });
 
 export default function Stiri() {
   const [posts, setPosts] = useState<NewsRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +70,9 @@ export default function Stiri() {
         .limit(40);
       if (cancelled) return;
       const rows = (data as NewsRow[] | null) ?? [];
-      setPosts(rows.length === 0 ? FALLBACK_NEWS : rows);
+      const fallback = rows.length === 0;
+      setUsingFallback(fallback);
+      setPosts(fallback ? FALLBACK_NEWS : rows);
       setLoading(false);
     })();
     return () => {
@@ -75,6 +86,8 @@ export default function Stiri() {
       pageTitle="Ultimele noutăți"
       pageDescription="Articole, anunțuri, rezultate și momente importante din viața academiei."
     >
+      {usingFallback && <DemoBanner />}
+
       {loading && (
         <div className="grid place-items-center py-20">
           <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />
@@ -97,7 +110,7 @@ export default function Stiri() {
               {p.cover_path ? (
                 <div className="aspect-[16/9] overflow-hidden bg-[oklch(0.10_0.02_250)]">
                   <img
-                    src={p.cover_path}
+                    src={resolveNewsCoverUrl(p.cover_path)}
                     alt={p.title}
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                   />

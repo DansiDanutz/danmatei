@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Trophy, Users } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
+import DemoBanner from "@/components/DemoBanner";
 import { supabase } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
@@ -53,11 +54,13 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "numeric",
   month: "long",
   year: "numeric",
+  timeZone: "Europe/Bucharest",
 });
 
 export default function Turnee() {
   const [rows, setRows] = useState<TournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +74,9 @@ export default function Turnee() {
         .order("starts_at", { ascending: false });
       if (cancelled) return;
       const items = (data as unknown as TournamentRow[] | null) ?? [];
-      setRows(items.length === 0 ? FALLBACK : items);
+      const fallback = items.length === 0;
+      setUsingFallback(fallback);
+      setRows(fallback ? FALLBACK : items);
       setLoading(false);
     })();
     return () => {
@@ -97,6 +102,8 @@ export default function Turnee() {
       pageTitle="Turnee & evenimente"
       pageDescription="Turneele la care participă grupele academiei. Calendar complet, locație și grupa implicată."
     >
+      {usingFallback && <DemoBanner />}
+
       {loading && (
         <div className="grid place-items-center py-20">
           <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />

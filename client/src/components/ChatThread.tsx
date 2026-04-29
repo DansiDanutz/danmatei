@@ -35,6 +35,7 @@ interface MessageRow {
 const timeFmt = new Intl.DateTimeFormat("ro-RO", {
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: "Europe/Bucharest",
 });
 
 export default function ChatThread({

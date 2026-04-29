@@ -373,6 +373,7 @@ export default function Antrenor() {
                         {new Date(m.created_at).toLocaleString("ro-RO", {
                           dateStyle: "short",
                           timeStyle: "short",
+                          timeZone: "Europe/Bucharest",
                         })}
                       </span>
                     </div>

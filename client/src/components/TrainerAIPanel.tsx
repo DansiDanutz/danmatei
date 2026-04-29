@@ -149,7 +149,7 @@ export default function TrainerAIPanel({
         )}
         {savedAt && !error && (
           <p className="rounded-lg border border-emerald-300/30 bg-emerald-300/10 px-3 py-1.5 font-body text-xs text-emerald-200">
-            Salvat {savedAt.toLocaleTimeString("ro-RO")}
+            Salvat {savedAt.toLocaleTimeString("ro-RO", { timeZone: "Europe/Bucharest" })}
           </p>
         )}
 

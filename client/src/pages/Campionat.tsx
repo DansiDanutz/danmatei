@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Trophy, ListOrdered, MapPin } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
+import DemoBanner from "@/components/DemoBanner";
 import { supabase } from "@/lib/supabase";
 import { TRAINERS } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
@@ -43,11 +44,13 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "2-digit",
   month: "short",
   year: "numeric",
+  timeZone: "Europe/Bucharest",
 });
 
 export default function Campionat() {
   const [groups, setGroups] = useState<GroupBlock[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -93,15 +96,16 @@ export default function Campionat() {
       }));
 
       // Fallback to static TRAINERS when DB is empty so the page is never blank.
-      const seeds =
-        trainerList.length > 0
-          ? trainerList
-          : TRAINERS.map((t) => ({
-              trainerId: t.id,
-              trainerName: t.name,
-              ageMin: t.ageMin,
-              ageMax: t.ageMax,
-            }));
+      const fallback = trainerList.length === 0;
+      setUsingFallback(fallback);
+      const seeds = fallback
+        ? TRAINERS.map((t) => ({
+            trainerId: t.id,
+            trainerName: t.name,
+            ageMin: t.ageMin,
+            ageMax: t.ageMax,
+          }))
+        : trainerList;
 
       const blocks: GroupBlock[] = seeds.map((s) => {
         const ms: MatchRow[] = ((events as DbEvent[] | null) ?? [])
@@ -149,6 +153,8 @@ export default function Campionat() {
       pageTitle="Rezultate pe grupe"
       pageDescription="Câștigate, egaluri, pierdute. Toate meciurile oficiale ale grupelor academiei."
     >
+      {usingFallback && <DemoBanner />}
+
       {loading && (
         <div className="grid place-items-center py-20">
           <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />

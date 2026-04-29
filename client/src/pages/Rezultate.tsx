@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Trophy } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
+import DemoBanner from "@/components/DemoBanner";
 import { supabase } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
@@ -67,6 +68,7 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "numeric",
   month: "short",
   year: "numeric",
+  timeZone: "Europe/Bucharest",
 });
 
 function outcome(our: number, opp: number): "W" | "D" | "L" {
@@ -78,6 +80,7 @@ function outcome(our: number, opp: number): "W" | "D" | "L" {
 export default function Rezultate() {
   const [results, setResults] = useState<ResultRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,7 +94,9 @@ export default function Rezultate() {
         .limit(40);
       if (cancelled) return;
       const rows = (data as ResultRow[] | null) ?? [];
-      setResults(rows.length === 0 ? FALLBACK : rows);
+      const fallback = rows.length === 0;
+      setUsingFallback(fallback);
+      setResults(fallback ? FALLBACK : rows);
       setLoading(false);
     })();
     return () => {
@@ -109,6 +114,8 @@ export default function Rezultate() {
       pageTitle="Meciuri & scoruri"
       pageDescription="Cele mai recente rezultate ale grupelor școlii — campionat, turnee, amicale."
     >
+      {usingFallback && <DemoBanner />}
+
       {/* Win/draw/loss strip */}
       <div className="mb-8 grid grid-cols-3 gap-3 sm:gap-5">
         {[

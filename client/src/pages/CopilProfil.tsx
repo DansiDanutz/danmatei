@@ -309,7 +309,7 @@ export default function CopilProfil() {
               <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <Detail
                   label="Data nașterii"
-                  value={new Date(child.dob).toLocaleDateString("ro-RO")}
+                  value={new Date(child.dob).toLocaleDateString("ro-RO", { timeZone: "Europe/Bucharest" })}
                 />
                 <Detail
                   label="Vârstă"

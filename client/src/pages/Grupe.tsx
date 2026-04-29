@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Calendar, Users as UsersIcon } from "lucide-react";
 import { Link } from "wouter";
 import PublicShell from "@/components/PublicShell";
+import DemoBanner from "@/components/DemoBanner";
 import { supabase } from "@/lib/supabase";
 import { TRAINERS, type Trainer } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
@@ -38,6 +39,7 @@ interface GroupRow {
 export default function Grupe() {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +73,9 @@ export default function Grupe() {
         certifications: t.certifications ?? [],
         childCount: counts.get(t.id) ?? 0,
       }));
-      if (rows.length === 0) {
+      const fallback = rows.length === 0;
+      setUsingFallback(fallback);
+      if (fallback) {
         setGroups(
           TRAINERS.map((t: Trainer) => ({
             id: t.id,
@@ -100,6 +104,8 @@ export default function Grupe() {
       pageTitle="Grupe & antrenori"
       pageDescription="Fiecare antrenor coordonează una sau două grupe, pe vârste apropiate. La înscriere, copilul este repartizat automat în funcție de data nașterii."
     >
+      {usingFallback && <DemoBanner />}
+
       {loading && (
         <div className="grid place-items-center py-20">
           <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />
@@ -156,7 +162,7 @@ export default function Grupe() {
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Calendar className="size-3.5 text-brand-cyan/70" />
-                  Lu–Vi · 16:00–19:00
+                  Orar flexibil
                 </span>
               </div>
               <Link

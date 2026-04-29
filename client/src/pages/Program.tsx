@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, Dumbbell, MapPin, Swords, Trophy } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
+import DemoBanner from "@/components/DemoBanner";
 import { supabase } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
@@ -68,10 +69,12 @@ const dayFormatter = new Intl.DateTimeFormat("ro-RO", {
   weekday: "long",
   day: "numeric",
   month: "long",
+  timeZone: "Europe/Bucharest",
 });
 const timeFormatter = new Intl.DateTimeFormat("ro-RO", {
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: "Europe/Bucharest",
 });
 
 const KIND_META: Record<
@@ -87,6 +90,7 @@ const KIND_META: Record<
 export default function Program() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,7 +105,9 @@ export default function Program() {
         .limit(60);
       if (cancelled) return;
       const rows = (data as EventRow[] | null) ?? [];
-      setEvents(rows.length === 0 ? FALLBACK : rows);
+      const fallback = rows.length === 0;
+      setUsingFallback(fallback);
+      setEvents(fallback ? FALLBACK : rows);
       setLoading(false);
     })();
     return () => {
@@ -123,9 +129,11 @@ export default function Program() {
   return (
     <PublicShell
       pageKicker="Program"
-      pageTitle="Săptămâna următoare"
+      pageTitle="Următoarele două săptămâni"
       pageDescription="Antrenamente, meciuri și turnee planificate pentru toate grupele."
     >
+      {usingFallback && <DemoBanner />}
+
       {loading && (
         <div className="grid place-items-center py-20">
           <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />

@@ -27,6 +27,7 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   month: "short",
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: "Europe/Bucharest",
 });
 
 export default function Notificari() {
