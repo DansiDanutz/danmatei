@@ -72,6 +72,8 @@ export default function Campionat() {
 
         const timeoutId = setTimeout(() => {
                 if (cancelled) return;
+          setUsingFallback(true);
+          setGroups(TRAINERS.map((t) => ({ trainerId: t.id, trainerName: t.name, ageMin: t.ageMin, ageMax: t.ageMax, matches: [], w: 0, d: 0, l: 0, gf: 0, ga: 0 })));
                 setLoading(false);
         }, 6000);
     void (async () => {
