@@ -49,8 +49,10 @@ export function RequireRole({
     if (loading) return;
     if (!user) {
       navigate("/login");
-    } else if (profile && !roles.includes(profile.role)) {
-      navigate("/dashboard");
+    } else if (!profile) {
+              navigate("/completeaza-profil");
+    } else if (!roles.includes(profile.role)) {
+              navigate("/dashboard");
     }
   }, [loading, user, profile, roles, navigate]);
 
