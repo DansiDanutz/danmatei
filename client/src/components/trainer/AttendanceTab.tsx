@@ -191,7 +191,7 @@ export default function AttendanceTab({
             {children.map((c) => {
               const key = `${ev.id}-${c.id}`;
               const att = attendance.get(key);
-              const currentStatus = att?.status ?? "present";
+              const currentStatus = att?.status ?? null;
               const busy = saving === key;
 
               return (
