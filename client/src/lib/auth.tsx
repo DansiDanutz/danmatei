@@ -60,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (userId: string) => {
+    console.log("[auth] loadProfile called for", userId);
     const { data, error } = await supabase
       .from("profiles")
       .select(
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
       .eq("id", userId)
       .maybeSingle();
+    console.log("[auth] loadProfile result", { data, error: error?.message });
     if (error) {
       console.warn("[auth] profile load error", error.message);
       setProfile(null);
