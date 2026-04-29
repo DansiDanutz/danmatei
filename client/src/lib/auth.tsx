@@ -79,6 +79,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     setLoading(true);
 
+        // Safety timeout: if Supabase auth lock takes too long (e.g. React Strict
+        // Mode double-render or orphaned lock), unblock the loading state so users
+        // are not stuck on "Se incarca" forever.
+        const safetyTimerId = setTimeout(() => {
+                if (!cancelled) setLoading(false);
+        }, 8000);
+
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
@@ -108,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+            clearTimeout(safetyTimerId);
       sub.subscription.unsubscribe();
     };
   }, [loadProfile]);
