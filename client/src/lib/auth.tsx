@@ -79,25 +79,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     setLoading(true);
 
-        // Safety timeout: if Supabase auth lock takes too long (e.g. React Strict
-        // Mode double-render or orphaned lock), unblock the loading state so users
-        // are not stuck on "Se incarca" forever.
-        const safetyTimerId = setTimeout(() => {
-                if (!cancelled) setLoading(false);
-        }, 8000);
+    // Fast-path: read session directly from localStorage so we don't block
+    // the UI for 5-8s while Supabase's getSession() resolves its internal lock.
+    let fastSession: Session | null = null;
+    try {
+      const raw = localStorage.getItem("scoala-fotbal-auth");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.access_token && parsed.user) {
+          fastSession = parsed as Session;
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
 
+    if (fastSession) {
+      setSession(fastSession);
+      loadProfile(fastSession.user.id);
+      setLoading(false);
+    }
+
+    // Background validation/refresh via official API
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
         if (cancelled) return;
-        setSession(data.session);
-        if (data.session?.user) {
+        if (data.session) {
+          setSession(data.session);
           await loadProfile(data.session.user.id);
+        } else if (!fastSession) {
+          setSession(null);
         }
-        if (!cancelled) setLoading(false);
       })
       .catch(() => {
-        if (!cancelled) setLoading(false);
+        // keep fastSession if validation fails
       });
 
     const { data: sub } = supabase.auth.onAuthStateChange(
@@ -115,7 +131,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
-            clearTimeout(safetyTimerId);
       sub.subscription.unsubscribe();
     };
   }, [loadProfile]);
