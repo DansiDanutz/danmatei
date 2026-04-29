@@ -9,9 +9,9 @@
  */
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
-import { serviceClient, userClient, getJwtFromHeader } from "../_lib/supabase";
-import { sendWhatsappText } from "../_lib/whatsapp";
-import { createConvAILink } from "../_lib/elevenlabs";
+import { serviceClient, userClient, getJwtFromHeader } from "../_lib/supabase.js";
+import { sendWhatsappText } from "../_lib/whatsapp.js";
+import { createConvAILink } from "../_lib/elevenlabs.js";
 
 const Body = z.object({
   childId: z.string().uuid(),

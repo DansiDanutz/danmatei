@@ -10,12 +10,12 @@
  * dashboard when configuring the webhook.
  */
 import { z } from "zod";
-import { serviceClient } from "../_lib/supabase";
+import { serviceClient } from "../_lib/supabase.js";
 import {
   fetchTranscript,
   transcriptToMarkdown,
   transcriptSummary,
-} from "../_lib/elevenlabs";
+} from "../_lib/elevenlabs.js";
 
 const Payload = z.object({
   type: z.string().optional(),

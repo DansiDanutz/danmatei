@@ -9,7 +9,7 @@
  * Auth: caller must be authenticated and have role = 'owner' or 'super_admin'.
  */
 import { z } from "zod";
-import { serviceClient, userClient, getJwtFromHeader } from "./_lib/supabase";
+import { serviceClient, userClient, getJwtFromHeader } from "./_lib/supabase.js";
 
 const Body = z.object({
   target: z.enum(["all_parents", "group", "trainer"]),

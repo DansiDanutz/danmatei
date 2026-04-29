@@ -8,7 +8,7 @@
  * fotbal.profiles row. Verified server-side using userClient(jwt).
  */
 import { z } from "zod";
-import { serviceClient, userClient, getJwtFromHeader } from "./_lib/supabase";
+import { serviceClient, userClient, getJwtFromHeader } from "./_lib/supabase.js";
 
 const Body = z.object({
   email: z.string().email(),
