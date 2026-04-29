@@ -28,7 +28,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function CompleteazaProfil() {
-  const { profile, refreshProfile, signOut } = useAuth();
+    const { profile, refreshProfile, profileComplete, signOut } = useAuth();
   const [, navigate] = useLocation();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -49,6 +49,11 @@ export default function CompleteazaProfil() {
       setValue("phone", profile.phone ?? "");
     }
   }, [profile, setValue]);
+
+    // If user already has a complete profile, send them to the dashboard router.
+    useEffect(() => {
+          if (profile && profileComplete) navigate("/dashboard");
+    }, [profile, profileComplete, navigate]);
 
   const onSubmit = async (v: FormValues) => {
     setServerError(null);
