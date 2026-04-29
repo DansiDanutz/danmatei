@@ -361,6 +361,16 @@ export default function Antrenor() {
           </LazyTab>
         </TabsContent>
 
+        {/* PREZENTA */}
+        <TabsContent value="prezenta" className="mt-5">
+          <LazyTab active={tab === "prezenta"}>
+              <AttendanceTab
+                      trainerId={trainer.id}
+                      children={children.map(c => ({ id: c.id, full_name: c.full_name }))}
+                    />
+          </LazyTab>
+        </TabsContent>
+
         {/* MESAJE */}
         <TabsContent value="mesaje" className="mt-5">
           <LazyTab active={tab === "mesaje"}>
