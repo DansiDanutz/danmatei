@@ -51,17 +51,20 @@ export default function Copii() {
     if (!user) return;
     let cancelled = false;
     setLoadingRows(true);
+    const timeoutId = setTimeout(() => { if (cancelled) return; setLoadingRows(false); }, 6000);
     void (async () => {
       const { data } = await supabase
         .from("children")
         .select("id, full_name, dob, gender, age_group_label, status")
         .order("created_at", { ascending: false });
       if (cancelled) return;
+      clearTimeout(timeoutId);
       setRows((data as ChildRow[] | null) ?? []);
       setLoadingRows(false);
     })();
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
     };
   }, [user]);
 
