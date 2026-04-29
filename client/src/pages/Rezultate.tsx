@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { Calendar, MapPin, Trophy } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
 interface ResultRow {
@@ -84,6 +84,20 @@ export default function Rezultate() {
 
   useEffect(() => {
     let cancelled = false;
+
+        if (!isSupabaseConfigured) {
+                setUsingFallback(true);
+                setResults(FALLBACK);
+                setLoading(false);
+                return;
+        }
+
+        const timeoutId = setTimeout(() => {
+                if (cancelled) return;
+                setUsingFallback(true);
+                setResults(FALLBACK);
+                setLoading(false);
+        }, 6000);
     void (async () => {
       const { data } = await supabase
         .from("match_results")
@@ -93,6 +107,7 @@ export default function Rezultate() {
         .order("created_at", { ascending: false })
         .limit(40);
       if (cancelled) return;
+              clearTimeout(timeoutId);
       const rows = (data as ResultRow[] | null) ?? [];
       const fallback = rows.length === 0;
       setUsingFallback(fallback);
@@ -101,6 +116,7 @@ export default function Rezultate() {
     })();
     return () => {
       cancelled = true;
+            clearTimeout(timeoutId);
     };
   }, []);
 
