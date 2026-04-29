@@ -11,7 +11,7 @@ import { expoOut, staggerContainer, staggerItem, hoverLift, tapScale, dur } from
 const programs = [
   {
     category: "Copii Mici",
-    ageRange: "2006-2011",
+    ageRange: "2015-2017",
     description: "Inițiere și dezvoltare fundamentală a tehnicii de fotbal",
     features: ["Antrenamente 2x/săptămână", "Jocuri amicale", "Dezvoltare caracter"],
     icon: Users,
@@ -27,7 +27,7 @@ const programs = [
   },
   {
     category: "Juniori",
-    ageRange: "2015-2017",
+    ageRange: "2006-2011",
     description: "Pregătire avansată și competiții de nivel înalt",
     features: ["Antrenamente 4x/săptămână", "Campionate naționale", "Analiză video"],
     icon: Clock,
