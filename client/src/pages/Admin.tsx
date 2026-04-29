@@ -18,7 +18,9 @@ import {
   Loader2,
   Newspaper,
   RefreshCcw,
+  Save,
   Send,
+  Tag,
   Users,
   UserPlus,
   UsersRound,
@@ -28,6 +30,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { currentAge } from "@/lib/age";
 import GroupsTab from "@/components/admin/GroupsTab";
+import NewsManager from "@/components/admin/NewsManager";
 
 type TrainerRow = {
   id: string;
@@ -92,6 +95,9 @@ export default function Admin() {
           <Trigger value="membri" icon={<Users className="size-3.5" />}>
             Membri
           </Trigger>
+          <Trigger value="stiri" icon={<Tag className="size-3.5" />}>
+            Știri
+          </Trigger>
           <Trigger value="pagina" icon={<Newspaper className="size-3.5" />}>
             Pagina publică
           </Trigger>
@@ -112,6 +118,12 @@ export default function Admin() {
             <MembersTab />
           </LazyTab>
         </TabsContent>
+        <TabsContent value="stiri" className="mt-5">
+          <LazyTab active={tab === "stiri"}>
+            <NewsManager />
+          </LazyTab>
+        </TabsContent>
+
         <TabsContent value="pagina" className="mt-5">
           <LazyTab active={tab === "pagina"}>
             <LandingTab />
@@ -561,17 +573,43 @@ function MembersTab() {
                   {c.parent?.phone && ` · ${c.parent.phone}`}
                 </p>
               </div>
-              <span
-                className={`rounded-full border px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] ${
-                  c.trainer_id
-                    ? "border-brand-cyan/30 bg-brand-cyan/10 text-brand-cyan"
-                    : "border-amber-300/30 bg-amber-300/10 text-amber-200"
-                }`}
-              >
-                {c.trainer_id
-                  ? (trainerNames[c.trainer_id] ?? "Antrenor")
-                  : "Nealocat"}
-              </span>
+              <div className="flex items-center gap-2">
+                <select
+                  value={c.status}
+                  onChange={async (e) => {
+                    const newStatus = e.target.value as ChildRow["status"];
+                    const { error: upErr } = await supabase
+                      .from("children")
+                      .update({ status: newStatus })
+                      .eq("id", c.id);
+                    if (upErr) {
+                      setError(upErr.message);
+                    } else {
+                      setChildren((prev) =>
+                        prev.map((ch) =>
+                          ch.id === c.id ? { ...ch, status: newStatus } : ch
+                        )
+                      );
+                    }
+                  }}
+                  className="rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-2 py-1 font-heading text-[10px] uppercase tracking-[0.12em] text-white/70"
+                >
+                  <option value="active">Activ</option>
+                  <option value="paused">Pauză</option>
+                  <option value="left">Plecat</option>
+                </select>
+                <span
+                  className={`rounded-full border px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] ${
+                    c.trainer_id
+                      ? "border-brand-cyan/30 bg-brand-cyan/10 text-brand-cyan"
+                      : "border-amber-300/30 bg-amber-300/10 text-amber-200"
+                  }`}
+                >
+                  {c.trainer_id
+                    ? (trainerNames[c.trainer_id] ?? "Antrenor")
+                    : "Nealocat"}
+                </span>
+              </div>
             </div>
           </article>
         ))}

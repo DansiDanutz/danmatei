@@ -18,6 +18,7 @@ import {
   CalendarDays,
   ImagePlus,
   Loader2,
+  MessageSquare,
   Newspaper,
   Trophy,
   UserRound,
@@ -77,6 +78,14 @@ type MediaRow = {
   created_at: string;
 };
 
+type MessageRow = {
+  id: string;
+  audience: "group" | "child" | "parent";
+  body_md: string;
+  created_at: string;
+  trainer: { profile: { full_name: string } | null } | null;
+};
+
 type ParticipationRow = {
   id: string;
   goals: number;
@@ -113,6 +122,7 @@ export default function CopilProfil() {
   const [schedule, setSchedule] = useState<ScheduleRow[]>([]);
   const [news, setNews] = useState<NewsRow[]>([]);
   const [media, setMedia] = useState<MediaRow[]>([]);
+  const [messages, setMessages] = useState<MessageRow[]>([]);
   const [participations, setParticipations] = useState<ParticipationRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -142,22 +152,23 @@ export default function CopilProfil() {
         setLoading(false);
         return;
       }
-      setChild(c.data as Child);
+      const childData = c.data as Child;
+      setChild(childData);
 
-      const [pe, sch, nw, md, pa] = await Promise.all([
+      const [pe, sch, nw, md, pa, msg] = await Promise.all([
         supabase
           .from("player_events")
           .select("id, kind, title, body_md, occurred_at")
           .eq("child_id", childId)
           .order("occurred_at", { ascending: false })
           .limit(100),
-        c.data.trainer_id
+        childData.trainer_id
           ? supabase
               .from("schedule_events")
               .select(
                 "id, kind, title, starts_at, ends_at, location, opponent, notes"
               )
-              .eq("trainer_id", c.data.trainer_id)
+              .eq("trainer_id", childData.trainer_id)
               .order("starts_at", { ascending: true })
           : Promise.resolve({ data: [], error: null } as const),
         supabase
@@ -177,6 +188,17 @@ export default function CopilProfil() {
           )
           .eq("child_id", childId)
           .order("created_at", { ascending: false }),
+        childData.trainer_id
+          ? supabase
+              .from("messages")
+              .select(
+                "id, audience, body_md, created_at, trainer:trainers!messages_trainer_id_fkey(profile:profiles!trainers_profile_id_fkey(full_name))"
+              )
+              .eq("trainer_id", childData.trainer_id)
+              .or(`audience.eq.group,and(audience.in.(child,parent),child_id.eq.${childId})`)
+              .order("created_at", { ascending: false })
+              .limit(50)
+          : Promise.resolve({ data: [], error: null } as const),
       ]);
 
       if (cancelled) return;
@@ -184,6 +206,7 @@ export default function CopilProfil() {
       setSchedule((sch.data ?? []) as ScheduleRow[]);
       setNews((nw.data ?? []) as NewsRow[]);
       setMedia((md.data ?? []) as MediaRow[]);
+      setMessages((msg.data ?? []) as unknown as MessageRow[]);
       setParticipations((pa.data ?? []) as unknown as ParticipationRow[]);
       setLoading(false);
     })();
@@ -294,6 +317,9 @@ export default function CopilProfil() {
           </Trigger>
           <Trigger value="arhiva" icon={<Trophy className="size-3.5" />}>
             Arhivă
+          </Trigger>
+          <Trigger value="mesaje" icon={<MessageSquare className="size-3.5" />}>
+            Mesaje
           </Trigger>
           <Trigger value="istoric" icon={<Activity className="size-3.5" />}>
             Istoric
@@ -432,6 +458,45 @@ export default function CopilProfil() {
             ))}
             {past.map(e => (
               <ScheduleRowCard key={e.id} row={e} />
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="mesaje" className="mt-5">
+          {messages.length === 0 && (
+            <Empty hint="Nu există încă mesaje de la antrenor." />
+          )}
+          <div className="grid gap-3">
+            {messages.map(m => (
+              <article
+                key={m.id}
+                className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
+                    {m.audience === "group"
+                      ? "Grupa"
+                      : m.audience === "child"
+                        ? "Copil"
+                        : "Părinte"}
+                  </span>
+                  <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
+                    {new Date(m.created_at).toLocaleString("ro-RO", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                      timeZone: "Europe/Bucharest",
+                    })}
+                  </span>
+                </div>
+                {m.trainer?.profile?.full_name && (
+                  <p className="mt-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/40">
+                    De la {m.trainer.profile.full_name}
+                  </p>
+                )}
+                <p className="mt-2 whitespace-pre-line font-body text-sm leading-relaxed text-white/85">
+                  {m.body_md}
+                </p>
+              </article>
             ))}
           </div>
         </TabsContent>
