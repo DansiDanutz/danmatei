@@ -31,11 +31,13 @@ export default function Contact() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      toast.success("Mesajul a fost trimis cu succes! Te vom contacta în curând.");
-      setFormData({ name: "", email: "", phone: "", message: "" });
-      setLoading(false);
-    }, 1000);
+    const subject = encodeURIComponent(`Mesaj de la ${formData.name}`);
+    const body = encodeURIComponent(`Nume: ${formData.name}\nEmail: ${formData.email}\nTelefon: ${formData.phone}\n\nMesaj:\n${formData.message}`);
+    window.location.href = `mailto:zzizzou5@yahoo.com?subject=${subject}&body=${body}`;
+    toast.success("Se deschide aplicația de email cu mesajul tău. Te vom contacta în curând!");
+    setFormData({ name: "", email: "", phone: "", message: "" });
+    setLoading(false);
+  };
   };
 
   return (
