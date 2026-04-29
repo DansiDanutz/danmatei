@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Bot,
   CalendarDays,
+  ClipboardCheck,
   Loader2,
   MessageSquare,
   Swords,
@@ -28,6 +29,7 @@ import {
 import TrainerAIPanel from "@/components/TrainerAIPanel";
 import AtribuiriTab from "@/components/trainer/AtribuiriTab";
 import MatchesTab from "@/components/trainer/MatchesTab";
+import AttendanceTab from "@/components/trainer/AttendanceTab";
 import { Link } from "wouter";
 import MemberShell from "@/components/MemberShell";
 import { supabase } from "@/lib/supabase";
@@ -228,6 +230,9 @@ export default function Antrenor() {
           </Trigger>
           <Trigger value="meciuri" icon={<Swords className="size-3.5" />}>
             Meciuri
+          </Trigger>
+          <Trigger value="prezenta" icon={<ClipboardCheck className="size-3.5" />}>
+            Prezență
           </Trigger>
           <Trigger value="mesaje" icon={<MessageSquare className="size-3.5" />}>
             Mesaje

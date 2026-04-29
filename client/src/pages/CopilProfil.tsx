@@ -67,6 +67,7 @@ type NewsRow = {
   title: string;
   body_md: string;
   audience: "public" | "members" | "group";
+  group_trainer_id: string | null;
   published_at: string | null;
 };
 
@@ -173,9 +174,9 @@ export default function CopilProfil() {
           : Promise.resolve({ data: [], error: null } as const),
         supabase
           .from("news")
-          .select("id, title, body_md, audience, published_at")
+          .select("id, title, body_md, audience, group_trainer_id, published_at")
           .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(20),
+          .limit(30),
         supabase
           .from("media")
           .select("id, storage_path, kind, caption, created_at")
@@ -226,6 +227,18 @@ export default function CopilProfil() {
     () => schedule.filter(s => new Date(s.starts_at) < new Date()),
     [schedule]
   );
+
+  const childNews = useMemo(() => {
+    if (!child) return [];
+    return news.filter((n) => {
+      if (n.audience === "public") return true;
+      if (n.audience === "members") return true; // user is auth'd (parent)
+      if (n.audience === "group") {
+        return n.group_trainer_id === child.trainer_id;
+      }
+      return false;
+    });
+  }, [news, child]);
 
   if (!childId) return null;
 
@@ -382,11 +395,11 @@ export default function CopilProfil() {
         </TabsContent>
 
         <TabsContent value="stiri" className="mt-5">
-          {news.length === 0 && (
+          {childNews.length === 0 && (
             <Empty hint="Nu există încă știri pentru această grupă." />
           )}
           <div className="grid gap-3">
-            {news.map(n => (
+            {childNews.map(n => (
               <article
                 key={n.id}
                 className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"

@@ -14,8 +14,11 @@ type PendingChild = {
   parent: { full_name: string; phone: string | null } | null;
 };
 
+type GroupRange = { birth_year_min: number; birth_year_max: number };
+
 export default function AtribuiriTab({ trainerId }: { trainerId: string }) {
   const [pending, setPending] = useState<PendingChild[]>([]);
+  const [ranges, setRanges] = useState<GroupRange[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +26,24 @@ export default function AtribuiriTab({ trainerId }: { trainerId: string }) {
   const loadPending = async () => {
     setLoading(true);
     setError(null);
+
+    // 1) Fetch trainer's group year ranges
+    const { data: groups, error: groupsErr } = await supabase
+      .from("groups")
+      .select("birth_year_min, birth_year_max")
+      .eq("trainer_id", trainerId)
+      .eq("active", true);
+
+    if (groupsErr) {
+      setError(groupsErr.message);
+      setLoading(false);
+      return;
+    }
+
+    const r = (groups ?? []) as GroupRange[];
+    setRanges(r);
+
+    // 2) Fetch all pending children
     const { data, error: err } = await supabase
       .from("children")
       .select("id, full_name, dob, parent:profiles!children_parent_id_fkey(full_name, phone)")
@@ -34,14 +55,26 @@ export default function AtribuiriTab({ trainerId }: { trainerId: string }) {
     if (err) {
       setError(err.message);
     } else {
-      setPending((data ?? []) as unknown as PendingChild[]);
+      const allPending = (data ?? []) as unknown as PendingChild[];
+
+      // 3) Filter by birth year range
+      if (r.length > 0) {
+        const filtered = allPending.filter((c) => {
+          const year = new Date(c.dob).getFullYear();
+          return r.some((range) => year >= range.birth_year_min && year <= range.birth_year_max);
+        });
+        setPending(filtered);
+      } else {
+        // Trainer has no groups → show none (or could show all for super_admins)
+        setPending([]);
+      }
     }
     setLoading(false);
   };
 
   useEffect(() => {
     loadPending();
-  }, []);
+  }, [trainerId]);
 
   const handleAccept = async (childId: string) => {
     setActionId(childId);
