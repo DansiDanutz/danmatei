@@ -28,7 +28,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function CompleteazaProfil() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, signOut } = useAuth();
   const [, navigate] = useLocation();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -144,6 +144,7 @@ export default function CompleteazaProfil() {
           )}
         </button>
       </form>
+            <button type="button" onClick={() => signOut().then(() => navigate("/"))} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-transparent px-4 py-2 font-heading text-[10px] uppercase tracking-[0.18em] text-white/55 transition-colors hover:border-brand-cyan/40 hover:text-white">Folosește alt cont</button>
     </AuthCardShell>
   );
 }
