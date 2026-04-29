@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Bell, Check, ArrowRight, Calendar, MessageSquare } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
@@ -31,9 +32,14 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
 });
 
 export default function Notificari() {
-  const { profile, loading: authLoading } = useAuth();
+    const { profile, user, loading: authLoading } = useAuth();
+    const [, navigate] = useLocation();
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
+    // If session exists but no profile row, redirect to onboarding instead of showing sign-in prompt.
+    useEffect(() => {
+          if (!authLoading && user && !profile) navigate("/completeaza-profil");
+    }, [authLoading, user, profile, navigate]);
 
   useEffect(() => {
     if (authLoading) return;
