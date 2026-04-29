@@ -6,7 +6,7 @@
  *   - Dot pager + slide counter + arrow buttons in a sticky bottom bar
  *   - Top bar with brand mark and an "Acasă" link back to /
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Home as HomeIcon } from "lucide-react";
@@ -18,6 +18,7 @@ import SlidePlayers from "./SlidePlayers";
 const SLIDE_LABELS = ["Fondator", "Antrenori", "Jucători"] as const;
 
 export default function CunoasteDeck() {
+  const touchStartX = useRef<number | null>(null);
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     align: "start",
@@ -63,9 +64,26 @@ export default function CunoasteDeck() {
   const scrollNext = () => emblaApi?.scrollNext();
   const canPrev = selected > 0;
   const canNext = selected < SLIDE_LABELS.length - 1;
+  const selectPrev = () => setSelected((current) => Math.max(0, current - 1));
+  const selectNext = () =>
+    setSelected((current) => Math.min(SLIDE_LABELS.length - 1, current + 1));
+
+  const mobileSlides = [<SlideOwner />, <SlideTrainers />, <SlidePlayers />];
+
+  const handleTouchEnd = (clientX: number) => {
+    if (touchStartX.current === null) return;
+    const delta = touchStartX.current - clientX;
+    touchStartX.current = null;
+    if (Math.abs(delta) < 45) return;
+    if (delta > 0) {
+      selectNext();
+    } else {
+      selectPrev();
+    }
+  };
 
   return (
-    <div className="relative flex h-[100dvh] flex-col bg-[oklch(0.08_0.02_250)] text-white">
+    <div className="relative flex min-h-[100dvh] flex-col bg-[oklch(0.08_0.02_250)] text-white sm:h-[100dvh]">
       {/* Background atmosphere — academy blue dominates, with three tiny
           painterly accent orbs (cyan, magenta, orange) borrowed from the
           trainer portraits. All low opacity, all heavily blurred — they
@@ -118,9 +136,43 @@ export default function CunoasteDeck() {
         </Link>
       </header>
 
+      {/* Mobile single-slide swiper. Only the active slide is mounted so the
+          page height comes from visible content, not offscreen slides. */}
+      <div
+        className="relative z-10 sm:hidden"
+        onTouchStart={(event) => {
+          touchStartX.current = event.touches[0]?.clientX ?? null;
+        }}
+        onTouchEnd={(event) => {
+          handleTouchEnd(event.changedTouches[0]?.clientX ?? 0);
+        }}
+      >
+        {mobileSlides[selected]}
+        <div className="mx-auto mt-2 flex w-full max-w-xs items-center justify-center gap-2 px-5 pb-6">
+          {SLIDE_LABELS.map((label, index) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setSelected(index)}
+              aria-label={`Mergi la ${label}`}
+              aria-current={selected === index}
+              className="touch-target group flex h-8 items-center px-1"
+            >
+              <span
+                className={`block h-1.5 rounded-full transition-all ${
+                  selected === index
+                    ? "w-9 bg-brand-cyan"
+                    : "w-2 bg-white/25 group-hover:bg-white/45"
+                }`}
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Embla viewport */}
-      <div className="relative z-10 flex-1 overflow-hidden" ref={emblaRef}>
-        <div className="flex h-full">
+      <div className="relative z-10 hidden overflow-hidden sm:block sm:flex-1" ref={emblaRef}>
+        <div className="flex sm:h-full">
           <div className="min-w-0 flex-[0_0_100%]">
             <SlideOwner />
           </div>

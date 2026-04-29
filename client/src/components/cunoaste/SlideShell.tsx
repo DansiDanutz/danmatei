@@ -46,7 +46,7 @@ export default function SlideShell({
     <section
       aria-roledescription="slide"
       aria-label={`${eyebrow} (${index} din ${total})`}
-      className="relative flex h-full w-full flex-col px-5 pb-28 pt-6 sm:px-10 sm:pt-10 lg:px-20 lg:pb-32 lg:pt-14"
+      className="relative flex w-full flex-col px-5 pb-10 pt-6 sm:h-full sm:px-10 sm:pb-28 sm:pt-10 lg:px-20 lg:pb-32 lg:pt-14"
     >
       {/* Eyebrow */}
       <motion.div
@@ -125,7 +125,8 @@ export default function SlideShell({
       >
         <Link
           href={ctaHref}
-          className="touch-target pointer-events-auto group inline-flex items-center gap-3 rounded-full bg-brand-cyan px-6 py-3.5 font-heading text-xs font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:-translate-y-0.5 hover:bg-[oklch(0.82_0.13_220)] hover:shadow-[0_16px_60px_-8px_oklch(0>
+          className="touch-target pointer-events-auto group inline-flex items-center gap-3 rounded-full bg-brand-cyan px-6 py-3.5 font-heading text-xs font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:-translate-y-0.5 hover:bg-[oklch(0.82_0.13_220)]"
+        >
           {ctaLabel}
           <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
