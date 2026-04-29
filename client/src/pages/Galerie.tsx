@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Image as ImageIcon, Play, Trophy, Dumbbell, Swords, Users, MapPin, Award } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
 interface MediaRow {
@@ -49,6 +49,8 @@ export default function Galerie() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!isSupabaseConfigured) { setLoading(false); return; }
+    const timeoutId = setTimeout(() => { if (cancelled) return; setItems([]); setLoading(false); }, 6000);
     void (async () => {
       const { data } = await supabase
         .from("media")
@@ -57,11 +59,13 @@ export default function Galerie() {
         .order("created_at", { ascending: false })
         .limit(60);
       if (cancelled) return;
+      clearTimeout(timeoutId);
       setItems((data as MediaRow[] | null) ?? []);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
     };
   }, []);
 
