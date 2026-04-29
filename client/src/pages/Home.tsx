@@ -40,6 +40,7 @@ const MENU_ITEMS: Array<{
   { label: "Stiri", href: "/stiri", icon: Newspaper },
   { label: "Notificari", href: "/notificari", icon: Bell },
   { label: "Cont", href: "/login", icon: LogIn, primary: true },
+  ];
 
 // Deterministic starfield — 20 dots (reduced from 60 for performance).
 // Scattered with seeded jitter so they don't reshuffle on every render.
