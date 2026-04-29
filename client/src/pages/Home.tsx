@@ -34,14 +34,12 @@ const MENU_ITEMS: Array<{
   icon: typeof Newspaper;
   primary?: boolean;
 }> = [
-  { label: "Știri", href: "/stiri", icon: Newspaper },
-  { label: "Notificări", href: "/notificari", icon: Bell },
-  { label: "Rezultate", href: "/rezultate", icon: Trophy },
-  { label: "Copii", href: "/copii", icon: Users },
-  { label: "Program", href: "/program", icon: CalendarClock },
-  { label: "Galerie", href: "/galerie", icon: ImageIcon },
-  { label: "Login", href: "/login", icon: LogIn, primary: true },
-];
+  { label: "Academia", href: "/academie", icon: Trophy },
+  { label: "Grupe", href: "/grupe", icon: Users },
+  { label: "Turnee", href: "/turnee", icon: CalendarClock },
+  { label: "Stiri", href: "/stiri", icon: Newspaper },
+  { label: "Notificari", href: "/notificari", icon: Bell },
+  { label: "Cont", href: "/login", icon: LogIn, primary: true },
 
 // Deterministic starfield — 20 dots (reduced from 60 for performance).
 // Scattered with seeded jitter so they don't reshuffle on every render.
