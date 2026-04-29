@@ -60,7 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (userId: string) => {
-    console.log("[auth] loadProfile called for", userId);
     const { data, error } = await supabase
       .from("profiles")
       .select(
@@ -68,7 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
       .eq("id", userId)
       .maybeSingle();
-    console.log("[auth] loadProfile result", { data, error: error?.message });
     if (error) {
       console.warn("[auth] profile load error", error.message);
       setProfile(null);
@@ -82,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
 
     // Fast-path: read session directly from localStorage so we don't block
-    // the UI for 5-8s while Supabase's getSession() resolves its internal lock.
+    // the UI while Supabase's getSession() resolves its internal lock.
     let fastSession: Session | null = null;
     try {
       const raw = localStorage.getItem("scoala-fotbal-auth");
@@ -99,37 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (fastSession) {
       setSession(fastSession);
       loadProfile(fastSession.user.id);
-      setLoading(false);
     }
+    setLoading(false);
 
-    // Safety timeout for unauthenticated users or when getSession() hangs
-    const safetyTimerId = setTimeout(() => {
-      if (!cancelled) setLoading(false);
-    }, 2000);
-
-    // Background validation/refresh via official API
-    supabase.auth
-      .getSession()
-      .then(async ({ data }) => {
-        if (cancelled) return;
-        clearTimeout(safetyTimerId);
-        if (data.session) {
-          setSession(data.session);
-          await loadProfile(data.session.user.id);
-        } else if (!fastSession) {
-          setSession(null);
-        }
-        if (!cancelled) setLoading(false);
-      })
-      .catch(() => {
-        clearTimeout(safetyTimerId);
-        if (!cancelled) setLoading(false);
-      });
-
+    // Listen for auth state changes (login, logout, token refresh)
     const { data: sub } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         if (cancelled) return;
-        // Skip if session hasn't actually changed (prevents loops)
         setSession(prev => {
           if (prev?.access_token === newSession?.access_token) return prev;
           return newSession;
