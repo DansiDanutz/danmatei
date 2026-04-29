@@ -101,12 +101,27 @@ export default function SlideShell({
         {children}
       </motion.div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.4, ease: expoOut }}
+        className="mt-4 flex justify-end sm:hidden"
+      >
+        <Link
+          href={ctaHref}
+          className="touch-target group inline-flex items-center gap-3 rounded-full bg-brand-cyan px-6 py-3.5 font-heading text-xs font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:bg-[oklch(0.82_0.13_220)]"
+        >
+          {ctaLabel}
+          <ArrowRight className="size-4" />
+        </Link>
+      </motion.div>
+
       {/* Sticky CTA */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.4, ease: expoOut }}
-        className="pointer-events-none absolute bottom-20 right-5 z-20 sm:bottom-24 sm:right-10 lg:right-20"
+        className="pointer-events-none absolute bottom-20 right-5 z-20 hidden sm:block sm:bottom-24 sm:right-10 lg:right-20"
       >
         <Link
           href={ctaHref}

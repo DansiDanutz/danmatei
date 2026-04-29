@@ -33,6 +33,7 @@ const Rezultate = lazy(() => import("./pages/Rezultate"));
 const Copii = lazy(() => import("./pages/Copii"));
 const Program = lazy(() => import("./pages/Program"));
 const Galerie = lazy(() => import("./pages/Galerie"));
+const Contact = lazy(() => import("./pages/Contact"));
 
 function PageLoader() {
   return (
@@ -99,6 +100,11 @@ function Router() {
       <Route path={"/galerie"}>
         <SuspenseWrap>
           <Galerie />
+        </SuspenseWrap>
+      </Route>
+      <Route path={"/contact"}>
+        <SuspenseWrap>
+          <Contact />
         </SuspenseWrap>
       </Route>
       <Route path={"/login"}>

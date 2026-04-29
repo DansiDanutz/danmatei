@@ -10,11 +10,10 @@
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import {
-  Bell,
   CalendarClock,
-  ImageIcon,
   LogIn,
   Newspaper,
+  Phone,
   Trophy,
   Users,
 } from "lucide-react";
@@ -38,7 +37,7 @@ const MENU_ITEMS: Array<{
   { label: "Grupe", href: "/grupe", icon: Users },
   { label: "Turnee", href: "/turnee", icon: CalendarClock },
   { label: "Stiri", href: "/stiri", icon: Newspaper },
-  { label: "Notificari", href: "/notificari", icon: Bell },
+  { label: "Contact", href: "/contact", icon: Phone },
   { label: "Cont", href: "/login", icon: LogIn, primary: true },
   ];
 
@@ -217,16 +216,16 @@ export default function Home() {
         aria-label="Meniu principal"
         className="relative z-20 px-4 pt-4 sm:px-8 sm:pt-6"
       >
-        <ul className="mx-auto flex max-w-3xl snap-x snap-mandatory gap-2 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)]/70 p-1.5 backdrop-blur-md sm:justify-center sm:gap-1 [&::-webkit-scrollbar]:hidden">
+        <ul className="mx-auto grid max-w-md grid-cols-3 gap-1.5 rounded-2xl border border-white/8 bg-[oklch(0.10_0.02_250)]/70 p-1.5 backdrop-blur-md sm:flex sm:max-w-3xl sm:justify-center sm:gap-1">
           {MENU_ITEMS.map(item => {
             const Icon = item.icon;
             const baseClass =
-              "group/menu inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 font-heading text-[11px] font-semibold uppercase tracking-[0.16em] transition-all sm:px-4 sm:py-2 sm:text-[12px]";
+              "group/menu inline-flex min-w-0 items-center justify-center gap-1 rounded-xl px-2 py-2 font-heading text-[9px] font-semibold uppercase tracking-[0.08em] transition-all sm:shrink-0 sm:gap-1.5 sm:rounded-full sm:px-4 sm:text-[12px] sm:tracking-[0.16em]";
             const variantClass = item.primary
               ? "border border-brand-cyan/60 bg-brand-cyan/20 text-brand-cyan hover:border-brand-cyan hover:bg-brand-cyan/30 hover:text-white"
               : "border border-transparent text-white/70 hover:border-brand-cyan/40 hover:bg-brand-cyan/10 hover:text-white";
             return (
-              <li key={item.href} className="snap-start">
+              <li key={item.href} className="min-w-0">
                 <Link
                   href={item.href}
                   aria-label={item.label}

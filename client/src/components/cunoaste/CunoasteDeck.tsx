@@ -134,7 +134,7 @@ export default function CunoasteDeck() {
       </div>
 
       {/* Bottom controls */}
-      <footer className="pointer-events-none fixed inset-x-0 bottom-0 z-20 px-5 pb-5 sm:px-10 sm:pb-6 lg:px-20">
+      <footer className="pointer-events-none fixed inset-x-0 bottom-0 z-20 hidden px-5 pb-5 sm:block sm:px-10 sm:pb-6 lg:px-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

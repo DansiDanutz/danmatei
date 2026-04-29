@@ -5,7 +5,7 @@
  * (Trofee) per the original brand spec.
  */
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Quote, RotateCcw, Trophy, Volume2, VolumeX } from "lucide-react";
 import { OWNER } from "@/data/landing";
 import SlideShell from "./SlideShell";
@@ -21,13 +21,6 @@ export default function SlideOwner() {
   // (a pre-rendered still). The video element stays mounted so the
   // user can replay it via the dedicated button.
   const [ended, setEnded] = useState(false);
-
-  // Kick autoplay (muted) on mount.
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.play().catch(() => undefined);
-  }, []);
 
   const toggleMute = (): void => {
     const v = videoRef.current;
@@ -81,10 +74,9 @@ export default function SlideOwner() {
                 ref={videoRef}
                 src="/TheBoss.mp4"
                 poster={POSTER_SRC}
-                autoPlay
                 muted
                 playsInline
-                preload="auto"
+                preload="none"
                 onEnded={() => setEnded(true)}
                 onTimeUpdate={e => {
                   // Freeze on the chosen still 1 s before the natural end so we

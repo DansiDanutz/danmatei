@@ -46,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/campionat", label: "Campionat", icon: <ListOrdered className="size-4" /> },
   { href: "/stiri", label: "Știri", icon: <Newspaper className="size-4" /> },
   { href: "/notificari", label: "Notificări", icon: <Bell className="size-4" /> },
+  { href: "/contact", label: "Contact", icon: <Phone className="size-4" /> },
 ];
 
 export default function PublicShell({
