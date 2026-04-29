@@ -1,7 +1,6 @@
 /**
  * /campionat — Championship view. Lists each active group (trainer)
  * with their match history and an aggregate W-D-L. Per-group results
- import { supabase, isSupabaseConfigured } from "@/lib/supabase";
  *
  * Reads:
  *   - fotbal.trainers (with profile name) for each group
@@ -12,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Trophy, ListOrdered, MapPin } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { TRAINERS } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
 
