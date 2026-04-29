@@ -9,7 +9,7 @@ import { ArrowRight, Calendar, Users as UsersIcon } from "lucide-react";
 import { Link } from "wouter";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { TRAINERS, type Trainer } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
 
@@ -43,6 +43,18 @@ export default function Grupe() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!isSupabaseConfigured) {
+        setUsingFallback(true);
+        setGroups(TRAINERS.map((t) => ({ id: t.id, name: t.name, position: t.position, ageMin: t.ageMin, ageMax: t.ageMax, bio: t.bio, certifications: t.certifications, childCount: 0 })));
+        setLoading(false);
+        return;
+    }
+    const timeoutId = setTimeout(() => {
+        if (cancelled) return;
+        setUsingFallback(true);
+        setGroups(TRAINERS.map((t) => ({ id: t.id, name: t.name, position: t.position, ageMin: t.ageMin, ageMax: t.ageMax, bio: t.bio, certifications: t.certifications, childCount: 0 })));
+        setLoading(false);
+    }, 6000);
     void (async () => {
       const [trainersRes, kidsRes] = await Promise.all([
         supabase
@@ -63,6 +75,7 @@ export default function Grupe() {
       });
 
       if (cancelled) return;
+      clearTimeout(timeoutId);
       const rows: GroupRow[] = (trainers as DBTrainer[] | null ?? []).map((t) => ({
         id: t.id,
         name: t.profile?.full_name ?? "Antrenor",
@@ -95,6 +108,7 @@ export default function Grupe() {
     })();
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
     };
   }, []);
 
