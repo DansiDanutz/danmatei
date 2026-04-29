@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import { Calendar, Dumbbell, MapPin, Swords, Trophy } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
 type Kind = "training" | "match" | "tournament" | "other";
@@ -94,6 +94,20 @@ export default function Program() {
 
   useEffect(() => {
     let cancelled = false;
+
+        if (!isSupabaseConfigured) {
+                setUsingFallback(true);
+                setEvents(FALLBACK);
+                setLoading(false);
+                return;
+        }
+
+        const timeoutId = setTimeout(() => {
+                if (cancelled) return;
+                setUsingFallback(true);
+                setEvents(FALLBACK);
+                setLoading(false);
+        }, 6000);
     const horizon = new Date(Date.now() + 14 * 86400000).toISOString();
     void (async () => {
       const { data } = await supabase
@@ -104,6 +118,7 @@ export default function Program() {
         .order("starts_at", { ascending: true })
         .limit(60);
       if (cancelled) return;
+              clearTimeout(timeoutId);
       const rows = (data as EventRow[] | null) ?? [];
       const fallback = rows.length === 0;
       setUsingFallback(fallback);
@@ -112,6 +127,7 @@ export default function Program() {
     })();
     return () => {
       cancelled = true;
+            clearTimeout(timeoutId);
     };
   }, []);
 
