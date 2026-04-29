@@ -148,7 +148,7 @@ export default function Hero() {
             <div className="flex gap-6 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
               {[
                 { number: 2017, label: "Înființare", isYear: true },
-                { number: 8, label: "Ani Exp.", suffix: "+" },
+                { number:9, label: "Ani Exp.", suffix: "+" },
                 { number: 100, label: "Sportivi", suffix: "+" },
                 { number: 0, label: "Licență", text: "UEFA" },
               ].map((stat) => (
