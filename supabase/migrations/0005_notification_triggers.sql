@@ -12,6 +12,7 @@ set search_path = fotbal, public;
 create or replace function fotbal.tg_notify_message()
 returns trigger
 language plpgsql
+security definer set search_path = fotbal, public
 as $$
 declare
   trainer_name text;
@@ -72,6 +73,7 @@ create trigger notify_message
 create or replace function fotbal.tg_notify_match_scheduled()
 returns trigger
 language plpgsql
+security definer set search_path = fotbal, public
 as $$
 declare
   child_rec record;
@@ -109,6 +111,7 @@ create trigger notify_match_scheduled
 create or replace function fotbal.tg_notify_match_result()
 returns trigger
 language plpgsql
+security definer set search_path = fotbal, public
 as $$
 declare
   event_title text;

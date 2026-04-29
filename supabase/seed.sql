@@ -1,6 +1,7 @@
 -- =============================================================================
 -- Dev seed — sample data for local Supabase + previews.
 -- =============================================================================
+set search_path = fotbal, public;
 -- This script is idempotent. It expects the schema from 0001_init.sql to be
 -- already applied. The sample auth users below use deterministic UUIDs so the
 -- seed can be re-run without duplication.
@@ -38,7 +39,7 @@ begin
     ) on conflict (id) do nothing;
 
     -- Trigger creates the profile automatically; force role + name in case of conflict
-    update public.profiles
+    update fotbal.profiles
        set role = ids.role::user_role,
            full_name = ids.full_name
      where id = ids.id;
@@ -46,7 +47,7 @@ begin
 end $$;
 
 -- Trainers
-insert into public.trainers (id, profile_id, bio, position, certifications, age_min, age_max, display_order)
+insert into fotbal.trainers (id, profile_id, bio, position, certifications, age_min, age_max, display_order)
 values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', '22222222-2222-2222-2222-222222222222',
    'Fost jucător profesionist la nivel național. Formează grupele mici prin joc, mișcare și încredere.',
@@ -66,7 +67,7 @@ values
 on conflict (id) do nothing;
 
 -- Sample children (parent: Maria Popescu)
-insert into public.children (id, parent_id, full_name, dob, gender, school, trainer_id, age_group_label)
+insert into fotbal.children (id, parent_id, full_name, dob, gender, school, trainer_id, age_group_label)
 values
   ('cccccccc-cccc-cccc-cccc-cccccccccc01', '55555555-5555-5555-5555-555555555555',
    'Andrei Popescu', '2017-05-14', 'M', 'Școala 16 Cluj-Napoca',
@@ -77,7 +78,7 @@ values
 on conflict (id) do nothing;
 
 -- Landing content slots (consumed by /cunoaste once Phase 5 wires admin editing)
-insert into public.landing_content (slot, payload, updated_by)
+insert into fotbal.landing_content (slot, payload, updated_by)
 values
   ('hero', jsonb_build_object(
      'tagline', 'Academia unde copiii devin fotbaliști — și oameni.',
@@ -94,7 +95,7 @@ on conflict (slot) do update
       updated_at = now();
 
 -- Sample news, schedule and a finished match
-insert into public.news (id, author_id, title, body_md, audience, published_at)
+insert into fotbal.news (id, author_id, title, body_md, audience, published_at)
 values
   ('11111111-2222-3333-4444-555555555501', '11111111-1111-1111-1111-111111111111',
    'Antrenamentele reîncep luni',
@@ -102,7 +103,7 @@ values
    'public', now() - interval '2 days')
 on conflict (id) do nothing;
 
-insert into public.schedule_events (id, trainer_id, kind, title, starts_at, ends_at, location, opponent, notes)
+insert into fotbal.schedule_events (id, trainer_id, kind, title, starts_at, ends_at, location, opponent, notes)
 values
   ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01',
    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',

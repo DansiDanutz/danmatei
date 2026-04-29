@@ -127,7 +127,7 @@ create index if not exists news_group_idx on fotbal.news (group_trainer_id);
 
 create table if not exists fotbal.schedule_events (
   id uuid primary key default gen_random_uuid(),
-  trainer_id uuid not null references fotbal.trainers(id) on delete cascade,
+  trainer_id uuid references fotbal.trainers(id) on delete set null,
   kind fotbal.schedule_kind not null,
   title text not null,
   starts_at timestamptz not null,

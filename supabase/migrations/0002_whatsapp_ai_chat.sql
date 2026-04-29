@@ -133,7 +133,9 @@ create index if not exists chat_messages_sender_idx on fotbal.chat_messages (sen
 
 -- Bump thread.last_message_at on every new message.
 create or replace function fotbal.tg_chat_bump_thread() returns trigger
-language plpgsql as $$
+language plpgsql
+security definer set search_path = fotbal, public
+as $$
 begin
   update fotbal.chat_threads
      set last_message_at = new.created_at
@@ -173,6 +175,19 @@ create policy "chat_threads owner+trainer write" on fotbal.chat_threads
     -- Parents can also create their 1:1 thread with their assigned trainer.
     or (kind = 'parent_trainer'::fotbal.chat_thread_kind
         and child_id in (select id from fotbal.children where parent_id = auth.uid()))
+  );
+
+-- Allow thread members (or owner) to update last_message_at via trigger
+drop policy if exists "chat_threads bump update" on fotbal.chat_threads;
+create policy "chat_threads bump update" on fotbal.chat_threads
+  for update using (
+    fotbal.is_owner()
+    or trainer_id = fotbal.my_trainer_id()
+    or (kind = 'parent_trainer'::fotbal.chat_thread_kind
+        and child_id in (select id from fotbal.children where parent_id = auth.uid()))
+    or (kind = 'group'::fotbal.chat_thread_kind
+        and trainer_id in (select trainer_id from fotbal.children where parent_id = auth.uid()))
+    or kind = 'parents'::fotbal.chat_thread_kind
   );
 
 drop policy if exists "chat_messages read via thread" on fotbal.chat_messages;
