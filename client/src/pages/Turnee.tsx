@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import { Calendar, MapPin, Trophy, Users } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
 interface TournamentRow {
@@ -24,7 +24,7 @@ interface TournamentRow {
 const FALLBACK: TournamentRow[] = [
   {
     id: "demo-1",
-    import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+    title: "Cupa Transilvaniei — U13",
     starts_at: "2026-05-15T09:00:00Z",
     ends_at: "2026-05-17T18:00:00Z",
     location: "Cluj-Arena, Cluj-Napoca",
