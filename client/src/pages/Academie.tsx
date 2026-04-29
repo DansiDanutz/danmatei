@@ -41,7 +41,7 @@ export default function Academie() {
     <PublicShell
       pageKicker="Despre noi"
       pageTitle="Academia care formează fotbaliști — și oameni"
-      pageDescription="Suntem o academie de fotbal pentru copii din Cluj-Napoca, înființată în 2017. Lucrăm cu antrenori cu licență UEFA și grupe pe vârste, cu accent pe individual development și caracter."
+      pageDescription="Suntem o academie de fotbal pentru copii din Cluj-Napoca, înființată în 2017. Lucrăm cu antrenori cu licență UEFA și grupe pe vârste, cu accent pe dezvoltare individuală și caracter."
     >
       {/* Stats strip */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
