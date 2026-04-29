@@ -24,7 +24,7 @@ interface TournamentRow {
 const FALLBACK: TournamentRow[] = [
   {
     id: "demo-1",
-    title: "Cupa Transilvaniei",
+    import { supabase, isSupabaseConfigured } from "@/lib/supabase";
     starts_at: "2026-05-15T09:00:00Z",
     ends_at: "2026-05-17T18:00:00Z",
     location: "Cluj-Arena, Cluj-Napoca",
@@ -64,6 +64,20 @@ export default function Turnee() {
 
   useEffect(() => {
     let cancelled = false;
+
+        if (!isSupabaseConfigured) {
+                setUsingFallback(true);
+                setRows(FALLBACK);
+                setLoading(false);
+                return;
+        }
+
+        const timeoutId = setTimeout(() => {
+                if (cancelled) return;
+                setUsingFallback(true);
+                setRows(FALLBACK);
+                setLoading(false);
+        }, 6000);
     void (async () => {
       const { data } = await supabase
         .from("schedule_events")
@@ -73,6 +87,7 @@ export default function Turnee() {
         .eq("kind", "tournament")
         .order("starts_at", { ascending: false });
       if (cancelled) return;
+              clearTimeout(timeoutId);
       const items = (data as unknown as TournamentRow[] | null) ?? [];
       const fallback = items.length === 0;
       setUsingFallback(fallback);
@@ -81,6 +96,7 @@ export default function Turnee() {
     })();
     return () => {
       cancelled = true;
+            clearTimeout(timeoutId);
     };
   }, []);
 
