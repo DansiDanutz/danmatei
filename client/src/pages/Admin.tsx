@@ -796,7 +796,7 @@ function LandingTab() {
 
 function LazyTab({ active, children }: { active: boolean; children: ReactNode }) {
   const [hasMounted, setHasMounted] = useState(false);
-  if (active && !hasMounted) setHasMounted(true);
+    useEffect(() => { if (active && !hasMounted) setHasMounted(true); }, [active, hasMounted]);
   if (!hasMounted) return null;
   return <>{children}</>;
 }
