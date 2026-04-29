@@ -65,7 +65,7 @@ export default function CunoasteDeck() {
   const canNext = selected < SLIDE_LABELS.length - 1;
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col bg-[oklch(0.08_0.02_250)] text-white">
+    <div className="relative flex h-[100dvh] flex-col bg-[oklch(0.08_0.02_250)] text-white">
       {/* Background atmosphere — academy blue dominates, with three tiny
           painterly accent orbs (cyan, magenta, orange) borrowed from the
           trainer portraits. All low opacity, all heavily blurred — they
