@@ -95,6 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (fastSession) {
+      // Tell the singleton supabase client about the session so that
+      // subsequent queries (e.g. loadProfile) don't deadlock on getSession().
+      supabase.auth.setSession({
+        access_token: fastSession.access_token,
+        refresh_token: fastSession.refresh_token,
+      });
       setSession(fastSession);
       loadProfile(fastSession.user.id);
     }
