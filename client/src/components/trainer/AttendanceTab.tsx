@@ -26,13 +26,13 @@ type AttendanceRow = {
 };
 
 const STATUS_META: Record<
-  string,
-  { label: string; icon: typeof CheckCircle2; color: string }
-> = {
-  present: { label: "Prezent", icon: CheckCircle2, color: "text-emerald-300" },
-  absent: { label: "Absent", icon: XCircle, color: "text-rose-300" },
-  late: { label: "Întârziat", icon: Clock, color: "text-amber-300" },
-  excused: { label: "Motivat", icon: AlertCircle, color: "text-brand-cyan" },
+    string,
+{ label: string; icon: typeof CheckCircle2; active: string }
+  > = {
+    present: { label: "Prezent", icon: CheckCircle2, active: "border-emerald-300/30 bg-emerald-300/10 text-emerald-300" },
+    absent: { label: "Absent", icon: XCircle, active: "border-rose-300/30 bg-rose-300/10 text-rose-300" },
+    late: { label: "Întârziat", icon: Clock, active: "border-amber-300/30 bg-amber-300/10 text-amber-300" },
+    excused: { label: "Motivat", icon: AlertCircle, active: "border-brand-cyan/30 bg-brand-cyan/10 text-brand-cyan" },
 };
 
 export default function AttendanceTab({
@@ -213,7 +213,7 @@ export default function AttendanceTab({
                           disabled={busy}
                           className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 font-heading text-[10px] uppercase tracking-[0.1em] transition-all ${
                             active
-                              ? `border-${meta.color.split("-")[1]}-300/30 bg-${meta.color.split("-")[1]}-300/10 ${meta.color}`
+                                                ? meta.active
                               : "border-white/8 bg-transparent text-white/35 hover:text-white/60"
                           } disabled:opacity-50`}
                         >
