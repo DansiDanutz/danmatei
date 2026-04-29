@@ -28,7 +28,7 @@ export default function Dashboard() {
     let cancelled = false;
 
     (async () => {
-      if (!profile) return;
+              if (!profile) { navigate("/completeaza-profil"); return; }
       if (!profileComplete) {
         navigate("/completeaza-profil");
         return;
