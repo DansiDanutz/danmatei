@@ -190,7 +190,7 @@ export default function NewsManager() {
     if (post.cover_path) {
       const { data } = supabase.storage
         .from("fotbal-news-public")
-        .getPublicUrl(post.cover_path.replace(/^news\//, ""));
+                  .getPublicUrl(post.cover_path);
       setCoverPreview(data.publicUrl);
     } else {
       setCoverPreview(null);
@@ -385,7 +385,7 @@ export default function NewsManager() {
                 src={
                   supabase.storage
                     .from("fotbal-news-public")
-                    .getPublicUrl(post.cover_path.replace(/^news\//, "")).data
+                                                .getPublicUrl(post.cover_path).data
                     .publicUrl
                 }
                 alt=""
