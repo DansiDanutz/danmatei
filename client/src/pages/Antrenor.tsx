@@ -627,7 +627,7 @@ function ScheduleForm({
 // ─── Message form ─────────────────────────────────────────────────────────────
 
 const messageSchema = z.object({
-  audience: z.enum(["group", "child"]),
+  audience: z.enum(["group", "child", "parent"]),
   childId: z.string().optional(),
   body: z.string().min(2, "Mesaj prea scurt").max(2000),
 });
@@ -680,33 +680,37 @@ function MessageForm({
         Mesaj nou
       </h2>
       <div className="flex gap-2">
-        {(["group", "child"] as const).map(a => (
+        {([
+          { key: "group", label: "Grupa" },
+          { key: "child", label: "Un copil" },
+          { key: "parent", label: "Părinte" },
+        ] as const).map((a) => (
           <label
-            key={a}
+            key={a.key}
             className={`flex-1 cursor-pointer rounded-xl border px-3 py-2 text-center font-heading text-[11px] uppercase tracking-[0.16em] transition-colors ${
-              audience === a
+              audience === a.key
                 ? "border-brand-cyan/60 bg-brand-cyan/10 text-brand-cyan"
                 : "border-white/10 bg-white/[0.03] text-white/65 hover:text-white"
             }`}
           >
             <input
               type="radio"
-              value={a}
+              value={a.key}
               {...register("audience")}
               className="sr-only"
             />
-            {a === "group" ? "Grupa" : "Un copil"}
+            {a.label}
           </label>
         ))}
       </div>
 
-      {audience === "child" && (
+      {(audience === "child" || audience === "parent") && (
         <div>
           <label
             htmlFor="msg-child"
             className="mb-1.5 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55"
           >
-            Copil
+            {audience === "child" ? "Copil" : "Copil (părintele lui)"}
           </label>
           <select
             id="msg-child"

@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Bell,
   Calendar,
   Loader2,
   Newspaper,
@@ -33,6 +34,7 @@ import { currentAge } from "@/lib/age";
 import GroupsTab from "@/components/admin/GroupsTab";
 import NewsManager from "@/components/admin/NewsManager";
 import ScheduleOversight from "@/components/admin/ScheduleOversight";
+import NotificationManager from "@/components/admin/NotificationManager";
 
 type TrainerRow = {
   id: string;
@@ -103,6 +105,9 @@ export default function Admin() {
           <Trigger value="program" icon={<Calendar className="size-3.5" />}>
             Program
           </Trigger>
+          <Trigger value="notificari" icon={<Bell className="size-3.5" />}>
+            Notificări
+          </Trigger>
           <Trigger value="pagina" icon={<Newspaper className="size-3.5" />}>
             Pagina publică
           </Trigger>
@@ -131,6 +136,11 @@ export default function Admin() {
         <TabsContent value="program" className="mt-5">
           <LazyTab active={tab === "program"}>
             <ScheduleOversight />
+          </LazyTab>
+        </TabsContent>
+        <TabsContent value="notificari" className="mt-5">
+          <LazyTab active={tab === "notificari"}>
+            <NotificationManager />
           </LazyTab>
         </TabsContent>
 
