@@ -156,10 +156,12 @@ export default function Grupe() {
 
             <footer className="mt-5 flex items-center justify-between border-t border-white/5 pt-5">
               <div className="flex items-center gap-4 text-xs text-white/55">
-                <span className="inline-flex items-center gap-1.5">
-                  <UsersIcon className="size-3.5 text-brand-cyan/70" />
-                  {g.childCount} copii
-                </span>
+                {g.childCount > 0 && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <UsersIcon className="size-3.5 text-brand-cyan/70" />
+                    {g.childCount} {g.childCount === 1 ? "copil" : "copii"}
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1.5">
                   <Calendar className="size-3.5 text-brand-cyan/70" />
                   Orar flexibil

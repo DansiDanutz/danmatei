@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Image as ImageIcon, Play } from "lucide-react";
+import { Image as ImageIcon, Play, Trophy, Dumbbell, Swords, Users, MapPin, Award } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import { supabase } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
@@ -20,17 +20,13 @@ interface MediaRow {
   created_at: string;
 }
 
-const FALLBACK_TILES: Array<{ id: string; label: string; tint: string }> = [
-  { id: "f1", label: "Cupa Transilvaniei · U13", tint: "from-brand-cyan/30" },
-  { id: "f2", label: "Antrenament U7", tint: "from-[oklch(0.65_0.22_50)]/25" },
-  { id: "f3", label: "Meci U11", tint: "from-[oklch(0.55_0.20_280)]/25" },
-  { id: "f4", label: "Echipa tehnică", tint: "from-brand-cyan/25" },
-  {
-    id: "f5",
-    label: "Stadionul Mănăștur",
-    tint: "from-[oklch(0.85_0.16_90)]/15",
-  },
-  { id: "f6", label: "Festivitatea de premiere", tint: "from-brand-gold/20" },
+const FALLBACK_TILES: Array<{ id: string; label: string; tint: string; icon: typeof Trophy }> = [
+  { id: "f1", label: "Cupa Transilvaniei · U13", tint: "from-brand-cyan/30", icon: Trophy },
+  { id: "f2", label: "Antrenament U7", tint: "from-[oklch(0.65_0.22_50)]/25", icon: Dumbbell },
+  { id: "f3", label: "Meci U11", tint: "from-[oklch(0.55_0.20_280)]/25", icon: Swords },
+  { id: "f4", label: "Echipa tehnică", tint: "from-brand-cyan/25", icon: Users },
+  { id: "f5", label: "Stadionul Mănăștur", tint: "from-[oklch(0.85_0.16_90)]/15", icon: MapPin },
+  { id: "f6", label: "Festivitatea de premiere", tint: "from-brand-gold/20", icon: Award },
 ];
 
 function resolvePublicUrl(path: string): string {
@@ -102,13 +98,13 @@ export default function Galerie() {
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: i * 0.05, ease: expoOut }}
-              className={`relative aspect-[4/5] overflow-hidden rounded-3xl border border-white/8 bg-gradient-to-br ${t.tint} via-[oklch(0.13_0.03_250)] to-[oklch(0.10_0.025_250)]`}
+              className={`relative aspect-square overflow-hidden rounded-2xl border border-white/8 bg-gradient-to-br ${t.tint} via-[oklch(0.13_0.03_250)] to-[oklch(0.10_0.025_250)]`}
             >
               <span className="pointer-events-none absolute inset-0 grid place-items-center">
-                <ImageIcon className="size-10 text-white/15" />
+                <t.icon className="size-10 text-white/20" />
               </span>
-              <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[oklch(0.08_0.02_250)]/90 via-[oklch(0.08_0.02_250)]/30 to-transparent p-4 font-heading text-xs uppercase tracking-[0.16em] text-white/85">
-                {t.label}
+              <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
+                <p className="font-body text-sm font-medium text-white">{t.label}</p>
               </span>
             </motion.div>
           ))}
@@ -121,7 +117,7 @@ export default function Galerie() {
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: i * 0.05, ease: expoOut }}
-              className="group relative aspect-[4/5] overflow-hidden rounded-3xl border border-white/8 bg-[oklch(0.10_0.025_250)]"
+              className="group relative aspect-square overflow-hidden rounded-2xl border border-white/8 bg-[oklch(0.10_0.025_250)]"
             >
               {tile.kind === "image" ? (
                 <img
@@ -146,11 +142,9 @@ export default function Galerie() {
                   </span>
                 </>
               )}
-              {tile.caption && (
-                <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[oklch(0.08_0.02_250)]/90 via-[oklch(0.08_0.02_250)]/30 to-transparent p-3 font-body text-xs text-white/85">
-                  {tile.caption}
-                </figcaption>
-              )}
+              <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
+                <p className="font-body text-sm font-medium text-white">{tile.caption ?? "Fotografie"}</p>
+              </figcaption>
             </motion.figure>
           ))}
         </div>

@@ -122,25 +122,27 @@ export default function Copii() {
                     .slice(0, 2)
                     .join("");
                   return (
-                    <li
-                      key={p.id}
-                      className="flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3"
-                    >
-                      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-brand-cyan/15 font-heading text-xs font-bold text-brand-cyan">
-                        {initials}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="truncate font-heading text-sm font-semibold uppercase tracking-[0.04em] text-white/90">
-                          {p.name}
+                    <li key={p.id}>
+                      <Link
+                        href={`/copil/${p.id}`}
+                        className="group flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3 transition-all hover:border-brand-cyan/30 hover:bg-brand-cyan/5"
+                      >
+                        <span className="grid size-9 shrink-0 place-items-center rounded-md bg-brand-cyan/15 font-heading text-xs font-bold text-brand-cyan transition-colors group-hover:bg-brand-cyan/25">
+                          {initials}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-heading text-sm font-semibold uppercase tracking-[0.04em] text-white/90">
+                            {p.name}
+                          </div>
+                          <div className="truncate font-heading text-[10px] uppercase tracking-[0.14em] text-white/50">
+                            {p.position}
+                            <span className="mx-1.5 text-white/25">·</span>
+                            <span className="tabular-nums text-white/70">
+                              {p.yearOfBirth}
+                            </span>
+                          </div>
                         </div>
-                        <div className="truncate font-heading text-[10px] uppercase tracking-[0.14em] text-white/50">
-                          {p.position}
-                          <span className="mx-1.5 text-white/25">·</span>
-                          <span className="tabular-nums text-white/70">
-                            {p.yearOfBirth}
-                          </span>
-                        </div>
-                      </div>
+                      </Link>
                     </li>
                   );
                 })}

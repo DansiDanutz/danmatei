@@ -107,6 +107,8 @@ export default function Rezultate() {
   const wins = results.filter(r => r.our_score > r.opponent_score).length;
   const draws = results.filter(r => r.our_score === r.opponent_score).length;
   const losses = results.filter(r => r.our_score < r.opponent_score).length;
+  const total = wins + draws + losses;
+  const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
 
   return (
     <PublicShell
@@ -117,22 +119,23 @@ export default function Rezultate() {
       {usingFallback && <DemoBanner />}
 
       {/* Win/draw/loss strip */}
-      <div className="mb-8 grid grid-cols-3 gap-3 sm:gap-5">
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         {[
           { label: "Victorii", value: wins, accent: "text-brand-cyan" },
           { label: "Egaluri", value: draws, accent: "text-white/85" },
           { label: "Înfrângeri", value: losses, accent: "text-rose-300/85" },
+          { label: "Rată victorii", value: `${winRate}%`, accent: "text-brand-gold" },
         ].map(s => (
           <div
             key={s.label}
             className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/55 p-4 text-center sm:p-5"
           >
             <div
-              className={`font-heading text-3xl font-bold tabular-nums sm:text-4xl ${s.accent}`}
+              className={`font-heading text-2xl font-bold tabular-nums sm:text-3xl ${s.accent}`}
             >
               {s.value}
             </div>
-            <div className="mt-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
+            <div className="mt-1 font-body text-[11px] uppercase tracking-[0.15em] text-white/40">
               {s.label}
             </div>
           </div>

@@ -192,9 +192,9 @@ export default function Campionat() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 sm:gap-5">
-                  <ResultPip label="V" value={g.w} tone="cyan" />
-                  <ResultPip label="E" value={g.d} tone="muted" />
-                  <ResultPip label="Î" value={g.l} tone="rose" />
+                  <ResultPip label="V" title="Victorii" value={g.w} tone="cyan" />
+                  <ResultPip label="E" title="Egaluri" value={g.d} tone="muted" />
+                  <ResultPip label="Î" title="Înfrângeri" value={g.l} tone="rose" />
                   <ChevronDown
                     className={`size-5 shrink-0 text-white/45 transition-transform ${
                       open ? "rotate-180" : ""
@@ -251,11 +251,12 @@ export default function Campionat() {
 
 interface ResultPipProps {
   label: string;
+  title: string;
   value: number;
   tone: "cyan" | "muted" | "rose";
 }
 
-function ResultPip({ label, value, tone }: ResultPipProps) {
+function ResultPip({ label, title, value, tone }: ResultPipProps) {
   const styles =
     tone === "cyan"
       ? "border-brand-cyan/30 bg-brand-cyan/10 text-brand-cyan"
@@ -263,7 +264,7 @@ function ResultPip({ label, value, tone }: ResultPipProps) {
         ? "border-rose-400/25 bg-rose-400/10 text-rose-300"
         : "border-white/10 bg-white/5 text-white/60";
   return (
-    <div className={`hidden rounded-xl border px-2.5 py-1.5 sm:block ${styles}`}>
+    <div title={title} className={`hidden cursor-help rounded-xl border px-2.5 py-1.5 sm:block ${styles}`}>
       <span className="font-heading text-[10px] uppercase tracking-[0.18em] opacity-70">
         {label}
       </span>

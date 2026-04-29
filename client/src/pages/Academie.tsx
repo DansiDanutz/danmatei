@@ -53,20 +53,20 @@ export default function Academie() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: i * 0.05, ease: expoOut }}
-              className={`rounded-2xl border p-4 sm:p-5 ${
+              className={`rounded-2xl border bg-white/[0.02] p-4 sm:p-5 ${
                 isAchievement
-                  ? "border-brand-gold/25 bg-brand-gold/5"
-                  : "border-brand-cyan/15 bg-brand-cyan/[0.04]"
+                  ? "border-brand-gold/20"
+                  : "border-white/8"
               }`}
             >
               <div
-                className={`font-heading text-3xl font-bold tabular-nums ${
+                className={`font-heading text-2xl font-black tabular-nums sm:text-3xl ${
                   isAchievement ? "text-brand-gold" : "text-brand-cyan"
                 }`}
               >
                 {s.value}
               </div>
-              <div className="mt-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/55">
+              <div className="mt-1 font-body text-[11px] uppercase tracking-[0.15em] text-white/40">
                 {s.label}
               </div>
             </motion.div>

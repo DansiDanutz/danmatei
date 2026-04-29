@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Bell, Check, ArrowRight } from "lucide-react";
+import { Bell, Check, ArrowRight, Calendar, MessageSquare } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -75,9 +75,22 @@ export default function Notificari() {
         pageTitle="Intră în cont pentru a vedea notificările"
         pageDescription="Notificările despre meciuri, antrenamente, mesaje de la antrenor și anunțuri de grup ajung în acest panou după ce te autentifici."
       >
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[
+            { icon: Calendar, title: "Program", desc: "Antrenamente și meciuri săptămânale" },
+            { icon: MessageSquare, title: "Mesaje antrenor", desc: "Comunicare directă cu antrenorul" },
+            { icon: Bell, title: "Anunțuri", desc: "Schimbări de program, evenimente speciale" },
+          ].map((item) => (
+            <div key={item.title} className="rounded-2xl border border-white/8 bg-white/[0.03] p-5">
+              <item.icon className="mb-3 size-6 text-brand-cyan/70" />
+              <h3 className="font-heading text-sm font-bold uppercase tracking-wider text-white">{item.title}</h3>
+              <p className="mt-1 font-body text-xs text-white/50">{item.desc}</p>
+            </div>
+          ))}
+        </div>
         <Link
           href="/login"
-          className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-5 py-3 font-heading text-sm font-semibold uppercase tracking-[0.16em] text-[oklch(0.08_0.02_250)] transition-transform hover:scale-[1.02]"
+          className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-cyan px-5 py-3 font-heading text-sm font-semibold uppercase tracking-[0.16em] text-[oklch(0.08_0.02_250)] transition-transform hover:scale-[1.02]"
         >
           Mergi la autentificare
           <ArrowRight className="size-4" />

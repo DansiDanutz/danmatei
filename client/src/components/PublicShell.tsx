@@ -97,7 +97,7 @@ export default function PublicShell({
             : "border-b border-transparent"
         }`}
       >
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:h-20 sm:px-8">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:h-16 sm:px-8">
           <Link
             href="/"
             className="group flex items-center gap-3"
@@ -130,10 +130,10 @@ export default function PublicShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`relative inline-flex items-center gap-1.5 rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] transition-colors ${
+                  className={`relative inline-flex items-center gap-1.5 rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] transition-all ${
                     active
-                      ? "text-brand-cyan"
-                      : "text-white/70 hover:text-white"
+                      ? "text-brand-cyan bg-brand-cyan/10 border border-brand-cyan/20"
+                      : "text-white/70 hover:text-white hover:bg-white/5"
                   }`}
                 >
                   {item.icon}
@@ -141,7 +141,7 @@ export default function PublicShell({
                   {active && (
                     <motion.span
                       layoutId="nav-underline"
-                      className="absolute inset-0 -z-10 rounded-full border border-brand-cyan/30 bg-brand-cyan/10"
+                      className="absolute inset-0 -z-10 rounded-full"
                       transition={{ type: "spring", stiffness: 350, damping: 30 }}
                     />
                   )}
@@ -284,9 +284,9 @@ export default function PublicShell({
         )}
       </AnimatePresence>
 
-      <main className="relative z-10 pt-16 sm:pt-20">
+      <main className="relative z-10 pt-14 sm:pt-16">
         {(pageTitle ?? pageKicker ?? pageDescription) && (
-          <section className="mx-auto max-w-6xl px-4 pb-6 pt-10 sm:px-8 sm:pb-10 sm:pt-16">
+          <section className="mx-auto max-w-6xl px-4 pb-4 pt-6 sm:px-8 sm:pb-8 sm:pt-10">
             {pageKicker && (
               <motion.span
                 initial={{ opacity: 0, y: 8 }}
@@ -321,7 +321,7 @@ export default function PublicShell({
           </section>
         )}
 
-        <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-8">{children}</div>
+        <div className="mx-auto max-w-6xl px-4 pb-12 sm:px-8">{children}</div>
       </main>
 
       <footer className="relative z-10 mt-12 border-t border-white/5">

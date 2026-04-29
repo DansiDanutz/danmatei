@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar, Tag } from "lucide-react";
+import { Calendar, Newspaper, Tag } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
 import { supabase } from "@/lib/supabase";
@@ -94,7 +94,7 @@ export default function Stiri() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+      <div className="grid gap-3 sm:gap-4">
         {posts.map((p, i) => {
           const date = p.published_at
             ? dateFormatter.format(new Date(p.published_at))
@@ -102,38 +102,39 @@ export default function Stiri() {
           return (
             <motion.article
               key={p.id}
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: i * 0.05, ease: expoOut }}
-              className="group overflow-hidden rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/50 transition-colors hover:border-brand-cyan/30"
+              transition={{ duration: 0.4, delay: i * 0.04, ease: expoOut }}
+              className="group flex items-start gap-4 overflow-hidden rounded-2xl border border-white/8 bg-[oklch(0.11_0.02_250)] p-4 transition-colors hover:border-brand-cyan/30 sm:p-5"
             >
-              {p.cover_path ? (
-                <div className="aspect-[16/9] overflow-hidden bg-[oklch(0.10_0.02_250)]">
+              <div className="relative size-16 shrink-0 overflow-hidden rounded-xl sm:size-20">
+                {p.cover_path ? (
                   <img
                     src={resolveNewsCoverUrl(p.cover_path)}
                     alt={p.title}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    className="size-full object-cover"
                   />
-                </div>
-              ) : (
-                <div className="grid aspect-[16/9] place-items-center bg-gradient-to-br from-brand-navy/30 via-brand-cyan/10 to-transparent">
-                  <span className="font-heading text-2xl font-bold uppercase tracking-[0.16em] text-white/30">
-                    Dan Matei
+                ) : (
+                  <div className="grid size-full place-items-center bg-gradient-to-br from-brand-cyan/20 to-brand-navy/40">
+                    <Newspaper className="size-6 text-brand-cyan/60" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-body text-[11px] text-white/45">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="size-3 text-brand-cyan/70" />
+                    {date}
+                  </span>
+                  <span className="inline-flex items-center gap-1 capitalize">
+                    <Tag className="size-3 text-brand-cyan/70" />
+                    {p.audience}
                   </span>
                 </div>
-              )}
-              <div className="p-5 sm:p-6">
-                <div className="flex items-center gap-2 font-body text-[11px] text-white/45">
-                  <Calendar className="size-3.5 text-brand-cyan/70" />
-                  {date}
-                  <span className="text-white/15">·</span>
-                  <Tag className="size-3.5 text-brand-cyan/70" />
-                  <span className="capitalize">{p.audience}</span>
-                </div>
-                <h2 className="mt-3 font-heading text-lg font-bold uppercase tracking-[0.04em] text-white sm:text-xl">
+                <h2 className="mt-1.5 font-heading text-base font-bold uppercase leading-tight tracking-[0.04em] text-white sm:text-lg">
                   {p.title}
                 </h2>
-                <p className="mt-2 line-clamp-3 font-body text-sm leading-relaxed text-white/65">
+                <p className="mt-1 line-clamp-2 font-body text-sm leading-relaxed text-white/60">
                   {p.body_md}
                 </p>
               </div>
