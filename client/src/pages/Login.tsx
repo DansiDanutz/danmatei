@@ -12,10 +12,15 @@ import GoogleAuthButton from "@/components/GoogleAuthButton";
 import { useAuth } from "@/lib/auth";
 
 export default function Login() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, signIn } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [showFallback, setShowFallback] = useState(false);
+  // Email/password test form (hidden unless ?email=1 is present)
+  const showEmailForm = new URLSearchParams(window.location.search).get("email") === "1";
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
 
   // If redirect doesn't happen within 4s, show a fallback direct link.
   useEffect(() => {
@@ -39,6 +44,18 @@ export default function Login() {
       setServerError(e instanceof Error ? e.message : "Eroare la conectare");
       setSubmitting(false);
     }
+  };
+
+  const handleEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setServerError(null);
+    setEmailSubmitting(true);
+    const { error } = await signIn(email, password);
+    if (error) {
+      setServerError(error);
+      setEmailSubmitting(false);
+    }
+    // Successful login triggers onAuthStateChange → redirect handled by App/RouteGuards
   };
 
   return (
@@ -70,6 +87,35 @@ export default function Login() {
           onClick={handleGoogle}
           loading={submitting}
         />
+
+        {showEmailForm && (
+          <form onSubmit={handleEmail} className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
+            <p className="text-center font-body text-xs text-white/55">Test login (email + parolă)</p>
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="rounded-md border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder-white/30 outline-none focus:border-brand-cyan/50"
+              required
+            />
+            <input
+              type="password"
+              placeholder="Parolă"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="rounded-md border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder-white/30 outline-none focus:border-brand-cyan/50"
+              required
+            />
+            <button
+              type="submit"
+              disabled={emailSubmitting}
+              className="rounded-full border border-brand-cyan/40 bg-[oklch(0.10_0.02_250)] px-4 py-2 font-heading text-xs font-semibold uppercase tracking-[0.14em] text-white transition-all hover:border-brand-cyan/70 disabled:opacity-60"
+            >
+              {emailSubmitting ? <Loader2 className="mx-auto size-3 animate-spin" /> : "Conectează-te"}
+            </button>
+          </form>
+        )}
 
         {serverError && (
           <p className="rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 py-2 font-body text-sm text-rose-200">
