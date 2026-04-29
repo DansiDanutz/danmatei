@@ -38,7 +38,6 @@ export default function Contact() {
     setFormData({ name: "", email: "", phone: "", message: "" });
     setLoading(false);
   };
-  };
 
   return (
     <section id="contact" className="relative section-padding overflow-hidden" ref={ref}>
