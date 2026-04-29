@@ -1,7 +1,7 @@
 /**
  * /campionat — Championship view. Lists each active group (trainer)
  * with their match history and an aggregate W-D-L. Per-group results
- * unfold inline via a compact accordion.
+ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
  *
  * Reads:
  *   - fotbal.trainers (with profile name) for each group
@@ -55,6 +55,26 @@ export default function Campionat() {
 
   useEffect(() => {
     let cancelled = false;
+
+        if (!isSupabaseConfigured) {
+                setUsingFallback(true);
+                const fallbackGroups: GroupBlock[] = TRAINERS.map((t) => ({
+                          trainerId: t.id,
+                          trainerName: t.name,
+                          ageMin: t.ageMin,
+                          ageMax: t.ageMax,
+                          matches: [],
+                          w: 0, d: 0, l: 0, gf: 0, ga: 0,
+                }));
+                setGroups(fallbackGroups);
+                setLoading(false);
+                return;
+        }
+
+        const timeoutId = setTimeout(() => {
+                if (cancelled) return;
+                setLoading(false);
+        }, 6000);
     void (async () => {
       const [trainersRes, eventsRes] = await Promise.all([
         supabase
@@ -140,10 +160,12 @@ export default function Campionat() {
       });
 
       setGroups(blocks);
+              clearTimeout(timeoutId);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
+            clearTimeout(timeoutId);
     };
   }, []);
 
