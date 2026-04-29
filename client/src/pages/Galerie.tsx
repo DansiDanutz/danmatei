@@ -38,7 +38,7 @@ function resolvePublicUrl(path: string): string {
     : path.startsWith("news/")
       ? "fotbal-news-public"
       : "fotbal-trainer-public";
-  const cleanPath = path.replace(/^trainer\/|^news\//, "");
+      const cleanPath = path;
   const { data } = supabase.storage.from(bucket).getPublicUrl(cleanPath);
   return data.publicUrl;
 }
