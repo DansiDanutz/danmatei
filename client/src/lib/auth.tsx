@@ -60,19 +60,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        "id, role, full_name, phone, locale, avatar_path, created_at, updated_at"
-      )
-      .eq("id", userId)
-      .maybeSingle();
-    if (error) {
-      console.warn("[auth] profile load error", error.message);
+    // Use fetch directly to avoid supabase client deadlock on getSession()
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=id,role,full_name,phone,locale,avatar_path,created_at,updated_at`;
+    const token = JSON.parse(localStorage.getItem("scoala-fotbal-auth") || "{}").access_token;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Accept-Profile": "fotbal",
+        },
+      });
+      if (!res.ok) {
+        console.warn("[auth] profile load error", res.status);
+        setProfile(null);
+        return;
+      }
+      const data = await res.json();
+      setProfile((data[0] as Profile) ?? null);
+    } catch (e) {
+      console.warn("[auth] profile load error", e);
       setProfile(null);
-      return;
     }
-    setProfile(data as Profile | null);
   }, []);
 
   useEffect(() => {
@@ -102,9 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refresh_token: fastSession.refresh_token,
       });
       setSession(fastSession);
-      loadProfile(fastSession.user.id);
+      loadProfile(fastSession.user.id).finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
 
     // Listen for auth state changes (login, logout, token refresh)
     const { data: sub } = supabase.auth.onAuthStateChange(
