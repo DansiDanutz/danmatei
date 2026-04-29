@@ -59,7 +59,7 @@ export default function ScheduleOversight() {
     const { data, error: evErr } = await supabase
       .from("schedule_events")
       .select(
-        "id, title, kind, starts_at, location, trainer_id, trainer:trainers(profile(full_name))"
+        "id, title, kind, starts_at, location, trainer_id, trainer:trainers(profile:profiles(full_name))"
       )
       .gte("starts_at", from.toISOString())
       .lte("starts_at", to.toISOString())
