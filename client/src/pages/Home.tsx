@@ -269,7 +269,7 @@ export default function Home() {
             </span>
           </motion.div>
 
-          <HeroTimer redirectTo="/cunoaste" disabled>
+          <HeroTimer redirectTo="/cunoaste">
             <div className="relative">
               {/* Animated rim — a soft cyan light traveling around the card */}
               <span

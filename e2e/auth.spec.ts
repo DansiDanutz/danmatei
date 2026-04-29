@@ -1,23 +1,17 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Authentication flows", () => {
-  test("login page renders form elements", async ({ page }) => {
+  test("login page renders Google sign-in button", async ({ page }) => {
     await page.goto("/login");
-    // Should have email/password inputs and a submit button
-    const emailInput = page.locator('input[type="email"], input[name="email"]').first();
-    const passwordInput = page.locator('input[type="password"], input[name="password"]').first();
-
-    // At least one form element should exist
-    const formElements = page.locator("input");
-    const count = await formElements.count();
-    expect(count).toBeGreaterThan(0);
+    // Login uses Google OAuth only — look for the Google button or auth card
+    const googleButton = page.locator('button, [role="button"]').filter({ hasText: /Google|Conectare/ }).first();
+    await expect(googleButton).toBeVisible();
   });
 
-  test("registration page renders form", async ({ page }) => {
+  test("registration page renders Google sign-up button", async ({ page }) => {
     await page.goto("/inregistrare");
-    const formElements = page.locator("input");
-    const count = await formElements.count();
-    expect(count).toBeGreaterThan(0);
+    const googleButton = page.locator('button, [role="button"]').filter({ hasText: /Google|Înscriere/ }).first();
+    await expect(googleButton).toBeVisible();
   });
 
   test("unauthenticated dashboard access redirects to login", async ({ page }) => {

@@ -24,10 +24,9 @@ test.describe("Navigation", () => {
     expect(url).toMatch(/\/(login|dashboard)/);
   });
 
-  test("login page loads with form elements", async ({ page }) => {
+  test("login page loads with Google sign-in", async ({ page }) => {
     await page.goto("/login");
-    const formElements = page.locator("input");
-    const count = await formElements.count();
-    expect(count).toBeGreaterThan(0);
+    const googleButton = page.locator('button, [role="button"]').filter({ hasText: /Google|Conectare/ }).first();
+    await expect(googleButton).toBeVisible();
   });
 });
