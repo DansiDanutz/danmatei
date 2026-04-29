@@ -9,7 +9,12 @@
  * Auth: caller must be authenticated and have role = 'owner' or 'super_admin'.
  */
 import { z } from "zod";
-import { serviceClient, userClient, getJwtFromHeader } from "./_lib/supabase.js";
+import {
+  serviceClient,
+  userClient,
+  getJwtFromHeader,
+  getUserIdFromJwt,
+} from "./_lib/supabase.js";
 
 const Body = z.object({
   target: z.enum(["all_parents", "group", "trainer"]),
@@ -48,8 +53,13 @@ export default async function handler(req: Req, res: Res) {
   // Verify caller is owner or super_admin.
   let callerRole: string | null = null;
   try {
+    const userId = await getUserIdFromJwt(jwt);
     const u = userClient(jwt);
-    const { data, error } = await u.from("profiles").select("role").single();
+    const { data, error } = await u
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
     if (error) throw error;
     callerRole = data?.role ?? null;
   } catch (e) {

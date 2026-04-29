@@ -13,7 +13,12 @@
  */
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
-import { serviceClient, userClient, getJwtFromHeader } from "../_lib/supabase.js";
+import {
+  serviceClient,
+  userClient,
+  getJwtFromHeader,
+  getUserIdFromJwt,
+} from "../_lib/supabase.js";
 import { createConvAILink } from "../_lib/elevenlabs.js";
 
 const Body = z.object({
@@ -60,7 +65,13 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
 
   // Identify the calling parent.
   const u = userClient(jwt);
-  const profileQ = await u.from("profiles").select("id").single();
+  let userId: string;
+  try {
+    userId = await getUserIdFromJwt(jwt);
+  } catch {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  const profileQ = await u.from("profiles").select("id").eq("id", userId).single();
   if (profileQ.error || !profileQ.data) {
     return res.status(401).json({ error: "Not authenticated" });
   }

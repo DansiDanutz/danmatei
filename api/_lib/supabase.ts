@@ -45,6 +45,24 @@ export function userClient(jwt: string): SupabaseClient {
   });
 }
 
+export async function getUserIdFromJwt(jwt: string): Promise<string> {
+  assertEnv();
+  const response = await fetch(`${URL}/auth/v1/user`, {
+    headers: {
+      apikey: ANON!,
+      authorization: `Bearer ${jwt}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error("Not authenticated");
+  }
+  const user = (await response.json()) as { id?: string };
+  if (!user.id) {
+    throw new Error("Not authenticated");
+  }
+  return user.id;
+}
+
 export function getJwtFromHeader(auth: string | undefined): string | null {
   if (!auth) return null;
   const m = auth.match(/^Bearer\s+(.+)$/i);

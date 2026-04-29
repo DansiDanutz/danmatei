@@ -8,7 +8,12 @@
  * fotbal.profiles row. Verified server-side using userClient(jwt).
  */
 import { z } from "zod";
-import { serviceClient, userClient, getJwtFromHeader } from "./_lib/supabase.js";
+import {
+  serviceClient,
+  userClient,
+  getJwtFromHeader,
+  getUserIdFromJwt,
+} from "./_lib/supabase.js";
 
 const Body = z.object({
   email: z.string().email(),
@@ -53,8 +58,13 @@ export default async function handler(req: Req, res: Res) {
   // Verify caller is the owner.
   let isOwner = false;
   try {
+    const userId = await getUserIdFromJwt(jwt);
     const u = userClient(jwt);
-    const { data, error } = await u.from("profiles").select("role").single();
+    const { data, error } = await u
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
     if (error) throw error;
     isOwner = data?.role === "owner";
   } catch (e) {
