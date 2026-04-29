@@ -14,7 +14,7 @@ import { expoOut } from "@/lib/motion";
 
 function resolveNewsCoverUrl(path: string | null): string | undefined {
   if (!path) return undefined;
-  const clean = path.replace(/^news\//, "");
+    const clean = path;
   return supabase.storage.from("fotbal-news-public").getPublicUrl(clean).data.publicUrl;
 }
 
