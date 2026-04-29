@@ -19,6 +19,7 @@ import {
   CalendarDays,
   Loader2,
   MessageSquare,
+  Swords,
   Send,
   UserCog,
   Users,
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import TrainerAIPanel from "@/components/TrainerAIPanel";
 import AtribuiriTab from "@/components/trainer/AtribuiriTab";
+import MatchesTab from "@/components/trainer/MatchesTab";
 import { Link } from "wouter";
 import MemberShell from "@/components/MemberShell";
 import { supabase } from "@/lib/supabase";
@@ -224,6 +226,9 @@ export default function Antrenor() {
           <Trigger value="program" icon={<CalendarDays className="size-3.5" />}>
             Program
           </Trigger>
+          <Trigger value="meciuri" icon={<Swords className="size-3.5" />}>
+            Meciuri
+          </Trigger>
           <Trigger value="mesaje" icon={<MessageSquare className="size-3.5" />}>
             Mesaje
           </Trigger>
@@ -316,7 +321,9 @@ export default function Antrenor() {
                             ? "Meci"
                             : e.kind === "training"
                               ? "Antrenament"
-                              : e.kind}
+                              : e.kind === "tournament"
+                                ? "Turneu"
+                                : e.kind}
                         </span>
                       </div>
                       <p className="mt-1 font-heading text-[11px] uppercase tracking-[0.18em] text-white/50">
@@ -339,6 +346,13 @@ export default function Antrenor() {
                 </div>
               </div>
             </div>
+          </LazyTab>
+        </TabsContent>
+
+        {/* MECIURI */}
+        <TabsContent value="meciuri" className="mt-5">
+          <LazyTab active={tab === "meciuri"}>
+            <MatchesTab trainerId={trainer.id} children={children.map(c => ({ id: c.id, full_name: c.full_name }))} />
           </LazyTab>
         </TabsContent>
 
@@ -460,7 +474,7 @@ const Empty = ({ hint }: { hint: string }) => (
 // ─── Schedule form ────────────────────────────────────────────────────────────
 
 const scheduleSchema = z.object({
-  kind: z.enum(["training", "match"]),
+  kind: z.enum(["training", "match", "tournament", "other"]),
   title: z.string().min(2, "Titlu prea scurt").max(120),
   startsAt: z.string().min(1, "Dată/oră"),
   location: z.string().max(120).optional().or(z.literal("")),
@@ -517,10 +531,15 @@ function ScheduleForm({
         Eveniment nou
       </h2>
       <div className="flex gap-2">
-        {(["training", "match"] as const).map(k => (
+        {([
+          { k: "training" as const, label: "Antrenament" },
+          { k: "match" as const, label: "Meci" },
+          { k: "tournament" as const, label: "Turneu" },
+          { k: "other" as const, label: "Altul" },
+        ]).map(({ k, label }) => (
           <label
             key={k}
-            className={`flex-1 cursor-pointer rounded-xl border px-3 py-2 text-center font-heading text-[11px] uppercase tracking-[0.16em] transition-colors ${
+            className={`flex-1 cursor-pointer rounded-xl border px-2 py-2 text-center font-heading text-[11px] uppercase tracking-[0.14em] transition-colors ${
               kind === k
                 ? "border-brand-cyan/60 bg-brand-cyan/10 text-brand-cyan"
                 : "border-white/10 bg-white/[0.03] text-white/65 hover:text-white"
@@ -532,7 +551,7 @@ function ScheduleForm({
               {...register("kind")}
               className="sr-only"
             />
-            {k === "training" ? "Antrenament" : "Meci"}
+            {label}
           </label>
         ))}
       </div>
