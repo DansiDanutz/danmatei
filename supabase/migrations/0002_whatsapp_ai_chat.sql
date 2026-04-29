@@ -226,4 +226,12 @@ create policy "chat_messages edit own" on fotbal.chat_messages
   for update using (sender_id = auth.uid()) with check (sender_id = auth.uid());
 
 -- Realtime publication for live chat updates
-alter publication supabase_realtime add table fotbal.chat_messages;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'fotbal' and tablename = 'chat_messages'
+  ) then
+    alter publication supabase_realtime add table fotbal.chat_messages;
+  end if;
+end $$;

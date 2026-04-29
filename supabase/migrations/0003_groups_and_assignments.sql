@@ -77,7 +77,7 @@ create policy "groups owner write" on fotbal.groups
 --    parent  → own children
 --    owner   → all children
 --    trainer → own assigned children + pending children in group year range
-drop policy if exists "children parent read" on fotbal.children;
+drop policy if exists "children read" on fotbal.children;
 create policy "children read" on fotbal.children
   for select using (
     parent_id = auth.uid()
@@ -95,7 +95,7 @@ create policy "children read" on fotbal.children
 --     parent  → own children (basic info)
 --     owner   → any child (full control)
 --     trainer → can claim unassigned children in their group range
-drop policy if exists "children parent update" on fotbal.children;
+drop policy if exists "children update" on fotbal.children;
 create policy "children update" on fotbal.children
   for update using (
     parent_id = auth.uid()
