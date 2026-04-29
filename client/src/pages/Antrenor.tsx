@@ -84,6 +84,7 @@ export default function Antrenor() {
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("grupa");
 
   const refresh = useMemo(
     () => async () => {
@@ -190,8 +191,7 @@ export default function Antrenor() {
     );
   }
 
-  const [tab, setTab] = useState("grupa");
-
+  
   return (
     <MemberShell>
       {/* Header */}
