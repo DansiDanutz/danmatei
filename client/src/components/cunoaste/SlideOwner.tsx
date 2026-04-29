@@ -52,7 +52,7 @@ export default function SlideOwner() {
       }
       subtitle={OWNER.role}
     >
-      <div className="grid h-full gap-8 lg:grid-cols-12 lg:gap-10">
+      <div className="grid content-start gap-5 lg:h-full lg:grid-cols-12 lg:gap-10">
         {/* Portrait video + quote */}
         <div className="flex flex-col gap-5 lg:col-span-5">
           <div className="relative">
