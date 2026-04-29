@@ -7,6 +7,7 @@
 **Design Movement**: Neo-Brutalism meets Sports Broadcasting Aesthetics
 
 **Core Principles**:
+# Deploy trigger - reconnected Vercel to danmatei repo
 1. Raw, bold typography that commands attention like stadium signage
 2. High-contrast color blocking inspired by the tunnel walk before a match
 3. Unapologetic use of oversized elements and dramatic scale shifts
