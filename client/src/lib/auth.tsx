@@ -100,20 +100,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
 
+    // Safety timeout for unauthenticated users or when getSession() hangs
+    const safetyTimerId = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 2000);
+
     // Background validation/refresh via official API
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
         if (cancelled) return;
+        clearTimeout(safetyTimerId);
         if (data.session) {
           setSession(data.session);
           await loadProfile(data.session.user.id);
         } else if (!fastSession) {
           setSession(null);
         }
+        if (!cancelled) setLoading(false);
       })
       .catch(() => {
-        // keep fastSession if validation fails
+        clearTimeout(safetyTimerId);
+        if (!cancelled) setLoading(false);
       });
 
     const { data: sub } = supabase.auth.onAuthStateChange(
