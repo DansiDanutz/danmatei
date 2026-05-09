@@ -23,6 +23,21 @@ test.beforeAll(() => {
   fs.mkdirSync(SHOTS_DIR, { recursive: true });
 });
 
+test("intro splash skip button dismisses overlay", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(PREVIEW_URL, { waitUntil: "domcontentloaded" });
+  const intro = page.locator("#intro");
+  await intro.waitFor({ state: "visible", timeout: 5000 });
+  await page.locator("#introSkip").click();
+  // wait for the fade transition + DOM removal
+  await page.waitForTimeout(900);
+  const stillThere = await page.locator("#intro").count();
+  if (stillThere > 0) {
+    const visible = await page.locator("#intro").isVisible();
+    if (visible) throw new Error("intro splash did not dismiss");
+  }
+});
+
 test("audit preview at every viewport", async ({ page }) => {
   const consoleMsgs: string[] = [];
   const failedRequests: string[] = [];
