@@ -23,6 +23,39 @@ test.beforeAll(() => {
   fs.mkdirSync(SHOTS_DIR, { recursive: true });
 });
 
+test("trainer carousel: each next-arrow click advances exactly one slide", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(PREVIEW_URL, { waitUntil: "networkidle" });
+
+  const skip = page.locator("#introSkip");
+  if (await skip.isVisible().catch(() => false)) {
+    await skip.click();
+    await page.waitForTimeout(900);
+  }
+
+  await page.locator("#trainers").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(600);
+
+  const counter = page.locator("#trainerCurrent");
+  const seq: string[] = [];
+  seq.push((await counter.textContent())?.trim() ?? "");
+
+  for (let i = 0; i < 4; i++) {
+    await page.evaluate(() => document.getElementById("trainerNext")?.click());
+    await page.waitForTimeout(750);
+    seq.push((await counter.textContent())?.trim() ?? "");
+  }
+
+  // Each click should advance the counter (loop wraps). Adjacent items differ.
+  for (let i = 1; i < seq.length; i++) {
+    if (seq[i] === seq[i - 1]) {
+      throw new Error(`step ${i} did not advance: ${seq.join(" → ")}`);
+    }
+  }
+});
+
 test("intro splash skip button dismisses overlay", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(PREVIEW_URL, { waitUntil: "domcontentloaded" });

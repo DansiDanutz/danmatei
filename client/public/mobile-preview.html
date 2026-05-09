@@ -639,9 +639,9 @@
       .swiper-slide {
         width: 320px;
         height: auto;
-        transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1),
-                    opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
-                    filter 600ms cubic-bezier(0.16, 1, 0.3, 1);
+        transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+                    opacity 360ms cubic-bezier(0.22, 1, 0.36, 1),
+                    filter 360ms cubic-bezier(0.22, 1, 0.36, 1);
         transform: scale(0.86);
         opacity: 0.45;
         filter: saturate(0.7);
@@ -2179,25 +2179,42 @@
         });
       });
 
-      // Swiper for trainers — premium slide carousel with CSS scale/dim treatment
+      // Swiper for trainers — one-swipe = one-slide hard snap.
       const trainerSwiper = new Swiper("#trainerSwiper", {
         slidesPerView: "auto",
         spaceBetween: 28,
         centeredSlides: true,
         grabCursor: true,
         loop: true,
-        speed: 800,
+
+        // Snap behavior: any swipe past a tiny threshold advances exactly 1.
+        speed: 380,
+        slidesPerGroup: 1,
+        slidesPerGroupAuto: false,
+        threshold: 4,
+        touchRatio: 1,
+        touchAngle: 35,
+        longSwipes: true,
+        longSwipesRatio: 0.12,
+        longSwipesMs: 180,
+        shortSwipes: true,
+        followFinger: true,
+        resistance: true,
+        resistanceRatio: 0.6,
         watchSlidesProgress: true,
+
         keyboard: { enabled: true, onlyInViewport: true },
-        mousewheel: { forceToAxis: true, sensitivity: 0.6, releaseOnEdges: true },
-        pagination: {
-          el: ".swiper-pagination",
-          clickable: true,
+        // Mousewheel: also a single-snap-per-tick (no momentum accumulation).
+        mousewheel: {
+          forceToAxis: true,
+          sensitivity: 1,
+          releaseOnEdges: true,
+          thresholdDelta: 30,
+          thresholdTime: 350,
         },
-        navigation: {
-          nextEl: "#trainerNext",
-          prevEl: "#trainerPrev",
-        },
+
+        pagination: { el: ".swiper-pagination", clickable: true },
+        navigation: { nextEl: "#trainerNext", prevEl: "#trainerPrev" },
         on: {
           slideChange(swiper) {
             const idx = swiper.realIndex + 1;
