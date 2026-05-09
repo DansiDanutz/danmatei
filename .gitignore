@@ -122,3 +122,7 @@ apps/mobile/android/
 **/hyperframes/**/renders/
 **/hyperframes/**/.hyperframes-cache/
 apps/mobile/assets/onboarding-hero.mp4
+
+# Playwright test artifacts
+test-results/
+playwright-report/
