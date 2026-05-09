@@ -3,7 +3,7 @@
  * logo hover glow, scroll-aware background.
  */
 import { useState, useEffect } from "react";
-import { Menu, X, Phone } from "lucide-react";
+import { Menu, X, Phone, PhoneCall } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { expoOut } from "@/lib/motion";
 
@@ -114,6 +114,13 @@ export default function Navbar() {
               <span className="hidden xl:inline">0744 311 147</span>
               <span className="xl:hidden">Sună</span>
             </a>
+            <a
+              href="/programare"
+              className="flex items-center gap-2 bg-brand-cyan text-[oklch(0.08_0.02_250)] px-4 py-2.5 rounded-lg font-heading text-xs uppercase tracking-wider hover:opacity-90 transition-all duration-300 shadow-[0_0_30px_-8px_oklch(0.78_0.13_210/0.55)]"
+            >
+              <PhoneCall className="w-4 h-4" />
+              Programează
+            </a>
           </div>
 
           {/* Mobile Toggle */}
@@ -193,15 +200,23 @@ export default function Navbar() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.3 }}
-                className="py-6 border-t border-white/5"
+                className="py-6 border-t border-white/5 space-y-3"
               >
                 <a
-                  href="tel:0744311147"
-                  className="flex items-center justify-center gap-3 bg-brand-cyan text-[oklch(0.08_0.02_250)] px-6 py-4 rounded-xl font-heading text-base uppercase tracking-wider touch-target w-full"
+                  href="/programare"
+                  className="flex items-center justify-center gap-3 bg-brand-cyan text-[oklch(0.08_0.02_250)] px-6 py-4 rounded-xl font-heading text-base uppercase tracking-wider touch-target w-full shadow-[0_0_40px_-10px_oklch(0.78_0.13_210/0.6)]"
                   onClick={() => setMobileOpen(false)}
                 >
-                  <Phone className="w-5 h-5" />
-                  Sună Acum: 0744 311 147
+                  <PhoneCall className="w-5 h-5" />
+                  Vorbește cu un consilier
+                </a>
+                <a
+                  href="tel:0744311147"
+                  className="flex items-center justify-center gap-3 bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan px-6 py-4 rounded-xl font-heading text-sm uppercase tracking-wider touch-target w-full"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <Phone className="w-4 h-4" />
+                  0744 311 147
                 </a>
               </motion.div>
             </div>

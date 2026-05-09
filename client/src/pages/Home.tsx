@@ -14,6 +14,7 @@ import {
   LogIn,
   Newspaper,
   Phone,
+  PhoneCall,
   Trophy,
   Users,
 } from "lucide-react";
@@ -33,12 +34,13 @@ const MENU_ITEMS: Array<{
   icon: typeof Newspaper;
   primary?: boolean;
 }> = [
+  { label: "Programează", href: "/programare", icon: PhoneCall, primary: true },
   { label: "Academia", href: "/academie", icon: Trophy },
   { label: "Grupe", href: "/grupe", icon: Users },
   { label: "Turnee", href: "/turnee", icon: CalendarClock },
   { label: "Stiri", href: "/stiri", icon: Newspaper },
   { label: "Contact", href: "/contact", icon: Phone },
-  { label: "Cont", href: "/login", icon: LogIn, primary: true },
+  { label: "Cont", href: "/login", icon: LogIn },
   ];
 
 // Deterministic starfield — 20 dots (reduced from 60 for performance).
