@@ -1,0 +1,1672 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mobile Preview — Școala de Fotbal Dan Matei</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: oklch(0.07 0.02 250);
+        --bg-2: oklch(0.10 0.025 250);
+        --bg-3: oklch(0.13 0.03 250);
+        --cyan: oklch(0.78 0.13 210);
+        --cyan-soft: oklch(0.78 0.13 210 / 0.45);
+        --gold: oklch(0.85 0.13 85);
+        --ink: oklch(0.98 0 0);
+        --muted: oklch(0.7 0.02 240);
+        --line: oklch(1 0 0 / 0.10);
+      }
+      * { font-family: "Inter", system-ui, sans-serif; }
+      .font-display { font-family: "Bebas Neue"; letter-spacing: 0.025em; }
+
+      html { scroll-behavior: smooth; }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        background-image:
+          radial-gradient(1400px 700px at 80% -10%, oklch(0.78 0.13 210 / 0.16), transparent 55%),
+          radial-gradient(900px 500px at 0% 30%, oklch(0.85 0.13 85 / 0.07), transparent 60%);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      .text-cyan { color: var(--cyan); }
+      .text-gold { color: var(--gold); }
+
+      .text-gradient-cyan {
+        background: linear-gradient(135deg, var(--cyan) 0%, oklch(0.88 0.10 220) 50%, var(--cyan) 100%);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: gradientSweep 6s ease infinite;
+      }
+      .text-gradient-gold {
+        background: linear-gradient(135deg, var(--gold) 0%, oklch(0.95 0.12 80) 50%, var(--gold) 100%);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: gradientSweep 7s ease infinite;
+      }
+      @keyframes gradientSweep {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
+
+      /* Animated rim glow (matches /cunoaste card-rim-glow) */
+      .rim-glow {
+        position: absolute;
+        inset: -2px;
+        border-radius: inherit;
+        padding: 2px;
+        background: conic-gradient(
+          from var(--rim-angle, 0deg),
+          oklch(0.78 0.13 210 / 0) 0deg,
+          oklch(0.78 0.13 210 / 0.6) 60deg,
+          oklch(0.85 0.13 85 / 0.5) 180deg,
+          oklch(0.78 0.13 210 / 0.6) 300deg,
+          oklch(0.78 0.13 210 / 0) 360deg
+        );
+        -webkit-mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        animation: rimSpin 6s linear infinite;
+        pointer-events: none;
+      }
+      @property --rim-angle {
+        syntax: "<angle>";
+        initial-value: 0deg;
+        inherits: false;
+      }
+      @keyframes rimSpin {
+        to { --rim-angle: 360deg; }
+      }
+
+      .grid-bg::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+        background-size: 48px 48px;
+        pointer-events: none;
+        mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 100%);
+      }
+
+      /* Letter reveal */
+      .letter-reveal span {
+        display: inline-block;
+        opacity: 0;
+        transform: translateY(0.6em);
+        animation: letterRise 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      @keyframes letterRise {
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Phone */
+      .device {
+        width: 320px;
+        height: 660px;
+        border-radius: 44px;
+        background: #000;
+        padding: 12px;
+        position: relative;
+        box-shadow:
+          0 0 0 2px oklch(1 0 0 / 0.10),
+          0 30px 100px -20px rgba(0,0,0,0.85),
+          0 0 80px -10px oklch(0.78 0.13 210 / 0.22);
+      }
+      .device::before {
+        content: "";
+        position: absolute;
+        top: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 110px;
+        height: 28px;
+        background: #000;
+        border-radius: 16px;
+        z-index: 30;
+      }
+      .device-screen {
+        width: 100%; height: 100%;
+        border-radius: 32px;
+        overflow: hidden;
+        background: var(--bg);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+      .status-bar {
+        height: 40px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 0 24px 6px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+        position: relative;
+        z-index: 5;
+      }
+      .screen-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+      .label {
+        text-align: center;
+        margin-top: 16px;
+        font-size: 10px;
+        color: oklch(0.65 0.02 240);
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        font-weight: 600;
+      }
+      .label-name {
+        text-align: center;
+        font-size: 14px;
+        color: #fff;
+        font-weight: 700;
+        margin-top: 3px;
+      }
+
+      /* Trainer hero (auto-play video) */
+      .trainer-hero { position: absolute; inset: 0; }
+      .trainer-hero video, .trainer-hero img {
+        width: 100%; height: 100%;
+        object-fit: cover; object-position: center top;
+      }
+      .trainer-overlay {
+        position: absolute; inset: 0;
+        background:
+          linear-gradient(to bottom,
+            oklch(0.07 0.02 250 / 0.0) 0%,
+            oklch(0.07 0.02 250 / 0.2) 38%,
+            oklch(0.07 0.02 250 / 0.86) 76%,
+            oklch(0.07 0.02 250 / 0.98) 100%);
+      }
+
+      .ob-content {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        padding: 32px 22px 26px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+      }
+
+      /* Pills & badges */
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 11px;
+        border-radius: 999px;
+        background: oklch(1 0 0 / 0.05);
+        border: 1px solid oklch(0.78 0.13 210 / 0.30);
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: oklch(0.92 0.06 215);
+        font-weight: 700;
+        backdrop-filter: blur(8px);
+      }
+      .pill .dot {
+        width: 6px; height: 6px;
+        border-radius: 999px;
+        background: var(--cyan);
+        box-shadow: 0 0 12px var(--cyan);
+        animation: pulseDot 1.4s ease-in-out infinite;
+      }
+      @keyframes pulseDot {
+        50% { transform: scale(1.4); opacity: 0.7; }
+      }
+
+      .pill-gold {
+        border-color: oklch(0.85 0.13 85 / 0.40);
+        color: oklch(0.92 0.10 80);
+      }
+      .pill-gold .dot { background: var(--gold); box-shadow: 0 0 12px var(--gold); }
+
+      /* Buttons */
+      .btn {
+        padding: 13px 16px;
+        border-radius: 14px;
+        text-align: center;
+        font-weight: 800;
+        font-size: 12.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+      }
+      .btn-cyan {
+        background: var(--cyan);
+        color: oklch(0.08 0.02 250);
+        box-shadow:
+          0 0 0 1px oklch(0.78 0.13 210 / 0.5),
+          0 0 30px -8px oklch(0.78 0.13 210 / 0.7);
+      }
+      .btn-ghost {
+        background: oklch(1 0 0 / 0.05);
+        border: 1.5px solid oklch(1 0 0 / 0.18);
+        color: #fff;
+      }
+      .btn-danger {
+        background: oklch(0.58 0.22 25);
+        color: #fff;
+      }
+
+      /* Tab bar */
+      .tab-bar {
+        height: 64px;
+        background: oklch(0.08 0.02 250 / 0.96);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        flex-shrink: 0;
+        z-index: 10;
+      }
+      .tab-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        font-size: 10px;
+        font-weight: 700;
+        color: oklch(0.55 0.02 240);
+      }
+      .tab-item.active { color: var(--cyan); }
+      .tab-icon { font-size: 18px; }
+
+      /* Auth */
+      .auth-screen { flex: 1; position: relative; overflow: hidden; }
+      .auth-bg {
+        position: absolute; inset: 0;
+        background-size: cover;
+        background-position: center;
+        opacity: 0.18;
+        filter: blur(2px) saturate(1.2);
+      }
+      .auth-bg-overlay {
+        position: absolute; inset: 0;
+        background: linear-gradient(to bottom,
+          oklch(0.07 0.02 250 / 0.55) 0%,
+          oklch(0.07 0.02 250 / 0.95) 60%,
+          oklch(0.07 0.02 250) 100%);
+      }
+      .auth-content {
+        position: relative;
+        z-index: 2;
+        flex: 1;
+        padding: 28px 22px;
+        display: flex;
+        flex-direction: column;
+      }
+      .auth-title {
+        font-size: 32px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        color: #fff;
+      }
+      .auth-sub {
+        font-size: 12.5px;
+        color: oklch(0.78 0.02 240);
+        margin-top: 6px;
+        line-height: 1.4;
+      }
+      .field { margin-top: 14px; }
+      .field-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: oklch(0.7 0.02 240);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+      }
+      .field-input {
+        height: 46px;
+        background: oklch(1 0 0 / 0.04);
+        border: 1px solid oklch(1 0 0 / 0.12);
+        border-radius: 14px;
+        padding: 0 14px;
+        display: flex;
+        align-items: center;
+        font-size: 13px;
+        color: oklch(0.85 0.02 240);
+        font-weight: 500;
+      }
+      .link { color: var(--cyan); font-size: 11.5px; font-weight: 700; }
+
+      /* Section */
+      .section-title {
+        font-family: "Bebas Neue";
+        font-size: clamp(48px, 8vw, 96px);
+        line-height: 0.9;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+        color: #fff;
+      }
+      .section-eyebrow {
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.32em;
+        color: var(--cyan);
+        font-weight: 700;
+      }
+      .section-sub {
+        font-size: 15px;
+        color: oklch(0.78 0.02 240);
+        margin-top: 12px;
+        max-width: 640px;
+      }
+
+      /* Stats strip */
+      .stat-strip {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 30px 60px -30px oklch(0.78 0.13 210 / 0.4);
+      }
+      .stat-cell {
+        background: linear-gradient(180deg, oklch(0.10 0.02 250) 0%, oklch(0.08 0.02 250) 100%);
+        padding: 18px 8px;
+        text-align: center;
+      }
+      .stat-cell .v {
+        font-family: "Bebas Neue";
+        font-size: clamp(28px, 7vw, 44px);
+        line-height: 1;
+        background: linear-gradient(135deg, var(--gold), oklch(0.95 0.12 80));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        white-space: nowrap;
+      }
+      .stat-cell .l {
+        font-size: clamp(8px, 1.6vw, 10px);
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: oklch(0.78 0.02 240);
+        margin-top: 6px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      /* Full-width hero with ambient video */
+      .hero-shell {
+        position: relative;
+        overflow: hidden;
+        border-radius: 32px;
+        border: 1px solid var(--line);
+      }
+      .hero-shell .ambient {
+        position: absolute; inset: 0;
+        z-index: 0;
+      }
+      .hero-shell .ambient video {
+        width: 100%; height: 100%;
+        object-fit: cover;
+        opacity: 0.55;
+        filter: saturate(1.1) contrast(1.05);
+      }
+      .hero-shell .ambient::after {
+        content: "";
+        position: absolute; inset: 0;
+        background: linear-gradient(180deg,
+          oklch(0.07 0.02 250 / 0.6) 0%,
+          oklch(0.07 0.02 250 / 0.7) 50%,
+          oklch(0.07 0.02 250) 100%);
+      }
+
+      /* Hyperframes embed */
+      .hyper {
+        position: relative;
+        aspect-ratio: 9/16;
+        max-width: 320px;
+        margin: 0 auto;
+        border-radius: 32px;
+        overflow: hidden;
+        background: radial-gradient(circle at 50% 30%, #1e3a8a 0%, #0b1020 60%, #000 100%);
+      }
+      .hyper-grid {
+        position: absolute; inset: 0;
+        background-image:
+          linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+        background-size: 32px 32px;
+      }
+      .hyper-content {
+        position: absolute; inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        text-align: center;
+        padding: 32px;
+      }
+      .hyper-ball {
+        width: 110px; height: 110px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 35%, #ffffff 0%, #cbd5e1 60%, #475569 100%);
+        box-shadow: 0 30px 60px rgba(59,130,246,0.5), inset -12px -12px 24px rgba(0,0,0,0.4);
+        position: relative;
+        margin-bottom: 28px;
+      }
+      .hyper-ball::before, .hyper-ball::after {
+        content: "";
+        position: absolute;
+        width: 28px; height: 28px;
+        background: #0b1020;
+        clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+      }
+      .hyper-ball::before { top: 24px; left: 22px; }
+      .hyper-ball::after { top: 42px; left: 56px; transform: rotate(72deg); }
+      .hyper-title {
+        color: #fff;
+        font-size: 32px;
+        font-weight: 800;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+      }
+      .hyper-sub {
+        color: oklch(0.85 0.02 240);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.28em;
+        margin-top: 14px;
+        font-weight: 600;
+      }
+      .hyper-badge {
+        margin-top: 32px;
+        padding: 9px 20px;
+        border: 1.5px solid oklch(0.85 0.13 85 / 0.55);
+        border-radius: 999px;
+        color: var(--gold);
+        font-size: 10.5px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+
+      /* Trainer card big */
+      .trainer-card {
+        position: relative;
+        border-radius: 24px;
+        overflow: hidden;
+        border: 1px solid oklch(1 0 0 / 0.08);
+        background: oklch(0.13 0.03 250 / 0.85);
+        box-shadow: 0 24px 60px -20px oklch(0.78 0.13 210 / 0.35);
+        height: 100%;
+      }
+      .trainer-card .media {
+        position: relative;
+        aspect-ratio: 4/5;
+        overflow: hidden;
+      }
+      .trainer-card video, .trainer-card .media img {
+        width: 100%; height: 100%;
+        object-fit: cover;
+      }
+      .trainer-card .age-tag {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        padding: 6px 12px;
+        background: oklch(0.10 0.02 250 / 0.78);
+        border: 1px solid oklch(0.85 0.13 85 / 0.45);
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.20em;
+        text-transform: uppercase;
+        color: var(--gold);
+        backdrop-filter: blur(10px);
+        z-index: 2;
+      }
+      .trainer-card .info { padding: 20px; }
+      .trainer-card .name {
+        font-family: "Bebas Neue";
+        font-size: 26px;
+        line-height: 1;
+        color: #fff;
+        letter-spacing: 0.02em;
+      }
+      .trainer-card .position {
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.20em;
+        color: var(--cyan);
+        font-weight: 700;
+        margin-top: 6px;
+      }
+      .trainer-card .bio {
+        font-size: 13.5px;
+        color: oklch(0.85 0.02 240);
+        line-height: 1.55;
+        margin-top: 12px;
+      }
+      .focus-box {
+        margin-top: 14px;
+        border: 1px solid oklch(0.78 0.13 210 / 0.22);
+        background: oklch(0.78 0.13 210 / 0.04);
+        border-radius: 14px;
+        padding: 12px;
+      }
+      .focus-box .h {
+        font-size: 9.5px;
+        font-weight: 800;
+        letter-spacing: 0.22em;
+        color: var(--cyan);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .focus-box li {
+        font-size: 12.5px;
+        color: oklch(0.92 0.02 240);
+        line-height: 1.4;
+        padding-left: 14px;
+        position: relative;
+      }
+      .focus-box li + li { margin-top: 4px; }
+      .focus-box li::before {
+        content: "";
+        position: absolute;
+        left: 0; top: 7px;
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: oklch(0.78 0.13 210 / 0.85);
+      }
+      .cert-tag {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 5px 10px;
+        background: oklch(1 0 0 / 0.05);
+        border: 1px solid oklch(1 0 0 / 0.12);
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: oklch(0.88 0.02 240);
+      }
+
+      /* Home/feature cards on dark */
+      .feature-card {
+        position: relative;
+        border-radius: 18px;
+        padding: 14px;
+        background: oklch(1 0 0 / 0.04);
+        border: 1px solid var(--line);
+        overflow: hidden;
+      }
+      .feature-card.cyan { border-color: oklch(0.78 0.13 210 / 0.30); background: oklch(0.78 0.13 210 / 0.05); }
+      .feature-card.gold { border-color: oklch(0.85 0.13 85 / 0.30); background: oklch(0.85 0.13 85 / 0.04); }
+
+      /* Anim ball / pulses */
+      @keyframes ballBounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-14px); }
+      }
+      .anim-ball { animation: ballBounce 2.2s ease-in-out infinite; }
+
+      /* Swiper customization */
+      .swiper { padding: 12px 0 50px; }
+      .swiper-slide { width: 320px; height: auto; }
+      .swiper-pagination-bullet {
+        background: oklch(1 0 0 / 0.25);
+        opacity: 1;
+      }
+      .swiper-pagination-bullet-active {
+        background: var(--cyan);
+        width: 24px;
+        border-radius: 999px;
+      }
+      .swiper-button-prev, .swiper-button-next {
+        color: var(--cyan);
+      }
+
+      /* ticker */
+      .ticker {
+        overflow: hidden;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        padding: 12px 0;
+      }
+      .ticker-track {
+        display: flex;
+        gap: 48px;
+        animation: tickerScroll 40s linear infinite;
+        white-space: nowrap;
+        font-family: "Bebas Neue";
+        font-size: 18px;
+        letter-spacing: 0.12em;
+        color: oklch(0.85 0.02 240);
+      }
+      .ticker span.dot { color: var(--cyan); margin: 0 8px; }
+      @keyframes tickerScroll {
+        from { transform: translateX(0); }
+        to { transform: translateX(-50%); }
+      }
+
+      .nav-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: oklch(1 0 0 / 0.25);
+      }
+      .nav-dot.active { background: var(--cyan); width: 24px; border-radius: 999px; }
+    </style>
+  </head>
+  <body>
+    <main class="max-w-7xl mx-auto px-6 py-12 relative grid-bg">
+      <!-- Top header pill nav -->
+      <nav class="flex justify-center mb-10">
+        <div class="flex items-center gap-1.5 px-1.5 py-1.5 rounded-full bg-white/[0.04] border border-white/10 backdrop-blur-md">
+          <a href="#hero" class="px-3.5 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-widest text-white">Hero</a>
+          <a href="#hyper" class="px-3.5 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-widest text-white/60 hover:text-white">Hyperframes</a>
+          <a href="#trainers" class="px-3.5 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-widest text-white/60 hover:text-white">Antrenori</a>
+          <a href="#onboarding" class="px-3.5 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-widest text-white/60 hover:text-white">Onboarding</a>
+          <a href="#auth" class="px-3.5 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-widest text-white/60 hover:text-white">Auth</a>
+          <a href="#tabs" class="px-3.5 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-widest text-white/60 hover:text-white">Tabs</a>
+        </div>
+      </nav>
+
+      <!-- HERO -->
+      <section id="hero" class="hero-shell mb-16">
+        <div class="ambient">
+          <video src="/football-hero.mp4" autoplay muted loop playsinline></video>
+        </div>
+        <div class="relative z-10 px-8 py-16 md:py-20 text-center">
+          <div class="pill mb-6 inline-flex">
+            <span class="dot"></span>
+            <span>Cluj-Napoca · Mobile preview</span>
+          </div>
+          <h1 class="section-title letter-reveal" id="heroTitle">
+            <span class="block">Școala de Fotbal</span>
+            <span class="block text-gradient-gold">Dan Matei</span>
+          </h1>
+          <p class="text-white/85 mt-6 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
+            Aplicația mobilă pentru academia care a format <strong class="text-white">240+ copii</strong> din <strong class="text-white">2017</strong>.
+            Trei antrenori cu licență UEFA. Grupe pe vârste. Programul, antrenorii și mesajele — direct în telefon.
+          </p>
+
+          <div class="stat-strip max-w-3xl mx-auto mt-10">
+            <div class="stat-cell"><div class="v" data-count="2017">2017</div><div class="l">Din anul</div></div>
+            <div class="stat-cell"><div class="v" data-count="240">240+</div><div class="l">Copii formați</div></div>
+            <div class="stat-cell"><div class="v" data-count="18">18</div><div class="l">Trofee</div></div>
+            <div class="stat-cell"><div class="v" data-count="3">3</div><div class="l">Antrenori UEFA</div></div>
+          </div>
+
+          <blockquote class="mt-10 italic text-white/75 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
+            "Fotbalul nu este doar un joc. Este școala unde copiii învață ce este caracterul,
+            disciplina și respectul în echipă, lucruri care îi vor ajuta în viață."
+            <footer class="mt-3 not-italic text-cyan text-xs uppercase tracking-[0.22em] font-bold">— Dan Matei, Fondator</footer>
+          </blockquote>
+        </div>
+      </section>
+
+      <!-- TICKER -->
+      <div class="ticker mb-24">
+        <div class="ticker-track">
+          <span>Antrenori UEFA<span class="dot">·</span></span>
+          <span>Maxim 14 copii / grupă<span class="dot">·</span></span>
+          <span>Meci oficial săptămânal<span class="dot">·</span></span>
+          <span>5 grupe pe vârste U7→U15<span class="dot">·</span></span>
+          <span>Baza Mănăștur, Cluj<span class="dot">·</span></span>
+          <span>Antrenori UEFA<span class="dot">·</span></span>
+          <span>Maxim 14 copii / grupă<span class="dot">·</span></span>
+          <span>Meci oficial săptămânal<span class="dot">·</span></span>
+          <span>5 grupe pe vârste U7→U15<span class="dot">·</span></span>
+          <span>Baza Mănăștur, Cluj<span class="dot">·</span></span>
+        </div>
+      </div>
+
+      <!-- HYPERFRAMES LIVE -->
+      <section id="hyper" class="mb-32">
+        <div class="text-center mb-10">
+          <div class="section-eyebrow">Animated text · Hyperframe enabled</div>
+          <h2 class="section-title mt-3">Hyperframes Hero</h2>
+          <p class="section-sub mx-auto">
+            Compoziție HTML 1080×1920 cu <strong class="text-white">GSAP</strong>, randată în MP4 la build prin
+            <code class="text-cyan">pnpm render:hero</code>. Live preview animat mai jos.
+          </p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-10 items-center max-w-4xl mx-auto">
+          <div>
+            <div class="hyper">
+              <div class="hyper-grid"></div>
+              <div class="hyper-content">
+                <div class="hyper-ball anim-ball" id="hyperBall"></div>
+                <div class="hyper-title">
+                  <span id="hyperLine1">Școala de Fotbal</span><br />
+                  <span class="text-gradient-gold" id="hyperLine2">Dan Matei</span>
+                </div>
+                <div class="hyper-sub" id="hyperSub">Pasiune · Disciplină · Performanță</div>
+                <div class="hyper-badge" id="hyperBadge">Începe astăzi</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-5">
+            <div>
+              <div class="section-eyebrow">Pipeline</div>
+              <h3 class="text-2xl font-bold text-white mt-2">HTML → MP4 → Mobile asset</h3>
+              <p class="text-white/70 mt-3 leading-relaxed">
+                Compoziția trăiește în <code class="text-cyan">apps/mobile/hyperframes/onboarding-hero/</code>,
+                folosește GSAP pentru timeline și se randează la build cu HeyGen Hyperframes.
+                Output direct în <code class="text-cyan">assets/onboarding-hero.mp4</code> — folosit în onboarding.
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="feature-card">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-white/50 font-bold">Format</div>
+                <div class="text-white font-bold mt-1">1080 × 1920 · 30fps</div>
+              </div>
+              <div class="feature-card">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-white/50 font-bold">Durată</div>
+                <div class="text-white font-bold mt-1">6 secunde · MP4 H.264</div>
+              </div>
+              <div class="feature-card cyan">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-cyan/70 font-bold">Animat cu</div>
+                <div class="text-white font-bold mt-1">GSAP timeline</div>
+              </div>
+              <div class="feature-card gold">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-gold/70 font-bold">Comandă</div>
+                <div class="text-white font-bold mt-1 text-sm">pnpm render:hero</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TRAINERS CAROUSEL -->
+      <section id="trainers" class="mb-32">
+        <div class="text-center mb-10">
+          <div class="section-eyebrow">Echipa Tehnică</div>
+          <h2 class="section-title mt-3">
+            <span class="block text-white">Antrenorii</span>
+            <span class="block text-gradient-cyan">care formează viitorul</span>
+          </h2>
+          <p class="section-sub mx-auto">
+            Trei antrenori cu licență UEFA, fiecare specializat pe o grupă de vârstă.
+            Aceeași echipă pe tot parcursul anului. <span class="text-white">Glisează →</span>
+          </p>
+        </div>
+
+        <div class="swiper" id="trainerSwiper">
+          <div class="swiper-wrapper">
+            <!-- Dan Matei -->
+            <div class="swiper-slide">
+              <article class="relative">
+                <span class="rim-glow" aria-hidden="true" style="border-radius: 28px;"></span>
+                <div class="trainer-card">
+                  <div class="media">
+                    <video src="/TheBoss.mp4" poster="/TheBoss-poster.jpg" autoplay muted loop playsinline></video>
+                    <div class="age-tag">U7 – U15</div>
+                  </div>
+                  <div class="info">
+                    <div class="name">Dan Matei</div>
+                    <div class="position">Fondator & Antrenor Principal</div>
+                    <p class="bio">
+                      Fondatorul școlii și mentorul echipei tehnice. Coordonează toate grupele și
+                      se implică direct în formarea jucătorilor — de la cele mai mici vârste până la juniori.
+                    </p>
+                    <div class="focus-box">
+                      <div class="h">⚡ Specializări</div>
+                      <ul>
+                        <li>Coordonare echipă tehnică</li>
+                        <li>Sistem tactic complet</li>
+                        <li>Mentorat juniori</li>
+                      </ul>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 mt-4">
+                      <span class="cert-tag">★ UEFA B</span>
+                      <span class="cert-tag">★ Licență FRF</span>
+                      <span class="cert-tag">★ Antrenor Principal</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Kelemen Andrei -->
+            <div class="swiper-slide">
+              <article class="relative">
+                <span class="rim-glow" aria-hidden="true" style="border-radius: 28px; --rim-angle: 120deg"></span>
+                <div class="trainer-card">
+                  <div class="media">
+                    <video src="/Kely.mp4" poster="/Kely-poster.jpg" autoplay muted loop playsinline></video>
+                    <div class="age-tag">U10 – U13</div>
+                  </div>
+                  <div class="info">
+                    <div class="name">Kelemen Andrei</div>
+                    <div class="position">Antrenor U10–U13</div>
+                    <p class="bio">
+                      Specializat în dezvoltarea tehnicii individuale și a citirii jocului.
+                      Lucrează pe poziționare, comunicare și fundamentele jocului colectiv.
+                    </p>
+                    <div class="focus-box">
+                      <div class="h">⚡ Specializări</div>
+                      <ul>
+                        <li>Tehnică individuală</li>
+                        <li>Citire de joc</li>
+                        <li>Comunicare în teren</li>
+                      </ul>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 mt-4">
+                      <span class="cert-tag">★ UEFA C</span>
+                      <span class="cert-tag">★ Antrenor Federal</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Sopi -->
+            <div class="swiper-slide">
+              <article class="relative">
+                <span class="rim-glow" aria-hidden="true" style="border-radius: 28px; --rim-angle: 240deg"></span>
+                <div class="trainer-card">
+                  <div class="media">
+                    <video src="/Sopi.mp4" poster="/Sopi-poster.jpg" autoplay muted loop playsinline></video>
+                    <div class="age-tag">U7 – U9</div>
+                  </div>
+                  <div class="info">
+                    <div class="name">Sopi</div>
+                    <div class="position">Antrenor U7–U9</div>
+                    <p class="bio">
+                      Specializat pe grupele mici. Aduce copiii în fotbal prin joc, mișcare și
+                      încredere — fără presiune, fără competiție timpurie.
+                    </p>
+                    <div class="focus-box">
+                      <div class="h">⚡ Specializări</div>
+                      <ul>
+                        <li>Coordonare prin joc</li>
+                        <li>Primul contact cu mingea</li>
+                        <li>Încredere și ritm</li>
+                      </ul>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 mt-4">
+                      <span class="cert-tag">★ UEFA C</span>
+                      <span class="cert-tag">★ Prim ajutor pediatric</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+          <div class="swiper-pagination !bottom-3"></div>
+        </div>
+
+        <p class="text-center text-white/50 text-sm mt-2">← glisează pentru a vedea ceilalți antrenori →</p>
+      </section>
+
+      <!-- ONBOARDING device frames -->
+      <section id="onboarding" class="mb-32">
+        <div class="text-center mb-10">
+          <div class="section-eyebrow">app/onboarding</div>
+          <h2 class="section-title mt-3">Onboarding Swipe</h2>
+          <p class="section-sub mx-auto">Trei slide-uri animate. Trainer în hero. Stats live. CTA de impact.</p>
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-12">
+          <!-- Slide 1: Dan Matei founder hero -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="relative flex-1 overflow-hidden">
+                    <div class="trainer-hero">
+                      <video src="/TheBoss.mp4" poster="/TheBoss-poster.jpg" autoplay muted loop playsinline></video>
+                      <div class="trainer-overlay"></div>
+                    </div>
+                    <div class="ob-content">
+                      <div class="pill self-start"><span class="dot"></span>UEFA B · Fondator</div>
+                      <div class="font-display text-white text-[44px] leading-[0.92] mt-3 uppercase">
+                        Crește cu<br /><span class="text-gradient-gold">cei mai buni</span>
+                      </div>
+                      <p class="text-white/85 text-[12.5px] mt-3 leading-snug font-medium">
+                        240+ copii formați din 2017. Trei antrenori UEFA.
+                        Aplicația care unește părinții, copiii și antrenorii.
+                      </p>
+                      <div class="grid grid-cols-3 gap-2 mt-4">
+                        <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
+                          <div class="font-display text-cyan text-lg leading-none">240+</div>
+                          <div class="text-[8.5px] uppercase tracking-widest text-white/60 mt-1 font-bold">Copii</div>
+                        </div>
+                        <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
+                          <div class="font-display text-gold text-lg leading-none">18</div>
+                          <div class="text-[8.5px] uppercase tracking-widest text-white/60 mt-1 font-bold">Trofee</div>
+                        </div>
+                        <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
+                          <div class="font-display text-cyan text-lg leading-none">3</div>
+                          <div class="text-[8.5px] uppercase tracking-widest text-white/60 mt-1 font-bold">UEFA</div>
+                        </div>
+                      </div>
+                      <div class="flex justify-center gap-1.5 my-4">
+                        <span class="nav-dot active"></span>
+                        <span class="nav-dot"></span>
+                        <span class="nav-dot"></span>
+                      </div>
+                      <div class="grid gap-2">
+                        <div class="btn btn-cyan">Intră în cont</div>
+                        <div class="btn btn-ghost">Creează cont</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Slide 1</div>
+            <div class="label-name">Dan Matei · Fondator</div>
+          </div>
+
+          <!-- Slide 2: Kelemen -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="relative flex-1 overflow-hidden">
+                    <div class="trainer-hero">
+                      <video src="/Kely.mp4" poster="/Kely-poster.jpg" autoplay muted loop playsinline></video>
+                      <div class="trainer-overlay"></div>
+                    </div>
+                    <div class="ob-content">
+                      <div class="pill self-start"><span class="dot"></span>UEFA C · U10–U13</div>
+                      <div class="font-display text-white text-[44px] leading-[0.92] mt-3 uppercase">
+                        Tehnică.<br /><span class="text-gradient-cyan">Citire de joc.</span>
+                      </div>
+                      <p class="text-white/85 text-[12.5px] mt-3 leading-snug font-medium">
+                        Kelemen Andrei — specialist U10–U13. Tehnică individuală,
+                        comunicare în teren, scheme tactice.
+                      </p>
+                      <div class="flex flex-wrap gap-1.5 mt-4">
+                        <span class="pill" style="font-size: 8.5px; padding: 4px 10px">Tehnică individuală</span>
+                        <span class="pill" style="font-size: 8.5px; padding: 4px 10px">Citire joc</span>
+                        <span class="pill" style="font-size: 8.5px; padding: 4px 10px">Comunicare</span>
+                      </div>
+                      <div class="flex justify-center gap-1.5 my-4 mt-6">
+                        <span class="nav-dot"></span>
+                        <span class="nav-dot active"></span>
+                        <span class="nav-dot"></span>
+                      </div>
+                      <div class="grid gap-2">
+                        <div class="btn btn-cyan">Mai departe</div>
+                        <div class="btn btn-ghost">Sari peste</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Slide 2</div>
+            <div class="label-name">Kelemen Andrei</div>
+          </div>
+
+          <!-- Slide 3: Sopi -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="relative flex-1 overflow-hidden">
+                    <div class="trainer-hero">
+                      <video src="/Sopi.mp4" poster="/Sopi-poster.jpg" autoplay muted loop playsinline></video>
+                      <div class="trainer-overlay"></div>
+                    </div>
+                    <div class="ob-content">
+                      <div class="pill self-start"><span class="dot"></span>UEFA C · U7–U9</div>
+                      <div class="font-display text-white text-[44px] leading-[0.92] mt-3 uppercase">
+                        Primii pași.<br /><span class="text-gradient-cyan">Fără presiune.</span>
+                      </div>
+                      <p class="text-white/85 text-[12.5px] mt-3 leading-snug font-medium">
+                        Sopi — specialist grupele mici U7–U9. Prin joc, mișcare și
+                        încredere — fără competiție timpurie.
+                      </p>
+                      <div class="flex flex-wrap gap-1.5 mt-4">
+                        <span class="pill" style="font-size: 8.5px; padding: 4px 10px">Coordonare</span>
+                        <span class="pill" style="font-size: 8.5px; padding: 4px 10px">Primul contact</span>
+                      </div>
+                      <div class="flex justify-center gap-1.5 my-4 mt-6">
+                        <span class="nav-dot"></span>
+                        <span class="nav-dot"></span>
+                        <span class="nav-dot active"></span>
+                      </div>
+                      <div class="grid gap-2">
+                        <div class="btn btn-cyan">Începe acum</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Slide 3</div>
+            <div class="label-name">Sopi</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AUTH -->
+      <section id="auth" class="mb-32">
+        <div class="text-center mb-10">
+          <div class="section-eyebrow">app/auth</div>
+          <h2 class="section-title mt-3">Auth Flow</h2>
+          <p class="section-sub mx-auto">Supabase + React Hook Form + Zod. Câmpuri cu contrast înalt pentru lizibilitate.</p>
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-12">
+          <!-- Login -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="auth-screen">
+                    <div class="auth-bg" style="background-image: url('/team-photo.jpg')"></div>
+                    <div class="auth-bg-overlay"></div>
+                    <div class="auth-content">
+                      <div class="pill self-start"><span class="dot"></span>Bun venit</div>
+                      <div class="auth-title mt-4">Intră în cont</div>
+                      <div class="auth-sub">Folosește contul tău Dan Matei pentru a vedea programul, antrenorii și mesajele.</div>
+                      <div class="field">
+                        <div class="field-label">Email</div>
+                        <div class="field-input">parinte@example.ro</div>
+                      </div>
+                      <div class="field">
+                        <div class="field-label">Parolă</div>
+                        <div class="field-input">••••••••</div>
+                      </div>
+                      <div class="text-right mt-3"><span class="link">Ai uitat parola?</span></div>
+                      <div class="btn btn-cyan mt-5">Intră în cont</div>
+                      <div class="text-center text-[11.5px] mt-4 text-white/60">
+                        Nu ai cont încă? <span class="link">Creează cont</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/auth/login</div>
+          </div>
+
+          <!-- Register -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="auth-screen">
+                    <div class="auth-bg" style="background-image: url('/team-photo.jpg')"></div>
+                    <div class="auth-bg-overlay"></div>
+                    <div class="auth-content">
+                      <div class="pill self-start pill-gold"><span class="dot"></span>Cont nou</div>
+                      <div class="auth-title mt-4">Înscrie-te</div>
+                      <div class="auth-sub">Câteva secunde și ești înăuntru.</div>
+                      <div class="field">
+                        <div class="field-label">Email</div>
+                        <div class="field-input">parinte@example.ro</div>
+                      </div>
+                      <div class="field">
+                        <div class="field-label">Parolă</div>
+                        <div class="field-input">••••••••</div>
+                      </div>
+                      <div class="field">
+                        <div class="field-label">Confirmă parola</div>
+                        <div class="field-input">••••••••</div>
+                      </div>
+                      <div class="btn btn-cyan mt-5">Creează cont</div>
+                      <div class="text-center text-[11.5px] mt-4 text-white/60">
+                        Ai deja cont? <span class="link">Intră în cont</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/auth/register</div>
+          </div>
+
+          <!-- Forgot -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="auth-screen">
+                    <div class="auth-bg" style="background-image: url('/team-photo.jpg')"></div>
+                    <div class="auth-bg-overlay"></div>
+                    <div class="auth-content">
+                      <div class="pill self-start"><span class="dot"></span>Resetare</div>
+                      <div class="auth-title mt-4">Parolă uitată?</div>
+                      <div class="auth-sub">Îți trimitem un link de resetare pe email.</div>
+                      <div class="field">
+                        <div class="field-label">Email</div>
+                        <div class="field-input">parinte@example.ro</div>
+                      </div>
+                      <div class="btn btn-cyan mt-5">Trimite link</div>
+                      <div class="text-center text-[11.5px] mt-4">
+                        <span class="link">← Înapoi la autentificare</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/auth/forgot-password</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TABS -->
+      <section id="tabs" class="mb-32">
+        <div class="text-center mb-10">
+          <div class="section-eyebrow">app/tabs (signed in)</div>
+          <h2 class="section-title mt-3">Aplicația principală</h2>
+          <p class="section-sub mx-auto">5 tab-uri · Acasă · Antrenori · Grupe · Chat · Profil</p>
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-10">
+          <!-- HOME -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden p-[18px]">
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <div class="text-[22px] font-bold text-white leading-tight">Bună, <span class="text-gradient-cyan">Andrei</span></div>
+                        <div class="text-[12.5px] text-white/65 mt-0.5 font-medium">Ce e nou la academie azi.</div>
+                      </div>
+                      <img src="/logo-official.jpg" alt="" class="w-11 h-11 rounded-xl border border-white/10" />
+                    </div>
+
+                    <!-- Hero next training card with rim glow -->
+                    <div class="relative mt-4">
+                      <span class="rim-glow" style="border-radius: 18px"></span>
+                      <div class="feature-card cyan">
+                        <div class="flex justify-between items-start">
+                          <div>
+                            <div class="text-[9px] uppercase tracking-[0.22em] font-bold text-cyan/85">Următorul antrenament</div>
+                            <div class="font-display text-white text-2xl mt-1 leading-none">ASTĂZI · 17:00</div>
+                            <div class="text-[11.5px] text-white/70 mt-1.5 font-medium">U11 · Kelemen · Baza Mănăștur</div>
+                          </div>
+                          <div class="text-right">
+                            <div class="text-[10px] uppercase tracking-widest text-cyan font-bold">Începe în</div>
+                            <div class="font-display text-cyan text-2xl leading-none">2H 12M</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2.5 mt-3">
+                      <div class="feature-card" style="margin-top: 0">
+                        <div class="text-[9px] uppercase tracking-[0.22em] text-white/55 font-bold">Notificări</div>
+                        <div class="font-display text-white text-2xl mt-0.5 leading-none">3</div>
+                      </div>
+                      <div class="feature-card gold" style="margin-top: 0">
+                        <div class="text-[9px] uppercase tracking-[0.22em] text-gold/85 font-bold">Următorul meci</div>
+                        <div class="font-display text-gold text-2xl mt-0.5 leading-none">SÂM 11:00</div>
+                      </div>
+                    </div>
+
+                    <div class="mt-4">
+                      <div class="text-[10px] uppercase tracking-[0.22em] text-white/55 font-bold mb-2">Antrenori</div>
+                      <div class="flex gap-2">
+                        <div class="flex-1 rounded-xl overflow-hidden h-24 relative border border-white/10">
+                          <video src="/TheBoss.mp4" poster="/TheBoss-poster.jpg" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover"></video>
+                          <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent"></div>
+                          <div class="absolute bottom-1.5 left-2 right-2">
+                            <div class="text-white text-[10.5px] font-bold leading-tight">Dan Matei</div>
+                            <div class="text-cyan text-[8.5px] font-bold uppercase tracking-wider">UEFA B</div>
+                          </div>
+                        </div>
+                        <div class="flex-1 rounded-xl overflow-hidden h-24 relative border border-white/10">
+                          <video src="/Kely.mp4" poster="/Kely-poster.jpg" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover"></video>
+                          <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent"></div>
+                          <div class="absolute bottom-1.5 left-2 right-2">
+                            <div class="text-white text-[10.5px] font-bold leading-tight">Kelemen</div>
+                            <div class="text-cyan text-[8.5px] font-bold uppercase tracking-wider">UEFA C</div>
+                          </div>
+                        </div>
+                        <div class="flex-1 rounded-xl overflow-hidden h-24 relative border border-white/10">
+                          <video src="/Sopi.mp4" poster="/Sopi-poster.jpg" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover"></video>
+                          <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent"></div>
+                          <div class="absolute bottom-1.5 left-2 right-2">
+                            <div class="text-white text-[10.5px] font-bold leading-tight">Sopi</div>
+                            <div class="text-cyan text-[8.5px] font-bold uppercase tracking-wider">UEFA C</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item active"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item"><div class="tab-icon">👥</div>Antrenori</div>
+                    <div class="tab-item"><div class="tab-icon">📋</div>Grupe</div>
+                    <div class="tab-item"><div class="tab-icon">💬</div>Chat</div>
+                    <div class="tab-item"><div class="tab-icon">👤</div>Profil</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/tabs/home</div>
+          </div>
+
+          <!-- TRAINERS -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden p-[18px]">
+                    <div class="font-display text-white text-[36px] leading-none uppercase">Antrenori</div>
+                    <div class="text-white/65 text-[12.5px] mt-1 font-medium">3 specialiști UEFA · Cluj-Napoca</div>
+
+                    <div class="relative mt-4">
+                      <span class="rim-glow" style="border-radius: 18px"></span>
+                      <div class="rounded-2xl overflow-hidden h-56 relative border border-white/10">
+                        <video src="/TheBoss.mp4" poster="/TheBoss-poster.jpg" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover"></video>
+                        <div class="absolute inset-0 bg-gradient-to-t from-[oklch(0.07_0.02_250)] via-[oklch(0.07_0.02_250)]/40 to-transparent"></div>
+                        <div class="absolute top-3 left-3"><span class="pill"><span class="dot"></span>UEFA B · Fondator</span></div>
+                        <div class="absolute bottom-3 left-3 right-3">
+                          <div class="font-display text-white text-2xl uppercase leading-none">Dan Matei</div>
+                          <div class="text-cyan text-[10.5px] mt-1 font-bold uppercase tracking-[0.18em]">7–15 ani · Antrenor Principal</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2.5 mt-2.5">
+                      <div class="rounded-xl overflow-hidden h-32 relative border border-white/10">
+                        <video src="/Kely.mp4" poster="/Kely-poster.jpg" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover"></video>
+                        <div class="absolute inset-0 bg-gradient-to-t from-[oklch(0.07_0.02_250)] to-transparent"></div>
+                        <div class="absolute bottom-2 left-2 right-2">
+                          <div class="text-white text-[12.5px] font-bold leading-tight">Kelemen Andrei</div>
+                          <div class="text-cyan text-[9px] font-bold mt-0.5 uppercase tracking-widest">U10–U13</div>
+                        </div>
+                      </div>
+                      <div class="rounded-xl overflow-hidden h-32 relative border border-white/10">
+                        <video src="/Sopi.mp4" poster="/Sopi-poster.jpg" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover"></video>
+                        <div class="absolute inset-0 bg-gradient-to-t from-[oklch(0.07_0.02_250)] to-transparent"></div>
+                        <div class="absolute bottom-2 left-2 right-2">
+                          <div class="text-white text-[12.5px] font-bold leading-tight">Sopi</div>
+                          <div class="text-cyan text-[9px] font-bold mt-0.5 uppercase tracking-widest">U7–U9</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item active"><div class="tab-icon">👥</div>Antrenori</div>
+                    <div class="tab-item"><div class="tab-icon">📋</div>Grupe</div>
+                    <div class="tab-item"><div class="tab-icon">💬</div>Chat</div>
+                    <div class="tab-item"><div class="tab-icon">👤</div>Profil</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/tabs/trainers</div>
+          </div>
+
+          <!-- GROUPS -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden p-[18px]">
+                    <div class="font-display text-white text-[36px] leading-none uppercase">Grupe</div>
+                    <div class="text-white/65 text-[12.5px] mt-1 font-medium">5 grupe · Maxim 14 copii / grupă</div>
+
+                    <div class="space-y-2 mt-4">
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="flex justify-between items-start">
+                          <div>
+                            <div class="font-display text-cyan text-xl leading-none">U6 – U7</div>
+                            <div class="text-[10.5px] text-white/70 mt-1 font-medium">Mar & Joi · 16:00–17:00</div>
+                            <div class="text-[10px] text-white/50 mt-0.5 uppercase tracking-wider font-bold">Antrenor Sopi</div>
+                          </div>
+                          <div class="text-right">
+                            <div class="font-display text-gold text-2xl leading-none">22</div>
+                            <div class="text-[8.5px] uppercase tracking-widest text-white/45 font-bold">copii</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="flex justify-between items-start">
+                          <div>
+                            <div class="font-display text-cyan text-xl leading-none">U8 – U9</div>
+                            <div class="text-[10.5px] text-white/70 mt-1 font-medium">Lun, Mier, Vin · 16–17:30</div>
+                            <div class="text-[10px] text-white/50 mt-0.5 uppercase tracking-wider font-bold">Antrenor Sopi</div>
+                          </div>
+                          <div class="text-right">
+                            <div class="font-display text-gold text-2xl leading-none">28</div>
+                            <div class="text-[8.5px] uppercase tracking-widest text-white/45 font-bold">copii</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="relative">
+                        <span class="rim-glow" style="border-radius: 18px"></span>
+                        <div class="feature-card cyan" style="margin-top: 0; padding: 12px">
+                          <div class="flex justify-between items-start">
+                            <div>
+                              <div class="font-display text-cyan text-xl leading-none">U10 – U11</div>
+                              <div class="text-[10.5px] text-white/70 mt-1 font-medium">Lun–Vin · 17:00–18:30</div>
+                              <div class="text-[10px] text-white/50 mt-0.5 uppercase tracking-wider font-bold">Kelemen Andrei</div>
+                            </div>
+                            <div class="text-right">
+                              <div class="font-display text-gold text-2xl leading-none">26</div>
+                              <div class="text-[8.5px] uppercase tracking-widest text-white/45 font-bold">copii</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="flex justify-between items-start">
+                          <div>
+                            <div class="font-display text-cyan text-xl leading-none">U12 – U13</div>
+                            <div class="text-[10.5px] text-white/70 mt-1 font-medium">Lun–Vin · 17:30–19:00</div>
+                            <div class="text-[10px] text-white/50 mt-0.5 uppercase tracking-wider font-bold">Kelemen + Dan Matei</div>
+                          </div>
+                          <div class="text-right">
+                            <div class="font-display text-gold text-2xl leading-none">24</div>
+                            <div class="text-[8.5px] uppercase tracking-widest text-white/45 font-bold">copii</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="flex justify-between items-start">
+                          <div>
+                            <div class="font-display text-cyan text-xl leading-none">U14 – U15</div>
+                            <div class="text-[10.5px] text-white/70 mt-1 font-medium">Lun–Vin · 18:00–19:30</div>
+                            <div class="text-[10px] text-white/50 mt-0.5 uppercase tracking-wider font-bold">Dan Matei</div>
+                          </div>
+                          <div class="text-right">
+                            <div class="font-display text-gold text-2xl leading-none">18</div>
+                            <div class="text-[8.5px] uppercase tracking-widest text-white/45 font-bold">copii</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item"><div class="tab-icon">👥</div>Antrenori</div>
+                    <div class="tab-item active"><div class="tab-icon">📋</div>Grupe</div>
+                    <div class="tab-item"><div class="tab-icon">💬</div>Chat</div>
+                    <div class="tab-item"><div class="tab-icon">👤</div>Profil</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/tabs/groups</div>
+          </div>
+
+          <!-- CHAT -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden p-[18px]">
+                    <div class="font-display text-white text-[36px] leading-none uppercase">Chat</div>
+                    <div class="text-white/65 text-[12.5px] mt-1 font-medium">Mesaje cu antrenorii</div>
+
+                    <div class="mt-4 space-y-2.5">
+                      <div class="relative">
+                        <span class="rim-glow" style="border-radius: 18px"></span>
+                        <div class="feature-card cyan" style="margin-top: 0; padding: 12px">
+                          <div class="flex items-start gap-2.5">
+                            <div class="w-10 h-10 rounded-full overflow-hidden border border-white/15 flex-shrink-0">
+                              <img src="/Kely-poster.jpg" alt="" class="w-full h-full object-cover" />
+                            </div>
+                            <div class="flex-1 min-w-0">
+                              <div class="flex justify-between items-baseline">
+                                <div class="text-white text-[12.5px] font-bold truncate">Kelemen — U11</div>
+                                <div class="bg-cyan text-[oklch(0.08_0.02_250)] text-[10px] font-extrabold rounded-full px-2 ml-2">2</div>
+                              </div>
+                              <div class="text-white/80 text-[11.5px] mt-1 truncate font-medium">Mâine antrenamentul începe la 17:30 …</div>
+                              <div class="text-cyan/70 text-[9px] mt-1.5 uppercase tracking-widest font-bold">acum 5 minute</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="flex items-start gap-2.5">
+                          <div class="w-10 h-10 rounded-full overflow-hidden border border-white/15 flex-shrink-0">
+                            <img src="/TheBoss-poster.jpg" alt="" class="w-full h-full object-cover" />
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-baseline">
+                              <div class="text-white text-[12.5px] font-bold truncate">Anunț părinți · S18</div>
+                              <div class="bg-cyan text-[oklch(0.08_0.02_250)] text-[10px] font-extrabold rounded-full px-2 ml-2">1</div>
+                            </div>
+                            <div class="text-white/80 text-[11.5px] mt-1 truncate font-medium">Sâmbătă jucăm Cupa Toamnei …</div>
+                            <div class="text-white/45 text-[9px] mt-1.5 uppercase tracking-widest font-bold">acum 2 ore</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="flex items-start gap-2.5">
+                          <div class="w-10 h-10 rounded-full overflow-hidden border border-white/15 flex-shrink-0">
+                            <img src="/Sopi-poster.jpg" alt="" class="w-full h-full object-cover" />
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-baseline">
+                              <div class="text-white text-[12.5px] font-bold truncate">Sopi — U9</div>
+                            </div>
+                            <div class="text-white/80 text-[11.5px] mt-1 truncate font-medium">Felicitări pentru meciul de azi!</div>
+                            <div class="text-white/45 text-[9px] mt-1.5 uppercase tracking-widest font-bold">ieri</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="flex items-start gap-2.5">
+                          <div class="w-10 h-10 rounded-full bg-cyan/20 border border-cyan/35 flex items-center justify-center text-cyan text-[11px] font-extrabold flex-shrink-0">DM</div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-baseline">
+                              <div class="text-white text-[12.5px] font-bold truncate">Dan Matei — Programare</div>
+                            </div>
+                            <div class="text-white/80 text-[11.5px] mt-1 truncate font-medium">Calendar trim. II disponibil</div>
+                            <div class="text-white/45 text-[9px] mt-1.5 uppercase tracking-widest font-bold">acum 3 zile</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item"><div class="tab-icon">👥</div>Antrenori</div>
+                    <div class="tab-item"><div class="tab-icon">📋</div>Grupe</div>
+                    <div class="tab-item active"><div class="tab-icon">💬</div>Chat</div>
+                    <div class="tab-item"><div class="tab-icon">👤</div>Profil</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/tabs/chat</div>
+          </div>
+
+          <!-- PROFILE -->
+          <div>
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden p-[18px]">
+                    <div class="rounded-2xl overflow-hidden relative h-44 border border-white/10">
+                      <div style="background-image: url('/team-photo.jpg')" class="absolute inset-0 bg-cover bg-center"></div>
+                      <div class="absolute inset-0" style="background: linear-gradient(to top, oklch(0.07 0.02 250) 0%, oklch(0.07 0.02 250 / 0.5) 50%, transparent 100%)"></div>
+                      <div class="absolute bottom-3 left-0 right-0 text-center">
+                        <div class="w-16 h-16 rounded-full bg-cyan/20 border-2 border-cyan/45 inline-flex items-center justify-center text-cyan text-xl font-extrabold">LP</div>
+                        <div class="text-white text-[16.5px] font-extrabold mt-2">Luca Pop</div>
+                        <div class="text-cyan text-[10px] uppercase tracking-[0.22em] mt-0.5 font-bold">Părinte · U11</div>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 mt-3">
+                      <div class="feature-card" style="margin-top: 0; padding: 10px; text-align: center">
+                        <div class="font-display text-cyan text-xl leading-none">12</div>
+                        <div class="text-[8.5px] uppercase tracking-widest text-white/55 mt-1 font-bold">Antren.</div>
+                      </div>
+                      <div class="feature-card" style="margin-top: 0; padding: 10px; text-align: center">
+                        <div class="font-display text-gold text-xl leading-none">3</div>
+                        <div class="text-[8.5px] uppercase tracking-widest text-white/55 mt-1 font-bold">Meciuri</div>
+                      </div>
+                      <div class="feature-card" style="margin-top: 0; padding: 10px; text-align: center">
+                        <div class="font-display text-cyan text-xl leading-none">95%</div>
+                        <div class="text-[8.5px] uppercase tracking-widest text-white/55 mt-1 font-bold">Prezență</div>
+                      </div>
+                    </div>
+
+                    <div class="mt-4 space-y-2">
+                      <div class="btn btn-ghost text-left flex justify-between items-center" style="text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 13px; padding: 12px 14px">
+                        <span>Editează profilul</span><span class="text-cyan">›</span>
+                      </div>
+                      <div class="btn btn-ghost text-left flex justify-between items-center" style="text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 13px; padding: 12px 14px">
+                        <span>Notificări</span><span class="text-cyan">›</span>
+                      </div>
+                      <div class="btn btn-danger" style="font-size: 12px">Ieși din cont</div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item"><div class="tab-icon">👥</div>Antrenori</div>
+                    <div class="tab-item"><div class="tab-icon">📋</div>Grupe</div>
+                    <div class="tab-item"><div class="tab-icon">💬</div>Chat</div>
+                    <div class="tab-item active"><div class="tab-icon">👤</div>Profil</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/tabs/profile</div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="text-center text-white/55 text-sm mt-16 pb-12">
+        <div class="flex justify-center mb-6">
+          <img src="/logo-official.jpg" class="w-16 h-16 rounded-2xl border border-white/10" alt="Logo" />
+        </div>
+        <div>Visual mock — pulls real assets and copy from <code class="text-cyan">client/public</code> + <code class="text-cyan">client/src/data/landing.ts</code>.</div>
+        <div class="mt-2">
+          Real Expo app:
+          <code class="bg-white/5 border border-white/10 px-2 py-1 rounded text-white/80 font-mono text-xs ml-1">pnpm --filter @danmatei/mobile start</code>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      // Letter-by-letter reveal — walk TEXT NODES only so we never corrupt HTML.
+      // Skip text inside elements that use background-clip:text (gradient text)
+      // because per-character spans break the gradient mask.
+      const isGradientAncestor = (node) => {
+        let p = node.parentElement;
+        while (p) {
+          if (p.classList.contains("text-gradient-cyan") ||
+              p.classList.contains("text-gradient-gold")) return true;
+          p = p.parentElement;
+        }
+        return false;
+      };
+      document.querySelectorAll(".letter-reveal").forEach((root) => {
+        let i = 0;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        while (walker.nextNode()) textNodes.push(walker.currentNode);
+        textNodes.forEach((node) => {
+          const text = node.nodeValue ?? "";
+          if (!text.trim()) return;
+          if (isGradientAncestor(node)) {
+            // Animate the whole gradient parent as one unit instead.
+            const parent = node.parentElement;
+            if (parent && !parent.dataset.lrApplied) {
+              parent.dataset.lrApplied = "1";
+              parent.style.opacity = "0";
+              parent.style.transform = "translateY(0.6em)";
+              parent.style.animation = `letterRise 0.9s cubic-bezier(0.16,1,0.3,1) ${0.4 + i * 0.035}s forwards`;
+              i += text.trim().length;
+            }
+            return;
+          }
+          const frag = document.createDocumentFragment();
+          for (const ch of text) {
+            if (ch === " " || ch === "\n") {
+              frag.appendChild(document.createTextNode(ch));
+              continue;
+            }
+            const span = document.createElement("span");
+            span.textContent = ch;
+            span.style.animationDelay = `${i * 0.035}s`;
+            frag.appendChild(span);
+            i += 1;
+          }
+          node.parentNode.replaceChild(frag, node);
+        });
+      });
+
+      // Swiper for trainers
+      new Swiper("#trainerSwiper", {
+        slidesPerView: "auto",
+        spaceBetween: 20,
+        centeredSlides: true,
+        grabCursor: true,
+        speed: 700,
+        pagination: { el: ".swiper-pagination", clickable: true },
+        breakpoints: {
+          640: { slidesPerView: 1.4, centeredSlides: true },
+          900: { slidesPerView: 2, centeredSlides: false },
+          1200: { slidesPerView: 2.4, centeredSlides: false },
+        },
+      });
+
+      // GSAP timeline mirroring the hyperframes composition (ball + title + sub + badge)
+      if (window.gsap) {
+        const targets = ["#hyperBall", "#hyperLine1", "#hyperLine2", "#hyperSub", "#hyperBadge"];
+        const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.4 });
+        tl.set(targets, { opacity: 0 })
+          .set("#hyperBall", { scale: 0.4 })
+          .set(["#hyperLine1", "#hyperLine2"], { y: 60 })
+          .set("#hyperSub", { y: 30 })
+          .set("#hyperBadge", { scale: 0.7 })
+          .to("#hyperBall", { opacity: 1, scale: 1, duration: 0.9, ease: "back.out(2)" }, 0)
+          .to("#hyperLine1", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0.5)
+          .to("#hyperLine2", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0.7)
+          .to("#hyperSub",   { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 1.0)
+          .to("#hyperBadge", { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" }, 1.3)
+          .to({}, { duration: 2.2 })
+          .to(targets, { opacity: 0, y: -20, duration: 0.5, ease: "power2.in" }, ">");
+      }
+    </script>
+  </body>
+</html>
