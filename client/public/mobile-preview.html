@@ -387,25 +387,27 @@
       }
       .stat-cell {
         background: linear-gradient(180deg, oklch(0.10 0.02 250) 0%, oklch(0.08 0.02 250) 100%);
-        padding: 22px 14px;
+        padding: 18px 8px;
         text-align: center;
       }
       .stat-cell .v {
         font-family: "Bebas Neue";
-        font-size: 44px;
+        font-size: clamp(28px, 7vw, 44px);
         line-height: 1;
         background: linear-gradient(135deg, var(--gold), oklch(0.95 0.12 80));
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
+        white-space: nowrap;
       }
       .stat-cell .l {
-        font-size: 10px;
+        font-size: clamp(8px, 1.6vw, 10px);
         text-transform: uppercase;
-        letter-spacing: 0.2em;
-        color: oklch(0.7 0.02 240);
-        margin-top: 8px;
+        letter-spacing: 0.16em;
+        color: oklch(0.78 0.02 240);
+        margin-top: 6px;
         font-weight: 700;
+        white-space: nowrap;
       }
 
       /* Full-width hero with ambient video */
@@ -799,7 +801,7 @@
         <div class="text-center mb-10">
           <div class="section-eyebrow">Echipa Tehnică</div>
           <h2 class="section-title mt-3">
-            <span class="block text-white/55">Antrenorii</span>
+            <span class="block text-white">Antrenorii</span>
             <span class="block text-gradient-cyan">care formează viitorul</span>
           </h2>
           <p class="section-sub mx-auto">
@@ -1585,16 +1587,52 @@
     </main>
 
     <script>
-      // Letter-by-letter reveal for hero title
-      document.querySelectorAll(".letter-reveal").forEach((el) => {
-        const html = el.innerHTML;
-        const wrapped = html.replace(/([\wĂÂÎȘȚăâîșțé]+)/g, (word) => {
-          return word
-            .split("")
-            .map((ch, i) => `<span style="animation-delay: ${i * 0.04}s">${ch}</span>`)
-            .join("");
+      // Letter-by-letter reveal — walk TEXT NODES only so we never corrupt HTML.
+      // Skip text inside elements that use background-clip:text (gradient text)
+      // because per-character spans break the gradient mask.
+      const isGradientAncestor = (node) => {
+        let p = node.parentElement;
+        while (p) {
+          if (p.classList.contains("text-gradient-cyan") ||
+              p.classList.contains("text-gradient-gold")) return true;
+          p = p.parentElement;
+        }
+        return false;
+      };
+      document.querySelectorAll(".letter-reveal").forEach((root) => {
+        let i = 0;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        while (walker.nextNode()) textNodes.push(walker.currentNode);
+        textNodes.forEach((node) => {
+          const text = node.nodeValue ?? "";
+          if (!text.trim()) return;
+          if (isGradientAncestor(node)) {
+            // Animate the whole gradient parent as one unit instead.
+            const parent = node.parentElement;
+            if (parent && !parent.dataset.lrApplied) {
+              parent.dataset.lrApplied = "1";
+              parent.style.opacity = "0";
+              parent.style.transform = "translateY(0.6em)";
+              parent.style.animation = `letterRise 0.9s cubic-bezier(0.16,1,0.3,1) ${0.4 + i * 0.035}s forwards`;
+              i += text.trim().length;
+            }
+            return;
+          }
+          const frag = document.createDocumentFragment();
+          for (const ch of text) {
+            if (ch === " " || ch === "\n") {
+              frag.appendChild(document.createTextNode(ch));
+              continue;
+            }
+            const span = document.createElement("span");
+            span.textContent = ch;
+            span.style.animationDelay = `${i * 0.035}s`;
+            frag.appendChild(span);
+            i += 1;
+          }
+          node.parentNode.replaceChild(frag, node);
         });
-        el.innerHTML = wrapped;
       });
 
       // Swiper for trainers
@@ -1612,27 +1650,22 @@
         },
       });
 
-      // GSAP timeline mirroring hyperframes composition (ball + title + sub + badge)
+      // GSAP timeline mirroring the hyperframes composition (ball + title + sub + badge)
       if (window.gsap) {
-        gsap.set(["#hyperBall", "#hyperLine1", "#hyperLine2", "#hyperSub", "#hyperBadge"], {
-          opacity: 0,
-        });
-        const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.2 });
-        tl.to("#hyperBall", { opacity: 1, scale: 1, duration: 0.9, ease: "back.out(2)", from: { scale: 0.4 } }, 0)
-          .from("#hyperLine1", { opacity: 0, y: 60, duration: 0.8, ease: "power3.out" }, 0.5)
-          .from("#hyperLine2", { opacity: 0, y: 60, duration: 0.8, ease: "power3.out" }, 0.7)
-          .to(["#hyperLine1", "#hyperLine2"], { opacity: 1, duration: 0 }, 0.5)
-          .from("#hyperSub", { opacity: 0, y: 30, duration: 0.7, ease: "power3.out" }, 1.0)
-          .to("#hyperSub", { opacity: 1, duration: 0 }, 1.0)
-          .from("#hyperBadge", { opacity: 0, scale: 0.7, duration: 0.6, ease: "back.out(2)" }, 1.4)
-          .to("#hyperBadge", { opacity: 1, duration: 0 }, 1.4)
-          .to({}, { duration: 2 }) // hold
-          .to(["#hyperLine1", "#hyperLine2", "#hyperSub", "#hyperBadge"], {
-            opacity: 0,
-            y: -20,
-            duration: 0.5,
-            ease: "power2.in",
-          }, ">");
+        const targets = ["#hyperBall", "#hyperLine1", "#hyperLine2", "#hyperSub", "#hyperBadge"];
+        const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.4 });
+        tl.set(targets, { opacity: 0 })
+          .set("#hyperBall", { scale: 0.4 })
+          .set(["#hyperLine1", "#hyperLine2"], { y: 60 })
+          .set("#hyperSub", { y: 30 })
+          .set("#hyperBadge", { scale: 0.7 })
+          .to("#hyperBall", { opacity: 1, scale: 1, duration: 0.9, ease: "back.out(2)" }, 0)
+          .to("#hyperLine1", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0.5)
+          .to("#hyperLine2", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0.7)
+          .to("#hyperSub",   { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 1.0)
+          .to("#hyperBadge", { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" }, 1.3)
+          .to({}, { duration: 2.2 })
+          .to(targets, { opacity: 0, y: -20, duration: 0.5, ease: "power2.in" }, ">");
       }
     </script>
   </body>
