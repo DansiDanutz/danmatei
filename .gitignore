@@ -108,3 +108,17 @@ temp/
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
 .vercel
+
+# Expo / React Native
+.expo/
+.expo-shared/
+apps/mobile/.expo/
+apps/mobile/web-build/
+apps/mobile/dist/
+apps/mobile/ios/
+apps/mobile/android/
+
+# Hyperframes
+**/hyperframes/**/renders/
+**/hyperframes/**/.hyperframes-cache/
+apps/mobile/assets/onboarding-hero.mp4
