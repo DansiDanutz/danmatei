@@ -95,6 +95,18 @@ test("audit preview at every viewport", async ({ page }) => {
     await page.goto(PREVIEW_URL, { waitUntil: "networkidle", timeout: 60000 });
     await page.waitForTimeout(2500);
 
+    // Trigger scroll-reveal animations by walking the page top → bottom
+    await page.evaluate(async () => {
+      const total = document.documentElement.scrollHeight;
+      const step = window.innerHeight * 0.7;
+      for (let y = 0; y <= total; y += step) {
+        window.scrollTo(0, y);
+        await new Promise((r) => setTimeout(r, 80));
+      }
+      window.scrollTo(0, 0);
+    });
+    await page.waitForTimeout(800);
+
     // Detect horizontal overflow
     const docOverflow = await page.evaluate(() => {
       const docW = document.documentElement.scrollWidth;

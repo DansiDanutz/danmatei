@@ -784,6 +784,180 @@
       .nav-dot.active { background: var(--cyan); width: 24px; border-radius: 999px; }
 
       /* ============================================================
+         ANIMATIONS — scroll-triggered reveal + device hover lift
+         ============================================================ */
+      .reveal {
+        opacity: 0;
+        transform: translateY(28px);
+        transition: opacity 700ms cubic-bezier(0.16, 1, 0.3, 1),
+                    transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: opacity, transform;
+      }
+      .reveal.in {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .reveal-stagger > * { transition-delay: var(--d, 0ms); }
+
+      .device {
+        transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+                    box-shadow 380ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @media (hover: hover) {
+        .device:hover {
+          transform: translateY(-6px);
+          box-shadow:
+            0 0 0 2px oklch(0.78 0.13 210 / 0.4),
+            0 40px 100px -20px rgba(0,0,0,0.85),
+            0 0 100px -10px oklch(0.78 0.13 210 / 0.45);
+        }
+      }
+
+      /* ============================================================
+         FLOATING CTA — sticky at bottom-right, drives to /programare
+         ============================================================ */
+      .cta-pill {
+        position: fixed;
+        bottom: 22px;
+        right: 22px;
+        z-index: 60;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 22px;
+        border-radius: 999px;
+        background: var(--cyan);
+        color: oklch(0.08 0.02 250);
+        font-weight: 800;
+        font-size: 13px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        text-decoration: none;
+        box-shadow:
+          0 0 0 1px oklch(0.78 0.13 210 / 0.7),
+          0 18px 40px -10px oklch(0.78 0.13 210 / 0.55),
+          0 0 60px -15px oklch(0.78 0.13 210 / 0.6);
+        transform: translateY(0) scale(1);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 380ms ease,
+                    transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+                    box-shadow 380ms ease;
+      }
+      .cta-pill.show { opacity: 1; pointer-events: auto; }
+      .cta-pill:hover { transform: translateY(-3px) scale(1.03); }
+      .cta-pill::before {
+        content: "";
+        width: 9px; height: 9px;
+        border-radius: 999px;
+        background: oklch(0.08 0.02 250);
+        box-shadow: 0 0 12px oklch(0.08 0.02 250);
+        animation: pulseDot 1.4s ease-in-out infinite;
+      }
+      @media (max-width: 640px) {
+        .cta-pill { bottom: 14px; right: 14px; padding: 11px 16px; font-size: 11px; }
+      }
+
+      /* ============================================================
+         TIMELINE
+         ============================================================ */
+      .timeline {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+        max-width: 920px;
+        margin: 0 auto;
+      }
+      @media (max-width: 640px) {
+        .timeline { grid-template-columns: 1fr; gap: 12px; }
+      }
+      .timeline-step {
+        position: relative;
+        padding: 18px 14px 16px;
+        border-radius: 16px;
+        background: oklch(1 0 0 / 0.03);
+        border: 1px solid oklch(1 0 0 / 0.08);
+      }
+      .timeline-step .y {
+        font-family: "Bebas Neue";
+        font-size: 32px;
+        line-height: 1;
+        color: var(--gold);
+      }
+      .timeline-step .l {
+        font-size: 11px;
+        color: oklch(0.85 0.02 240);
+        margin-top: 8px;
+        line-height: 1.4;
+      }
+      .timeline-step::before {
+        content: "";
+        position: absolute;
+        top: -1px; left: -1px; right: -1px;
+        height: 3px;
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
+        background: linear-gradient(90deg, var(--cyan), var(--gold));
+        opacity: 0.7;
+      }
+
+      /* ============================================================
+         TESTIMONIAL
+         ============================================================ */
+      .testimonial {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 36px 28px;
+        border-radius: 24px;
+        border: 1px solid oklch(1 0 0 / 0.08);
+        background: linear-gradient(180deg, oklch(0.13 0.03 250 / 0.85) 0%, oklch(0.10 0.02 250 / 0.85) 100%);
+        position: relative;
+      }
+      .testimonial::before {
+        content: "“";
+        position: absolute;
+        top: 4px; left: 16px;
+        font-family: "Bebas Neue";
+        font-size: 120px;
+        color: var(--cyan);
+        opacity: 0.2;
+        line-height: 1;
+      }
+      .testimonial blockquote {
+        font-size: clamp(15px, 2vw, 18px);
+        line-height: 1.6;
+        color: oklch(0.92 0.02 240);
+        font-style: italic;
+        position: relative;
+        z-index: 1;
+      }
+      .testimonial footer {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .testimonial footer img {
+        width: 44px; height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid oklch(0.78 0.13 210 / 0.4);
+      }
+      .testimonial footer .who {
+        font-family: "Bebas Neue";
+        font-size: 18px;
+        letter-spacing: 0.04em;
+      }
+      .testimonial footer .rel {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: var(--cyan);
+        font-weight: 700;
+        margin-top: 2px;
+      }
+
+      /* ============================================================
          INTRO SPLASH — fullscreen chant video on first load
          ============================================================ */
       .intro {
@@ -1007,6 +1181,11 @@
     </style>
   </head>
   <body>
+    <!-- FLOATING CTA -->
+    <a id="ctaPill" class="cta-pill" href="/programare" aria-label="Vorbește cu un consilier acum">
+      Vorbește cu un consilier
+    </a>
+
     <!-- INTRO SPLASH — auto-plays hero-chant.mp4, user can skip -->
     <div class="intro" id="intro" role="dialog" aria-label="Intro video">
       <video
@@ -1970,6 +2149,325 @@
         </div>
       </section>
 
+      <!-- =================================================================
+           NEW: Player profile + Match-day live + Trainer Inbox mockups
+           ================================================================= -->
+      <section id="extras" class="mb-32">
+        <div class="text-center mb-10 reveal">
+          <div class="section-eyebrow">Diferențiatori</div>
+          <h2 class="section-title mt-3">
+            <span class="block text-white">Pentru fiecare</span>
+            <span class="block text-gradient-gold">copil în parte</span>
+          </h2>
+          <p class="section-sub mx-auto">
+            Profil complet pentru fiecare copil, mod meci live cu retransmitere,
+            inbox antrenor cu transcriere AI a apelurilor de la părinți.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-10">
+          <!-- PLAYER PROFILE -->
+          <div class="reveal">
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden">
+                    <!-- Player hero with parallax -->
+                    <div class="relative h-44 overflow-hidden">
+                      <video src="/Sopi.mp4" poster="/Sopi-poster.jpg" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover opacity-50"></video>
+                      <div class="absolute inset-0 bg-gradient-to-t from-[oklch(0.07_0.02_250)] via-[oklch(0.07_0.02_250)]/60 to-transparent"></div>
+                      <div class="absolute top-3 left-3"><span class="pill"><span class="dot"></span>U6 – U7 · Sopi</span></div>
+                      <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                        <div>
+                          <div class="font-display text-white text-2xl uppercase leading-none">Luca Pop</div>
+                          <div class="text-cyan text-[10px] mt-1 font-bold uppercase tracking-[0.18em]">Atacant · 2020</div>
+                        </div>
+                        <div class="text-right">
+                          <div class="font-display text-gold text-3xl leading-none">⭐⭐⭐⭐</div>
+                          <div class="text-[8.5px] uppercase tracking-widest text-white/45 font-bold mt-1">Skill</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="p-[14px] space-y-3">
+                      <!-- Streak card with glow rim -->
+                      <div class="relative">
+                        <span class="rim-glow" style="border-radius: 16px"></span>
+                        <div class="feature-card cyan" style="margin-top: 0; padding: 12px">
+                          <div class="flex items-center justify-between">
+                            <div>
+                              <div class="text-[9px] uppercase tracking-[0.22em] font-bold text-cyan/85">Streak antrenamente</div>
+                              <div class="font-display text-white text-2xl mt-1 leading-none">12 🔥</div>
+                              <div class="text-[10px] text-white/65 mt-1 font-medium">Cea mai lungă serie a sezonului</div>
+                            </div>
+                            <div class="font-display text-gold text-4xl leading-none">95%</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Skill tree -->
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="text-[9px] uppercase tracking-[0.22em] text-white/55 font-bold mb-2">Profilul de joc</div>
+                        <ul class="space-y-2">
+                          <SkillBar />
+                          <li class="flex items-center gap-2"><span class="w-16 text-[10px] text-white/70 font-bold">Tehnică</span><span class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden"><span class="block h-full w-[80%] bg-gradient-to-r from-cyan to-cyan/60" style="background:linear-gradient(90deg,var(--cyan),oklch(0.78 0.13 210 / 0.4))"></span></span><span class="text-[9px] text-cyan font-bold w-6 text-right">4/5</span></li>
+                          <li class="flex items-center gap-2"><span class="w-16 text-[10px] text-white/70 font-bold">Pasare</span><span class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden"><span class="block h-full w-[60%]" style="background:linear-gradient(90deg,var(--cyan),oklch(0.78 0.13 210 / 0.4))"></span></span><span class="text-[9px] text-cyan font-bold w-6 text-right">3/5</span></li>
+                          <li class="flex items-center gap-2"><span class="w-16 text-[10px] text-white/70 font-bold">Cooperare</span><span class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden"><span class="block h-full w-[100%]" style="background:linear-gradient(90deg,var(--gold),oklch(0.85 0.13 85 / 0.4))"></span></span><span class="text-[9px] text-gold font-bold w-6 text-right">5/5</span></li>
+                          <li class="flex items-center gap-2"><span class="w-16 text-[10px] text-white/70 font-bold">Disciplină</span><span class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden"><span class="block h-full w-[80%]" style="background:linear-gradient(90deg,var(--cyan),oklch(0.78 0.13 210 / 0.4))"></span></span><span class="text-[9px] text-cyan font-bold w-6 text-right">4/5</span></li>
+                        </ul>
+                      </div>
+
+                      <!-- Highlight reels -->
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="text-[9px] uppercase tracking-[0.22em] text-white/55 font-bold mb-2">Momentele tale</div>
+                        <div class="grid grid-cols-2 gap-2">
+                          <div class="aspect-video rounded-lg bg-cover bg-center relative overflow-hidden border border-white/10" style="background-image:url('/team-photo.jpg')">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent"></div>
+                            <div class="absolute bottom-1 left-1.5 right-1.5"><div class="text-white text-[9.5px] font-bold">Săpt 18 · 2g 1a</div></div>
+                            <div class="absolute top-1 right-1 text-[10px]">▶</div>
+                          </div>
+                          <div class="aspect-video rounded-lg bg-cover bg-center relative overflow-hidden border border-white/10" style="background-image:url('/Sopi-poster.jpg')">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent"></div>
+                            <div class="absolute bottom-1 left-1.5 right-1.5"><div class="text-white text-[9.5px] font-bold">Cupa Toamnei</div></div>
+                            <div class="absolute top-1 right-1 text-[10px]">▶</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item"><div class="tab-icon">👥</div>Antrenori</div>
+                    <div class="tab-item active"><div class="tab-icon">📋</div>Copil</div>
+                    <div class="tab-item"><div class="tab-icon">💬</div>Chat</div>
+                    <div class="tab-item"><div class="tab-icon">👤</div>Profil</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/copii/luca-pop</div>
+          </div>
+
+          <!-- MATCH-DAY LIVE -->
+          <div class="reveal">
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>14:23</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden relative">
+                    <!-- Live video bg -->
+                    <video src="/football-hero.mp4" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover opacity-30"></video>
+                    <div class="absolute inset-0 bg-gradient-to-b from-[oklch(0.07_0.02_250)]/60 via-[oklch(0.07_0.02_250)]/85 to-[oklch(0.07_0.02_250)]"></div>
+
+                    <div class="relative h-full flex flex-col p-[16px]">
+                      <div class="flex items-center justify-between">
+                        <span class="pill" style="background: oklch(0.65 0.20 25 / 0.2); border-color: oklch(0.65 0.20 25 / 0.5); color: oklch(0.85 0.18 25)">
+                          <span class="dot" style="background: oklch(0.65 0.20 25); box-shadow: 0 0 12px oklch(0.65 0.20 25)"></span>
+                          LIVE · 67'
+                        </span>
+                        <span class="text-white/70 text-[10px] uppercase tracking-widest font-bold">Cupa Toamnei</span>
+                      </div>
+
+                      <!-- Score -->
+                      <div class="flex-1 flex items-center justify-around mt-3">
+                        <div class="text-center">
+                          <div class="text-white/60 text-[10px] uppercase tracking-widest font-bold mb-1">Acasă</div>
+                          <div class="font-display text-white text-[64px] leading-none">3</div>
+                          <div class="text-cyan text-[10px] uppercase tracking-widest mt-1 font-bold">Dan Matei U11</div>
+                        </div>
+                        <div class="font-display text-white/30 text-3xl">·</div>
+                        <div class="text-center">
+                          <div class="text-white/60 text-[10px] uppercase tracking-widest font-bold mb-1">Oaspeți</div>
+                          <div class="font-display text-white/60 text-[64px] leading-none">1</div>
+                          <div class="text-white/45 text-[10px] uppercase tracking-widest mt-1 font-bold">CFR Junior</div>
+                        </div>
+                      </div>
+
+                      <!-- Goal scorers -->
+                      <div class="grid grid-cols-2 gap-2 mt-2">
+                        <div class="feature-card" style="margin-top: 0; padding: 10px">
+                          <div class="text-[9px] uppercase tracking-[0.18em] font-bold text-cyan/80 mb-1">Goluri</div>
+                          <div class="text-[11px] text-white">⚽ Luca P. · 12'</div>
+                          <div class="text-[11px] text-white">⚽ Andrei P. · 34'</div>
+                          <div class="text-[11px] text-gold">⚽ Luca P. · 58'</div>
+                        </div>
+                        <div class="feature-card" style="margin-top: 0; padding: 10px">
+                          <div class="text-[9px] uppercase tracking-[0.18em] font-bold text-white/60 mb-1">Asisturi</div>
+                          <div class="text-[11px] text-white">🎯 Matei C. · 12'</div>
+                          <div class="text-[11px] text-white">🎯 Tudor M. · 34'</div>
+                          <div class="text-[11px] text-white">🎯 Andrei P. · 58'</div>
+                        </div>
+                      </div>
+
+                      <!-- Chant button -->
+                      <div class="relative mt-3">
+                        <span class="rim-glow" style="border-radius: 16px"></span>
+                        <div class="feature-card gold" style="margin-top: 0; padding: 12px">
+                          <div class="flex items-center justify-between">
+                            <div>
+                              <div class="text-[9px] uppercase tracking-[0.22em] font-bold text-gold/85">Suporteri</div>
+                              <div class="font-display text-white text-xl leading-none mt-0.5">42 părinți live</div>
+                            </div>
+                            <div class="text-3xl">📣</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item active"><div class="tab-icon">🔴</div>Live</div>
+                    <div class="tab-item"><div class="tab-icon">📋</div>Grupe</div>
+                    <div class="tab-item"><div class="tab-icon">💬</div>Chat</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/match/live</div>
+          </div>
+
+          <!-- TRAINER INBOX (NEW LEAD TRANSCRIPT) -->
+          <div class="reveal">
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden p-[16px]">
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <div class="font-display text-white text-[28px] leading-none uppercase">Inbox</div>
+                        <div class="text-white/65 text-[11px] mt-1 font-medium">3 lead-uri noi · AI agent</div>
+                      </div>
+                      <span class="bg-cyan text-[oklch(0.08_0.02_250)] text-[11px] font-extrabold rounded-full px-2 py-0.5">3</span>
+                    </div>
+
+                    <!-- Highlighted new lead with transcript card -->
+                    <div class="relative mt-3">
+                      <span class="rim-glow" style="border-radius: 18px"></span>
+                      <div class="feature-card cyan" style="margin-top: 0; padding: 14px">
+                        <div class="flex items-start gap-2.5">
+                          <div class="w-9 h-9 rounded-full bg-cyan/20 border border-cyan/40 flex items-center justify-center text-cyan text-[10px] font-extrabold flex-shrink-0">AP</div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                              <div class="text-white text-[12.5px] font-bold">Andrei Popescu</div>
+                              <div class="text-cyan text-[9.5px] font-bold uppercase tracking-wider">acum 4 min</div>
+                            </div>
+                            <div class="text-[10px] text-white/55 uppercase tracking-widest font-bold mt-0.5">Părinte · copil 9 ani · U9</div>
+                          </div>
+                        </div>
+
+                        <div class="mt-3 rounded-xl bg-white/5 border border-white/10 p-2.5">
+                          <div class="flex items-center gap-2 mb-2">
+                            <span class="text-[8.5px] uppercase tracking-[0.22em] text-cyan font-extrabold">📝 Rezumat AI</span>
+                          </div>
+                          <p class="text-[11px] text-white/85 leading-relaxed">Vrea să vină joi 16:00 la primul antrenament. Întreabă de prețul lunar și dacă acceptăm copii care încep de la zero.</p>
+                          <div class="mt-2 pt-2 border-t border-white/5 flex items-center gap-1.5">
+                            <span class="text-[9px] uppercase tracking-widest text-gold font-bold">Intent:</span>
+                            <span class="text-[10px] text-white">Programare vizită</span>
+                          </div>
+                        </div>
+
+                        <div class="mt-2.5 grid grid-cols-3 gap-1.5">
+                          <button class="btn btn-cyan" style="padding: 8px 6px; font-size: 9.5px">📞 Apel</button>
+                          <button class="btn btn-ghost" style="padding: 8px 6px; font-size: 9.5px">💬 WA</button>
+                          <button class="btn btn-ghost" style="padding: 8px 6px; font-size: 9.5px">📅 Programează</button>
+                        </div>
+
+                        <div class="mt-2 flex items-center gap-1.5 text-[9.5px] text-white/55">
+                          <span>▶ Ascultă apel · 3:42</span>
+                          <span>·</span>
+                          <span>📄 Transcriere completă</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Other inbox items -->
+                    <div class="space-y-2 mt-3">
+                      <div class="feature-card" style="margin-top: 0; padding: 10px">
+                        <div class="flex items-start gap-2.5">
+                          <div class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white text-[9px] font-extrabold flex-shrink-0">MI</div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                              <div class="text-white text-[11.5px] font-bold truncate">Maria Ionescu — U7</div>
+                              <div class="text-white/45 text-[9px] uppercase tracking-wider">2h</div>
+                            </div>
+                            <div class="text-white/65 text-[10.5px] mt-0.5 truncate">Întreabă info preț + program zi</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="feature-card" style="margin-top: 0; padding: 10px">
+                        <div class="flex items-start gap-2.5">
+                          <div class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white text-[9px] font-extrabold flex-shrink-0">RD</div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                              <div class="text-white text-[11.5px] font-bold truncate">Răzvan Dobre — U11</div>
+                              <div class="text-white/45 text-[9px] uppercase tracking-wider">ieri</div>
+                            </div>
+                            <div class="text-white/65 text-[10.5px] mt-0.5 truncate">Reprogramare antrenament</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item"><div class="tab-icon">👥</div>Grupe</div>
+                    <div class="tab-item active"><div class="tab-icon">📥</div>Inbox</div>
+                    <div class="tab-item"><div class="tab-icon">💬</div>Chat</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/tabs/inbox · antrenor</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           Timeline 2017 → 2026
+           ================================================================= -->
+      <section class="mb-32 reveal">
+        <div class="text-center mb-10">
+          <div class="section-eyebrow">Drumul nostru</div>
+          <h2 class="section-title mt-3">9 ani de fotbal</h2>
+        </div>
+        <div class="timeline">
+          <div class="timeline-step"><div class="y">2017</div><div class="l">Înființare · prima grupă U7</div></div>
+          <div class="timeline-step"><div class="y">2019</div><div class="l">Mutare la Baza Mănăștur · 5 grupe</div></div>
+          <div class="timeline-step"><div class="y">2021</div><div class="l">Primul trofeu Cupa Toamnei</div></div>
+          <div class="timeline-step"><div class="y">2024</div><div class="l">240+ copii formați · 3 antrenori UEFA</div></div>
+          <div class="timeline-step"><div class="y">2026</div><div class="l">Aplicația mobilă · AI consilier · live</div></div>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           Testimonial
+           ================================================================= -->
+      <section class="mb-32 reveal">
+        <div class="text-center mb-8">
+          <div class="section-eyebrow">Părinții vorbesc</div>
+        </div>
+        <div class="testimonial">
+          <blockquote>
+            După doi ani la academie, fiul meu nu a învățat doar fotbal. A
+            învățat ce înseamnă echipa, disciplina, respectul față de adversar.
+            Și recunosc — și eu, ca tată, am învățat. Antrenorii sunt mai
+            mult decât niște profesori — sunt mentori.
+          </blockquote>
+          <footer>
+            <div class="w-11 h-11 rounded-full bg-cyan/15 border-2 border-cyan/40 flex items-center justify-center text-cyan font-bold">AP</div>
+            <div>
+              <div class="who">Andrei Popescu</div>
+              <div class="rel">Tată Luca · Grupa U11</div>
+            </div>
+          </footer>
+        </div>
+      </section>
+
       <footer class="text-center text-white/55 text-sm mt-16 pb-12">
         <div class="flex justify-center mb-6">
           <img src="/logo-official.jpg" class="w-16 h-16 rounded-2xl border border-white/10" alt="Logo" />
@@ -1983,6 +2481,92 @@
     </main>
 
     <script>
+      // ============================================================
+      // SCROLL-TRIGGERED REVEALS — fade-up sections when they enter view.
+      // Safety net: any element still hidden after 4s is force-revealed,
+      // so headless screenshots, search-engine crawlers, and reduced-motion
+      // users always see content.
+      // ============================================================
+      (() => {
+        const targets = document.querySelectorAll(".reveal");
+        if (!targets.length) return;
+        const reveal = (el) => el.classList.add("in");
+        const reduced = window.matchMedia &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (!("IntersectionObserver" in window) || reduced) {
+          targets.forEach(reveal);
+          return;
+        }
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                reveal(e.target);
+                io.unobserve(e.target);
+              }
+            }
+          },
+          { rootMargin: "0px 0px -10% 0px", threshold: 0.05 },
+        );
+        targets.forEach((el) => io.observe(el));
+        setTimeout(() => targets.forEach(reveal), 4000);
+      })();
+
+      // ============================================================
+      // STATS COUNT-UP — animate the four hero stat cells when they enter view
+      // ============================================================
+      (() => {
+        const cells = document.querySelectorAll(".stat-cell .v[data-count]");
+        if (!cells.length) return;
+        const animate = (el) => {
+          const target = parseInt(el.getAttribute("data-count") ?? "0", 10);
+          const isPlus = (el.textContent ?? "").trim().endsWith("+");
+          const start = performance.now();
+          const duration = 1400;
+          const ease = (t) => 1 - Math.pow(1 - t, 3);
+          const tick = (now) => {
+            const t = Math.min(1, (now - start) / duration);
+            const v = Math.round(target * ease(t));
+            el.textContent = isPlus ? `${v}+` : `${v}`;
+            if (t < 1) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        };
+        if (!("IntersectionObserver" in window)) {
+          cells.forEach((el) => animate(el));
+          return;
+        }
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                animate(e.target);
+                io.unobserve(e.target);
+              }
+            }
+          },
+          { threshold: 0.5 },
+        );
+        cells.forEach((el) => {
+          el.textContent = "0";
+          io.observe(el);
+        });
+      })();
+
+      // ============================================================
+      // FLOATING CTA — show after the user scrolls past the hero
+      // ============================================================
+      (() => {
+        const cta = document.getElementById("ctaPill");
+        if (!cta) return;
+        const onScroll = () => {
+          const past = window.scrollY > 600;
+          cta.classList.toggle("show", past);
+        };
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+      })();
+
       // INTRO SPLASH — fullscreen hero-chant.mp4 with skip button and progress
       (() => {
         const intro = document.getElementById("intro");
