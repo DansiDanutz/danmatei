@@ -626,20 +626,131 @@
       }
       .anim-ball { animation: ballBounce 2.2s ease-in-out infinite; }
 
-      /* Swiper customization */
-      .swiper { padding: 12px 0 50px; }
-      .swiper-slide { width: 320px; height: auto; }
-      .swiper-pagination-bullet {
-        background: oklch(1 0 0 / 0.25);
+      /* Swiper customization — premium carousel */
+      .trainer-swiper-wrap {
+        position: relative;
+        overflow: hidden;
+        padding: 0 4px;
+        max-width: 100%;
+      }
+      .swiper {
+        padding: 30px 0 64px;
+      }
+      .swiper-slide {
+        width: 320px;
+        height: auto;
+        transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
+                    filter 600ms cubic-bezier(0.16, 1, 0.3, 1);
+        transform: scale(0.86);
+        opacity: 0.45;
+        filter: saturate(0.7);
+        will-change: transform, opacity;
+      }
+      .swiper-slide-active,
+      .swiper-slide-duplicate-active {
+        transform: scale(1);
         opacity: 1;
+        filter: saturate(1);
+      }
+      .swiper-slide-next,
+      .swiper-slide-prev {
+        opacity: 0.7;
+        transform: scale(0.92);
+        filter: saturate(0.85);
+      }
+
+      .swiper-pagination {
+        bottom: 18px !important;
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+      }
+      .swiper-pagination-bullet {
+        background: oklch(1 0 0 / 0.22);
+        opacity: 1;
+        width: 8px; height: 8px;
+        margin: 0 !important;
+        transition: all 350ms cubic-bezier(0.16, 1, 0.3, 1);
       }
       .swiper-pagination-bullet-active {
         background: var(--cyan);
-        width: 24px;
+        width: 32px;
         border-radius: 999px;
+        box-shadow: 0 0 14px var(--cyan);
       }
-      .swiper-button-prev, .swiper-button-next {
+
+      /* Custom nav arrows */
+      .trainer-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+        width: 52px; height: 52px;
+        border-radius: 999px;
+        background: oklch(0.10 0.02 250 / 0.85);
+        border: 1px solid oklch(1 0 0 / 0.12);
+        backdrop-filter: blur(14px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #fff;
+        font-size: 22px;
+        transition: all 250ms ease;
+        user-select: none;
+      }
+      .trainer-nav:hover {
+        background: oklch(0.78 0.13 210 / 0.18);
+        border-color: oklch(0.78 0.13 210 / 0.45);
         color: var(--cyan);
+        box-shadow: 0 0 30px -8px oklch(0.78 0.13 210 / 0.5);
+      }
+      .trainer-nav.prev { left: -8px; }
+      .trainer-nav.next { right: -8px; }
+      .trainer-nav.swiper-button-disabled {
+        opacity: 0.25;
+        cursor: not-allowed;
+      }
+
+      .trainer-counter {
+        position: absolute;
+        top: 0; right: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: oklch(1 0 0 / 0.04);
+        border: 1px solid oklch(1 0 0 / 0.10);
+        font-family: "Bebas Neue";
+        letter-spacing: 0.16em;
+        z-index: 5;
+      }
+      .trainer-counter .current {
+        font-size: 22px;
+        color: var(--cyan);
+      }
+      .trainer-counter .sep {
+        font-size: 14px;
+        color: oklch(0.5 0.02 240);
+      }
+      .trainer-counter .total {
+        font-size: 14px;
+        color: oklch(0.85 0.02 240);
+      }
+
+      @media (max-width: 640px) {
+        .trainer-nav { display: none; }
+        .trainer-counter { top: 4px; right: 4px; padding: 6px 10px; }
+        .trainer-counter .current { font-size: 18px; }
+        .swiper-slide { width: min(290px, calc(100vw - 50px)); }
+      }
+      @media (min-width: 900px) {
+        .swiper-slide { width: 380px; }
+      }
+      @media (min-width: 1280px) {
+        .swiper-slide { width: 420px; }
       }
 
       /* ticker */
@@ -1084,7 +1195,15 @@
           </p>
         </div>
 
-        <div class="swiper" id="trainerSwiper">
+        <div class="trainer-swiper-wrap">
+          <div class="trainer-counter">
+            <span class="current" id="trainerCurrent">01</span>
+            <span class="sep">/</span>
+            <span class="total" id="trainerTotal">03</span>
+          </div>
+          <button class="trainer-nav prev" id="trainerPrev" aria-label="Antrenorul anterior">‹</button>
+          <button class="trainer-nav next" id="trainerNext" aria-label="Antrenorul următor">›</button>
+          <div class="swiper" id="trainerSwiper">
           <div class="swiper-wrapper">
             <!-- Dan Matei -->
             <div class="swiper-slide">
@@ -1186,10 +1305,13 @@
               </article>
             </div>
           </div>
-          <div class="swiper-pagination !bottom-3"></div>
+          <div class="swiper-pagination"></div>
+        </div>
         </div>
 
-        <p class="text-center text-white/50 text-sm mt-2">← glisează pentru a vedea ceilalți antrenori →</p>
+        <p class="text-center text-white/55 text-xs mt-4 uppercase tracking-[0.28em] font-bold">
+          <span class="text-cyan">Glisează</span> · Săgeți · Mouse wheel
+        </p>
       </section>
 
       <!-- ONBOARDING device frames -->
@@ -2057,20 +2179,57 @@
         });
       });
 
-      // Swiper for trainers
-      new Swiper("#trainerSwiper", {
+      // Swiper for trainers — premium slide carousel with CSS scale/dim treatment
+      const trainerSwiper = new Swiper("#trainerSwiper", {
         slidesPerView: "auto",
-        spaceBetween: 20,
+        spaceBetween: 28,
         centeredSlides: true,
         grabCursor: true,
-        speed: 700,
-        pagination: { el: ".swiper-pagination", clickable: true },
-        breakpoints: {
-          640: { slidesPerView: 1.4, centeredSlides: true },
-          900: { slidesPerView: 2, centeredSlides: false },
-          1200: { slidesPerView: 2.4, centeredSlides: false },
+        loop: true,
+        speed: 800,
+        watchSlidesProgress: true,
+        keyboard: { enabled: true, onlyInViewport: true },
+        mousewheel: { forceToAxis: true, sensitivity: 0.6, releaseOnEdges: true },
+        pagination: {
+          el: ".swiper-pagination",
+          clickable: true,
+        },
+        navigation: {
+          nextEl: "#trainerNext",
+          prevEl: "#trainerPrev",
+        },
+        on: {
+          slideChange(swiper) {
+            const idx = swiper.realIndex + 1;
+            const cur = document.getElementById("trainerCurrent");
+            if (cur) cur.textContent = String(idx).padStart(2, "0");
+          },
+          afterInit(swiper) {
+            const total = swiper.slides.length;
+            const totalEl = document.getElementById("trainerTotal");
+            if (totalEl) totalEl.textContent = String(total - swiper.loopedSlides * 2 || 3).padStart(2, "0");
+          },
         },
       });
+
+      // Pause autoplaying trainer videos when slide is not active for performance
+      const updateTrainerVideos = () => {
+        document.querySelectorAll("#trainerSwiper .swiper-slide video").forEach((vid) => {
+          const slide = vid.closest(".swiper-slide");
+          if (!slide) return;
+          const isActive = slide.classList.contains("swiper-slide-active") ||
+                           slide.classList.contains("swiper-slide-next") ||
+                           slide.classList.contains("swiper-slide-prev");
+          if (isActive) {
+            vid.play().catch(() => {});
+          } else {
+            vid.pause();
+          }
+        });
+      };
+      trainerSwiper.on("slideChange", updateTrainerVideos);
+      trainerSwiper.on("init", updateTrainerVideos);
+      updateTrainerVideos();
 
       // GSAP timeline mirroring the hyperframes composition (ball + title + sub + badge)
       if (window.gsap) {
