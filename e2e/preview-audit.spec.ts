@@ -1,22 +1,32 @@
-import { test, expect } from "@playwright/test";
+import { test } from "@playwright/test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 const PREVIEW_URL =
   process.env.PREVIEW_URL ??
-  "https://danmatei-git-claude-install-hyp-15b6fb-irises-projects-ce549f63.vercel.app/mobile-preview.html";
+  "https://danmatei.vercel.app/mobile-preview.html";
 
 const SHOTS_DIR = path.resolve(process.cwd(), "test-results/preview-audit");
 
+const VIEWPORTS = [
+  { name: "mobile-360", w: 360, h: 800 },
+  { name: "mobile-390", w: 390, h: 844 },
+  { name: "mobile-430", w: 430, h: 932 },
+  { name: "tablet-768", w: 768, h: 1024 },
+  { name: "desktop-1440", w: 1440, h: 900 },
+];
+
+const SECTIONS = ["hero", "hyper", "trainers", "onboarding", "auth", "tabs"];
+
 test.beforeAll(() => {
+  fs.rmSync(SHOTS_DIR, { recursive: true, force: true });
   fs.mkdirSync(SHOTS_DIR, { recursive: true });
 });
 
-test("desktop full page + section shots + console errors", async ({
-  page,
-}) => {
+test("audit preview at every viewport", async ({ page }) => {
   const consoleMsgs: string[] = [];
   const failedRequests: string[] = [];
+  const overflows: string[] = [];
 
   page.on("console", (msg) => {
     if (msg.type() === "error" || msg.type() === "warning") {
@@ -32,44 +42,51 @@ test("desktop full page + section shots + console errors", async ({
     }
   });
 
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(PREVIEW_URL, { waitUntil: "networkidle", timeout: 60000 });
+  for (const vp of VIEWPORTS) {
+    await page.setViewportSize({ width: vp.w, height: vp.h });
+    await page.goto(PREVIEW_URL, { waitUntil: "networkidle", timeout: 60000 });
+    await page.waitForTimeout(2500);
 
-  // Let videos / animations settle
-  await page.waitForTimeout(3000);
+    // Detect horizontal overflow
+    const docOverflow = await page.evaluate(() => {
+      const docW = document.documentElement.scrollWidth;
+      const winW = window.innerWidth;
+      return { docW, winW, overflow: Math.max(0, docW - winW) };
+    });
+    if (docOverflow.overflow > 0) {
+      overflows.push(
+        `[${vp.name}] horizontal overflow: ${docOverflow.overflow}px (doc ${docOverflow.docW}px vs viewport ${docOverflow.winW}px)`,
+      );
+    }
 
-  // Full page
-  await page.screenshot({
-    path: path.join(SHOTS_DIR, "00-fullpage.png"),
-    fullPage: true,
-  });
+    // Full page
+    await page.screenshot({
+      path: path.join(SHOTS_DIR, `${vp.name}-fullpage.png`),
+      fullPage: true,
+    });
 
-  const sections = ["hero", "hyper", "trainers", "onboarding", "auth", "tabs"];
-  for (const id of sections) {
-    const el = page.locator(`#${id}`);
-    if ((await el.count()) > 0) {
-      await el.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(500);
-      await el.screenshot({
-        path: path.join(SHOTS_DIR, `10-${id}.png`),
-      });
+    // Section shots — only on a couple of viewports to keep size sane
+    if (vp.name === "mobile-360" || vp.name === "desktop-1440") {
+      for (const id of SECTIONS) {
+        const el = page.locator(`#${id}`);
+        if ((await el.count()) > 0) {
+          await el.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(400);
+          await el.screenshot({
+            path: path.join(SHOTS_DIR, `${vp.name}-${id}.png`),
+          });
+        }
+      }
     }
   }
 
-  // Mobile viewport
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(PREVIEW_URL, { waitUntil: "networkidle" });
-  await page.waitForTimeout(2000);
-  await page.screenshot({
-    path: path.join(SHOTS_DIR, "20-mobile-fullpage.png"),
-    fullPage: true,
-  });
-
-  // Write log
   fs.writeFileSync(
     path.join(SHOTS_DIR, "console.log"),
     [
       `URL: ${PREVIEW_URL}`,
+      "",
+      "=== Horizontal overflow ===",
+      ...overflows,
       "",
       "=== Console messages ===",
       ...consoleMsgs,

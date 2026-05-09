@@ -671,6 +671,88 @@
         background: oklch(1 0 0 / 0.25);
       }
       .nav-dot.active { background: var(--cyan); width: 24px; border-radius: 999px; }
+
+      /* ============================================================
+         RESPONSIVE — mobile-first overrides for ≤640px viewports
+         ============================================================ */
+      @media (max-width: 640px) {
+        body {
+          background-image:
+            radial-gradient(900px 500px at 80% 0%, oklch(0.78 0.13 210 / 0.16), transparent 55%);
+        }
+        main.max-w-7xl {
+          padding-left: 12px !important;
+          padding-right: 12px !important;
+        }
+        .section-title {
+          font-size: clamp(28px, 9vw, 56px) !important;
+          line-height: 0.95;
+        }
+        .section-sub { font-size: 13px; padding: 0 4px; }
+        .section-eyebrow { font-size: 9.5px; letter-spacing: 0.24em; }
+
+        /* Hero shell */
+        #hero { border-radius: 22px; }
+        #hero .relative { padding: 36px 16px 40px !important; }
+
+        /* Top nav: scrollable horizontally */
+        nav .flex { overflow-x: auto; max-width: calc(100vw - 24px); padding: 6px; gap: 2px; }
+        nav .flex a { flex: 0 0 auto; font-size: 9.5px; padding: 6px 10px; }
+        nav .flex { scrollbar-width: none; }
+        nav .flex::-webkit-scrollbar { display: none; }
+
+        /* Stats strip → 2×2 */
+        .stat-strip { grid-template-columns: repeat(2, 1fr) !important; }
+        .stat-cell { padding: 14px 8px; }
+        .stat-cell .v { font-size: 32px; }
+        .stat-cell .l { font-size: 9px; letter-spacing: 0.14em; }
+
+        /* Tighter blockquote */
+        #hero blockquote { font-size: 14px !important; padding: 0 4px; }
+
+        /* Hyperframes preview */
+        .hyper { max-width: 280px; }
+        .hyper-title { font-size: 26px; }
+        .hyper-sub { font-size: 9px; letter-spacing: 0.18em; }
+        .hyper-ball { width: 90px; height: 90px; margin-bottom: 22px; }
+        .hyper-ball::before { width: 22px; height: 22px; top: 20px; left: 18px; }
+        .hyper-ball::after  { width: 22px; height: 22px; top: 36px; left: 46px; }
+
+        /* Device mockups: scale to fit viewport */
+        .device {
+          transform: scale(0.92);
+          transform-origin: top center;
+          margin-bottom: -50px; /* compensate for the scale-y space */
+        }
+
+        /* Trainers carousel: tighter slides */
+        .swiper-slide { width: min(300px, calc(100vw - 40px)); }
+
+        /* Section spacing */
+        section.mb-32 { margin-bottom: 4.5rem !important; }
+        section.mb-24 { margin-bottom: 3.5rem !important; }
+        section.mb-16 { margin-bottom: 2.5rem !important; }
+
+        /* Ticker smaller */
+        .ticker-track { font-size: 14px; gap: 28px; }
+
+        /* Trainer card info text scaling */
+        .trainer-card .name { font-size: 22px; }
+        .trainer-card .bio { font-size: 12.5px; }
+        .focus-box li { font-size: 12px; }
+
+        /* Hyperframes pipeline grid */
+        #hyper .grid.md\\:grid-cols-2 { gap: 24px; }
+      }
+
+      /* Slightly tighter ≤480px */
+      @media (max-width: 480px) {
+        main.max-w-7xl { padding-left: 8px !important; padding-right: 8px !important; }
+        .section-title { font-size: clamp(26px, 9.5vw, 48px) !important; }
+        .stat-cell .v { font-size: 28px; }
+        .device { transform: scale(0.86); margin-bottom: -90px; }
+        .swiper-slide { width: min(290px, calc(100vw - 24px)); }
+      }
     </style>
   </head>
   <body>
@@ -690,8 +772,23 @@
       <!-- HERO -->
       <section id="hero" class="hero-shell mb-16">
         <div class="ambient">
-          <video src="/football-hero.mp4" autoplay muted loop playsinline></video>
+          <video
+            id="heroChant"
+            src="/hero-chant.mp4"
+            autoplay
+            loop
+            playsinline
+            preload="auto"
+          ></video>
         </div>
+        <button
+          id="soundToggle"
+          aria-label="Activează sunetul"
+          class="absolute top-4 right-4 z-20 inline-flex items-center gap-2 px-3 py-2 rounded-full bg-black/60 border border-white/20 text-xs uppercase tracking-widest text-white/90 backdrop-blur-md hover:bg-black/80"
+        >
+          <span id="soundIcon">🔇</span>
+          <span id="soundLabel">Activează sunetul</span>
+        </button>
         <div class="relative z-10 px-8 py-16 md:py-20 text-center">
           <div class="pill mb-6 inline-flex">
             <span class="dot"></span>
@@ -1587,6 +1684,55 @@
     </main>
 
     <script>
+      // hero-chant.mp4 — try unmuted autoplay, fall back to muted with toggle.
+      // Mirrors client/src/components/HeroChantCard.tsx.
+      (() => {
+        const v = document.getElementById("heroChant");
+        const btn = document.getElementById("soundToggle");
+        const icon = document.getElementById("soundIcon");
+        const label = document.getElementById("soundLabel");
+        if (!v || !btn) return;
+
+        const setUI = (muted) => {
+          icon.textContent = muted ? "🔇" : "🔊";
+          label.textContent = muted ? "Activează sunetul" : "Oprește sunetul";
+          btn.setAttribute("aria-label", muted ? "Activează sunetul" : "Oprește sunetul");
+        };
+
+        // Optimistically try unmuted autoplay
+        v.muted = false;
+        v.volume = 0.7;
+        const tryPlay = v.play();
+        if (tryPlay && typeof tryPlay.then === "function") {
+          tryPlay.catch(() => {
+            v.muted = true;
+            setUI(true);
+            v.play().catch(() => {});
+          }).then(() => setUI(v.muted));
+        } else {
+          setUI(v.muted);
+        }
+
+        // First user gesture anywhere on the page → unmute
+        const onFirstGesture = () => {
+          if (!v.muted) return;
+          v.muted = false;
+          v.play().catch(() => {});
+          setUI(false);
+          window.removeEventListener("pointerdown", onFirstGesture);
+          window.removeEventListener("keydown", onFirstGesture);
+        };
+        window.addEventListener("pointerdown", onFirstGesture, { once: false });
+        window.addEventListener("keydown", onFirstGesture, { once: false });
+
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          v.muted = !v.muted;
+          if (!v.muted) v.play().catch(() => {});
+          setUI(v.muted);
+        });
+      })();
+
       // Letter-by-letter reveal — walk TEXT NODES only so we never corrupt HTML.
       // Skip text inside elements that use background-clip:text (gradient text)
       // because per-character spans break the gradient mask.
@@ -1620,16 +1766,25 @@
             return;
           }
           const frag = document.createDocumentFragment();
-          for (const ch of text) {
-            if (ch === " " || ch === "\n") {
-              frag.appendChild(document.createTextNode(ch));
+          // Split into words so per-character spans don't wrap mid-word.
+          const tokens = text.split(/(\s+)/);
+          for (const token of tokens) {
+            if (!token) continue;
+            if (/^\s+$/.test(token)) {
+              frag.appendChild(document.createTextNode(token));
               continue;
             }
-            const span = document.createElement("span");
-            span.textContent = ch;
-            span.style.animationDelay = `${i * 0.035}s`;
-            frag.appendChild(span);
-            i += 1;
+            const wordWrap = document.createElement("span");
+            wordWrap.style.display = "inline-block";
+            wordWrap.style.whiteSpace = "nowrap";
+            for (const ch of token) {
+              const span = document.createElement("span");
+              span.textContent = ch;
+              span.style.animationDelay = `${i * 0.035}s`;
+              wordWrap.appendChild(span);
+              i += 1;
+            }
+            frag.appendChild(wordWrap);
           }
           node.parentNode.replaceChild(frag, node);
         });
