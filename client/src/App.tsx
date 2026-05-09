@@ -34,6 +34,8 @@ const Copii = lazy(() => import("./pages/Copii"));
 const Program = lazy(() => import("./pages/Program"));
 const Galerie = lazy(() => import("./pages/Galerie"));
 const Contact = lazy(() => import("./pages/Contact"));
+const Programare = lazy(() => import("./pages/Programare"));
+const Apel = lazy(() => import("./pages/Apel"));
 
 function PageLoader() {
   return (
@@ -105,6 +107,16 @@ function Router() {
       <Route path={"/contact"}>
         <SuspenseWrap>
           <Contact />
+        </SuspenseWrap>
+      </Route>
+      <Route path={"/programare"}>
+        <SuspenseWrap>
+          <Programare />
+        </SuspenseWrap>
+      </Route>
+      <Route path={"/apel/:token"}>
+        <SuspenseWrap>
+          <Apel />
         </SuspenseWrap>
       </Route>
       <Route path={"/login"}>

@@ -626,20 +626,131 @@
       }
       .anim-ball { animation: ballBounce 2.2s ease-in-out infinite; }
 
-      /* Swiper customization */
-      .swiper { padding: 12px 0 50px; }
-      .swiper-slide { width: 320px; height: auto; }
-      .swiper-pagination-bullet {
-        background: oklch(1 0 0 / 0.25);
+      /* Swiper customization — premium carousel */
+      .trainer-swiper-wrap {
+        position: relative;
+        overflow: hidden;
+        padding: 0 4px;
+        max-width: 100%;
+      }
+      .swiper {
+        padding: 30px 0 64px;
+      }
+      .swiper-slide {
+        width: 320px;
+        height: auto;
+        transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+                    opacity 360ms cubic-bezier(0.22, 1, 0.36, 1),
+                    filter 360ms cubic-bezier(0.22, 1, 0.36, 1);
+        transform: scale(0.86);
+        opacity: 0.45;
+        filter: saturate(0.7);
+        will-change: transform, opacity;
+      }
+      .swiper-slide-active,
+      .swiper-slide-duplicate-active {
+        transform: scale(1);
         opacity: 1;
+        filter: saturate(1);
+      }
+      .swiper-slide-next,
+      .swiper-slide-prev {
+        opacity: 0.7;
+        transform: scale(0.92);
+        filter: saturate(0.85);
+      }
+
+      .swiper-pagination {
+        bottom: 18px !important;
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+      }
+      .swiper-pagination-bullet {
+        background: oklch(1 0 0 / 0.22);
+        opacity: 1;
+        width: 8px; height: 8px;
+        margin: 0 !important;
+        transition: all 350ms cubic-bezier(0.16, 1, 0.3, 1);
       }
       .swiper-pagination-bullet-active {
         background: var(--cyan);
-        width: 24px;
+        width: 32px;
         border-radius: 999px;
+        box-shadow: 0 0 14px var(--cyan);
       }
-      .swiper-button-prev, .swiper-button-next {
+
+      /* Custom nav arrows */
+      .trainer-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+        width: 52px; height: 52px;
+        border-radius: 999px;
+        background: oklch(0.10 0.02 250 / 0.85);
+        border: 1px solid oklch(1 0 0 / 0.12);
+        backdrop-filter: blur(14px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #fff;
+        font-size: 22px;
+        transition: all 250ms ease;
+        user-select: none;
+      }
+      .trainer-nav:hover {
+        background: oklch(0.78 0.13 210 / 0.18);
+        border-color: oklch(0.78 0.13 210 / 0.45);
         color: var(--cyan);
+        box-shadow: 0 0 30px -8px oklch(0.78 0.13 210 / 0.5);
+      }
+      .trainer-nav.prev { left: -8px; }
+      .trainer-nav.next { right: -8px; }
+      .trainer-nav.swiper-button-disabled {
+        opacity: 0.25;
+        cursor: not-allowed;
+      }
+
+      .trainer-counter {
+        position: absolute;
+        top: 0; right: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: oklch(1 0 0 / 0.04);
+        border: 1px solid oklch(1 0 0 / 0.10);
+        font-family: "Bebas Neue";
+        letter-spacing: 0.16em;
+        z-index: 5;
+      }
+      .trainer-counter .current {
+        font-size: 22px;
+        color: var(--cyan);
+      }
+      .trainer-counter .sep {
+        font-size: 14px;
+        color: oklch(0.5 0.02 240);
+      }
+      .trainer-counter .total {
+        font-size: 14px;
+        color: oklch(0.85 0.02 240);
+      }
+
+      @media (max-width: 640px) {
+        .trainer-nav { display: none; }
+        .trainer-counter { top: 4px; right: 4px; padding: 6px 10px; }
+        .trainer-counter .current { font-size: 18px; }
+        .swiper-slide { width: min(290px, calc(100vw - 50px)); }
+      }
+      @media (min-width: 900px) {
+        .swiper-slide { width: 380px; }
+      }
+      @media (min-width: 1280px) {
+        .swiper-slide { width: 420px; }
       }
 
       /* ticker */
@@ -671,9 +782,447 @@
         background: oklch(1 0 0 / 0.25);
       }
       .nav-dot.active { background: var(--cyan); width: 24px; border-radius: 999px; }
+
+      /* ============================================================
+         ANIMATIONS — scroll-triggered reveal + device hover lift
+         ============================================================ */
+      .reveal {
+        opacity: 0;
+        transform: translateY(28px);
+        transition: opacity 700ms cubic-bezier(0.16, 1, 0.3, 1),
+                    transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: opacity, transform;
+      }
+      .reveal.in {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .reveal-stagger > * { transition-delay: var(--d, 0ms); }
+
+      .device {
+        transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+                    box-shadow 380ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @media (hover: hover) {
+        .device:hover {
+          transform: translateY(-6px);
+          box-shadow:
+            0 0 0 2px oklch(0.78 0.13 210 / 0.4),
+            0 40px 100px -20px rgba(0,0,0,0.85),
+            0 0 100px -10px oklch(0.78 0.13 210 / 0.45);
+        }
+      }
+
+      /* ============================================================
+         FLOATING CTA — sticky at bottom-right, drives to /programare
+         ============================================================ */
+      .cta-pill {
+        position: fixed;
+        bottom: 22px;
+        right: 22px;
+        z-index: 60;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 22px;
+        border-radius: 999px;
+        background: var(--cyan);
+        color: oklch(0.08 0.02 250);
+        font-weight: 800;
+        font-size: 13px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        text-decoration: none;
+        box-shadow:
+          0 0 0 1px oklch(0.78 0.13 210 / 0.7),
+          0 18px 40px -10px oklch(0.78 0.13 210 / 0.55),
+          0 0 60px -15px oklch(0.78 0.13 210 / 0.6);
+        transform: translateY(0) scale(1);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 380ms ease,
+                    transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+                    box-shadow 380ms ease;
+      }
+      .cta-pill.show { opacity: 1; pointer-events: auto; }
+      .cta-pill:hover { transform: translateY(-3px) scale(1.03); }
+      .cta-pill::before {
+        content: "";
+        width: 9px; height: 9px;
+        border-radius: 999px;
+        background: oklch(0.08 0.02 250);
+        box-shadow: 0 0 12px oklch(0.08 0.02 250);
+        animation: pulseDot 1.4s ease-in-out infinite;
+      }
+      @media (max-width: 640px) {
+        .cta-pill { bottom: 14px; right: 14px; padding: 11px 16px; font-size: 11px; }
+      }
+
+      /* ============================================================
+         TIMELINE
+         ============================================================ */
+      .timeline {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+        max-width: 920px;
+        margin: 0 auto;
+      }
+      @media (max-width: 640px) {
+        .timeline { grid-template-columns: 1fr; gap: 12px; }
+      }
+      .timeline-step {
+        position: relative;
+        padding: 18px 14px 16px;
+        border-radius: 16px;
+        background: oklch(1 0 0 / 0.03);
+        border: 1px solid oklch(1 0 0 / 0.08);
+      }
+      .timeline-step .y {
+        font-family: "Bebas Neue";
+        font-size: 32px;
+        line-height: 1;
+        color: var(--gold);
+      }
+      .timeline-step .l {
+        font-size: 11px;
+        color: oklch(0.85 0.02 240);
+        margin-top: 8px;
+        line-height: 1.4;
+      }
+      .timeline-step::before {
+        content: "";
+        position: absolute;
+        top: -1px; left: -1px; right: -1px;
+        height: 3px;
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
+        background: linear-gradient(90deg, var(--cyan), var(--gold));
+        opacity: 0.7;
+      }
+
+      /* ============================================================
+         TESTIMONIAL
+         ============================================================ */
+      .testimonial {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 36px 28px;
+        border-radius: 24px;
+        border: 1px solid oklch(1 0 0 / 0.08);
+        background: linear-gradient(180deg, oklch(0.13 0.03 250 / 0.85) 0%, oklch(0.10 0.02 250 / 0.85) 100%);
+        position: relative;
+      }
+      .testimonial::before {
+        content: "“";
+        position: absolute;
+        top: 4px; left: 16px;
+        font-family: "Bebas Neue";
+        font-size: 120px;
+        color: var(--cyan);
+        opacity: 0.2;
+        line-height: 1;
+      }
+      .testimonial blockquote {
+        font-size: clamp(15px, 2vw, 18px);
+        line-height: 1.6;
+        color: oklch(0.92 0.02 240);
+        font-style: italic;
+        position: relative;
+        z-index: 1;
+      }
+      .testimonial footer {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .testimonial footer img {
+        width: 44px; height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid oklch(0.78 0.13 210 / 0.4);
+      }
+      .testimonial footer .who {
+        font-family: "Bebas Neue";
+        font-size: 18px;
+        letter-spacing: 0.04em;
+      }
+      .testimonial footer .rel {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: var(--cyan);
+        font-weight: 700;
+        margin-top: 2px;
+      }
+
+      /* ============================================================
+         INTRO SPLASH — fullscreen chant video on first load
+         ============================================================ */
+      .intro {
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 1;
+        transition: opacity 0.6s ease, visibility 0.6s ease;
+      }
+      .intro.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .intro video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .intro::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg,
+          oklch(0.07 0.02 250 / 0.25) 0%,
+          oklch(0.07 0.02 250 / 0.15) 60%,
+          oklch(0.07 0.02 250 / 0.85) 100%);
+        pointer-events: none;
+      }
+      .intro-controls {
+        position: absolute;
+        top: 24px;
+        right: 24px;
+        display: flex;
+        gap: 8px;
+        z-index: 10;
+      }
+      .intro-progress {
+        position: absolute;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(380px, calc(100vw - 80px));
+        z-index: 10;
+        text-align: center;
+      }
+      .intro-progress .bar {
+        height: 3px;
+        background: oklch(1 0 0 / 0.18);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .intro-progress .bar > i {
+        display: block;
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--cyan), var(--gold));
+        transition: width 0.18s linear;
+      }
+      .intro-progress .label {
+        margin-top: 10px;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.32em;
+        color: oklch(0.85 0.02 240);
+        font-weight: 700;
+      }
+      .intro-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 16px;
+        border-radius: 999px;
+        background: oklch(0 0 0 / 0.55);
+        border: 1px solid oklch(1 0 0 / 0.22);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        backdrop-filter: blur(10px);
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .intro-pill:hover { background: oklch(0 0 0 / 0.8); border-color: oklch(0.78 0.13 210 / 0.5); }
+      .intro-brand {
+        position: absolute;
+        top: 24px;
+        left: 24px;
+        font-family: "Bebas Neue";
+        font-size: 14px;
+        letter-spacing: 0.18em;
+        color: #fff;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .intro-brand .dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: var(--cyan);
+        box-shadow: 0 0 14px var(--cyan);
+      }
+      .intro-tagline {
+        position: absolute;
+        left: 50%;
+        bottom: 90px;
+        transform: translateX(-50%);
+        text-align: center;
+        z-index: 10;
+        max-width: 80vw;
+      }
+      .intro-tagline .t1 {
+        font-family: "Bebas Neue";
+        font-size: clamp(36px, 9vw, 76px);
+        line-height: 0.95;
+        color: #fff;
+        text-shadow: 0 4px 30px oklch(0 0 0 / 0.6);
+      }
+      .intro-tagline .t2 {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.32em;
+        color: oklch(0.85 0.02 240);
+        margin-top: 8px;
+        font-weight: 700;
+      }
+      @media (max-width: 640px) {
+        .intro-controls { top: 16px; right: 16px; }
+        .intro-brand { top: 16px; left: 16px; font-size: 12px; }
+        .intro-tagline { bottom: 84px; }
+        .intro-pill { padding: 8px 12px; font-size: 10px; }
+      }
+
+      /* ============================================================
+         RESPONSIVE — mobile-first overrides for ≤640px viewports
+         ============================================================ */
+      @media (max-width: 640px) {
+        body {
+          background-image:
+            radial-gradient(900px 500px at 80% 0%, oklch(0.78 0.13 210 / 0.16), transparent 55%);
+        }
+        main.max-w-7xl {
+          padding-left: 12px !important;
+          padding-right: 12px !important;
+        }
+        .section-title {
+          font-size: clamp(28px, 9vw, 56px) !important;
+          line-height: 0.95;
+        }
+        .section-sub { font-size: 13px; padding: 0 4px; }
+        .section-eyebrow { font-size: 9.5px; letter-spacing: 0.24em; }
+
+        /* Hero shell */
+        #hero { border-radius: 22px; }
+        #hero .relative { padding: 36px 16px 40px !important; }
+
+        /* Top nav: scrollable horizontally */
+        nav .flex { overflow-x: auto; max-width: calc(100vw - 24px); padding: 6px; gap: 2px; }
+        nav .flex a { flex: 0 0 auto; font-size: 9.5px; padding: 6px 10px; }
+        nav .flex { scrollbar-width: none; }
+        nav .flex::-webkit-scrollbar { display: none; }
+
+        /* Stats strip → 2×2 */
+        .stat-strip { grid-template-columns: repeat(2, 1fr) !important; }
+        .stat-cell { padding: 14px 8px; }
+        .stat-cell .v { font-size: 32px; }
+        .stat-cell .l { font-size: 9px; letter-spacing: 0.14em; }
+
+        /* Tighter blockquote */
+        #hero blockquote { font-size: 14px !important; padding: 0 4px; }
+
+        /* Hyperframes preview */
+        .hyper { max-width: 280px; }
+        .hyper-title { font-size: 26px; }
+        .hyper-sub { font-size: 9px; letter-spacing: 0.18em; }
+        .hyper-ball { width: 90px; height: 90px; margin-bottom: 22px; }
+        .hyper-ball::before { width: 22px; height: 22px; top: 20px; left: 18px; }
+        .hyper-ball::after  { width: 22px; height: 22px; top: 36px; left: 46px; }
+
+        /* Device mockups: scale to fit viewport */
+        .device {
+          transform: scale(0.92);
+          transform-origin: top center;
+          margin-bottom: -50px; /* compensate for the scale-y space */
+        }
+
+        /* Trainers carousel: tighter slides */
+        .swiper-slide { width: min(300px, calc(100vw - 40px)); }
+
+        /* Section spacing */
+        section.mb-32 { margin-bottom: 4.5rem !important; }
+        section.mb-24 { margin-bottom: 3.5rem !important; }
+        section.mb-16 { margin-bottom: 2.5rem !important; }
+
+        /* Ticker smaller */
+        .ticker-track { font-size: 14px; gap: 28px; }
+
+        /* Trainer card info text scaling */
+        .trainer-card .name { font-size: 22px; }
+        .trainer-card .bio { font-size: 12.5px; }
+        .focus-box li { font-size: 12px; }
+
+        /* Hyperframes pipeline grid */
+        #hyper .grid.md\\:grid-cols-2 { gap: 24px; }
+      }
+
+      /* Slightly tighter ≤480px */
+      @media (max-width: 480px) {
+        main.max-w-7xl { padding-left: 8px !important; padding-right: 8px !important; }
+        .section-title { font-size: clamp(26px, 9.5vw, 48px) !important; }
+        .stat-cell .v { font-size: 28px; }
+        .device { transform: scale(0.86); margin-bottom: -90px; }
+        .swiper-slide { width: min(290px, calc(100vw - 24px)); }
+      }
     </style>
   </head>
   <body>
+    <!-- FLOATING CTA -->
+    <a id="ctaPill" class="cta-pill" href="/programare" aria-label="Vorbește cu un consilier acum">
+      Vorbește cu un consilier
+    </a>
+
+    <!-- INTRO SPLASH — auto-plays hero-chant.mp4, user can skip -->
+    <div class="intro" id="intro" role="dialog" aria-label="Intro video">
+      <video
+        id="introVideo"
+        src="/hero-chant.mp4"
+        autoplay
+        playsinline
+        preload="auto"
+      ></video>
+
+      <div class="intro-brand">
+        <span class="dot"></span>
+        <span>Școala de Fotbal · Dan Matei</span>
+      </div>
+
+      <div class="intro-controls">
+        <button id="introSound" class="intro-pill" aria-label="Activează sunetul">
+          <span id="introSoundIcon">🔊</span>
+          <span id="introSoundLabel">Sunet</span>
+        </button>
+        <button id="introSkip" class="intro-pill" aria-label="Sari peste intro">
+          <span>Sari peste</span>
+          <span aria-hidden="true">›</span>
+        </button>
+      </div>
+
+      <div class="intro-tagline">
+        <div class="t1">Pasiune. Disciplină.<br /><span style="color: var(--gold)">Performanță.</span></div>
+        <div class="t2">Academia de Fotbal · Cluj-Napoca</div>
+      </div>
+
+      <div class="intro-progress">
+        <div class="bar"><i id="introBar"></i></div>
+        <div class="label">Intro · <span id="introTime">0s</span></div>
+      </div>
+    </div>
+
     <main class="max-w-7xl mx-auto px-6 py-12 relative grid-bg">
       <!-- Top header pill nav -->
       <nav class="flex justify-center mb-10">
@@ -690,8 +1239,23 @@
       <!-- HERO -->
       <section id="hero" class="hero-shell mb-16">
         <div class="ambient">
-          <video src="/football-hero.mp4" autoplay muted loop playsinline></video>
+          <video
+            id="heroChant"
+            src="/hero-chant.mp4"
+            autoplay
+            loop
+            playsinline
+            preload="auto"
+          ></video>
         </div>
+        <button
+          id="soundToggle"
+          aria-label="Activează sunetul"
+          class="absolute top-4 right-4 z-20 inline-flex items-center gap-2 px-3 py-2 rounded-full bg-black/60 border border-white/20 text-xs uppercase tracking-widest text-white/90 backdrop-blur-md hover:bg-black/80"
+        >
+          <span id="soundIcon">🔇</span>
+          <span id="soundLabel">Activează sunetul</span>
+        </button>
         <div class="relative z-10 px-8 py-16 md:py-20 text-center">
           <div class="pill mb-6 inline-flex">
             <span class="dot"></span>
@@ -810,7 +1374,15 @@
           </p>
         </div>
 
-        <div class="swiper" id="trainerSwiper">
+        <div class="trainer-swiper-wrap">
+          <div class="trainer-counter">
+            <span class="current" id="trainerCurrent">01</span>
+            <span class="sep">/</span>
+            <span class="total" id="trainerTotal">03</span>
+          </div>
+          <button class="trainer-nav prev" id="trainerPrev" aria-label="Antrenorul anterior">‹</button>
+          <button class="trainer-nav next" id="trainerNext" aria-label="Antrenorul următor">›</button>
+          <div class="swiper" id="trainerSwiper">
           <div class="swiper-wrapper">
             <!-- Dan Matei -->
             <div class="swiper-slide">
@@ -912,10 +1484,13 @@
               </article>
             </div>
           </div>
-          <div class="swiper-pagination !bottom-3"></div>
+          <div class="swiper-pagination"></div>
+        </div>
         </div>
 
-        <p class="text-center text-white/50 text-sm mt-2">← glisează pentru a vedea ceilalți antrenori →</p>
+        <p class="text-center text-white/55 text-xs mt-4 uppercase tracking-[0.28em] font-bold">
+          <span class="text-cyan">Glisează</span> · Săgeți · Mouse wheel
+        </p>
       </section>
 
       <!-- ONBOARDING device frames -->
@@ -1574,6 +2149,325 @@
         </div>
       </section>
 
+      <!-- =================================================================
+           NEW: Player profile + Match-day live + Trainer Inbox mockups
+           ================================================================= -->
+      <section id="extras" class="mb-32">
+        <div class="text-center mb-10 reveal">
+          <div class="section-eyebrow">Diferențiatori</div>
+          <h2 class="section-title mt-3">
+            <span class="block text-white">Pentru fiecare</span>
+            <span class="block text-gradient-gold">copil în parte</span>
+          </h2>
+          <p class="section-sub mx-auto">
+            Profil complet pentru fiecare copil, mod meci live cu retransmitere,
+            inbox antrenor cu transcriere AI a apelurilor de la părinți.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-10">
+          <!-- PLAYER PROFILE -->
+          <div class="reveal">
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden">
+                    <!-- Player hero with parallax -->
+                    <div class="relative h-44 overflow-hidden">
+                      <video src="/Sopi.mp4" poster="/Sopi-poster.jpg" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover opacity-50"></video>
+                      <div class="absolute inset-0 bg-gradient-to-t from-[oklch(0.07_0.02_250)] via-[oklch(0.07_0.02_250)]/60 to-transparent"></div>
+                      <div class="absolute top-3 left-3"><span class="pill"><span class="dot"></span>U6 – U7 · Sopi</span></div>
+                      <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                        <div>
+                          <div class="font-display text-white text-2xl uppercase leading-none">Luca Pop</div>
+                          <div class="text-cyan text-[10px] mt-1 font-bold uppercase tracking-[0.18em]">Atacant · 2020</div>
+                        </div>
+                        <div class="text-right">
+                          <div class="font-display text-gold text-3xl leading-none">⭐⭐⭐⭐</div>
+                          <div class="text-[8.5px] uppercase tracking-widest text-white/45 font-bold mt-1">Skill</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="p-[14px] space-y-3">
+                      <!-- Streak card with glow rim -->
+                      <div class="relative">
+                        <span class="rim-glow" style="border-radius: 16px"></span>
+                        <div class="feature-card cyan" style="margin-top: 0; padding: 12px">
+                          <div class="flex items-center justify-between">
+                            <div>
+                              <div class="text-[9px] uppercase tracking-[0.22em] font-bold text-cyan/85">Streak antrenamente</div>
+                              <div class="font-display text-white text-2xl mt-1 leading-none">12 🔥</div>
+                              <div class="text-[10px] text-white/65 mt-1 font-medium">Cea mai lungă serie a sezonului</div>
+                            </div>
+                            <div class="font-display text-gold text-4xl leading-none">95%</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Skill tree -->
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="text-[9px] uppercase tracking-[0.22em] text-white/55 font-bold mb-2">Profilul de joc</div>
+                        <ul class="space-y-2">
+                          <SkillBar />
+                          <li class="flex items-center gap-2"><span class="w-16 text-[10px] text-white/70 font-bold">Tehnică</span><span class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden"><span class="block h-full w-[80%] bg-gradient-to-r from-cyan to-cyan/60" style="background:linear-gradient(90deg,var(--cyan),oklch(0.78 0.13 210 / 0.4))"></span></span><span class="text-[9px] text-cyan font-bold w-6 text-right">4/5</span></li>
+                          <li class="flex items-center gap-2"><span class="w-16 text-[10px] text-white/70 font-bold">Pasare</span><span class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden"><span class="block h-full w-[60%]" style="background:linear-gradient(90deg,var(--cyan),oklch(0.78 0.13 210 / 0.4))"></span></span><span class="text-[9px] text-cyan font-bold w-6 text-right">3/5</span></li>
+                          <li class="flex items-center gap-2"><span class="w-16 text-[10px] text-white/70 font-bold">Cooperare</span><span class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden"><span class="block h-full w-[100%]" style="background:linear-gradient(90deg,var(--gold),oklch(0.85 0.13 85 / 0.4))"></span></span><span class="text-[9px] text-gold font-bold w-6 text-right">5/5</span></li>
+                          <li class="flex items-center gap-2"><span class="w-16 text-[10px] text-white/70 font-bold">Disciplină</span><span class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden"><span class="block h-full w-[80%]" style="background:linear-gradient(90deg,var(--cyan),oklch(0.78 0.13 210 / 0.4))"></span></span><span class="text-[9px] text-cyan font-bold w-6 text-right">4/5</span></li>
+                        </ul>
+                      </div>
+
+                      <!-- Highlight reels -->
+                      <div class="feature-card" style="margin-top: 0; padding: 12px">
+                        <div class="text-[9px] uppercase tracking-[0.22em] text-white/55 font-bold mb-2">Momentele tale</div>
+                        <div class="grid grid-cols-2 gap-2">
+                          <div class="aspect-video rounded-lg bg-cover bg-center relative overflow-hidden border border-white/10" style="background-image:url('/team-photo.jpg')">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent"></div>
+                            <div class="absolute bottom-1 left-1.5 right-1.5"><div class="text-white text-[9.5px] font-bold">Săpt 18 · 2g 1a</div></div>
+                            <div class="absolute top-1 right-1 text-[10px]">▶</div>
+                          </div>
+                          <div class="aspect-video rounded-lg bg-cover bg-center relative overflow-hidden border border-white/10" style="background-image:url('/Sopi-poster.jpg')">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent"></div>
+                            <div class="absolute bottom-1 left-1.5 right-1.5"><div class="text-white text-[9.5px] font-bold">Cupa Toamnei</div></div>
+                            <div class="absolute top-1 right-1 text-[10px]">▶</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item"><div class="tab-icon">👥</div>Antrenori</div>
+                    <div class="tab-item active"><div class="tab-icon">📋</div>Copil</div>
+                    <div class="tab-item"><div class="tab-icon">💬</div>Chat</div>
+                    <div class="tab-item"><div class="tab-icon">👤</div>Profil</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/copii/luca-pop</div>
+          </div>
+
+          <!-- MATCH-DAY LIVE -->
+          <div class="reveal">
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>14:23</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden relative">
+                    <!-- Live video bg -->
+                    <video src="/football-hero.mp4" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover opacity-30"></video>
+                    <div class="absolute inset-0 bg-gradient-to-b from-[oklch(0.07_0.02_250)]/60 via-[oklch(0.07_0.02_250)]/85 to-[oklch(0.07_0.02_250)]"></div>
+
+                    <div class="relative h-full flex flex-col p-[16px]">
+                      <div class="flex items-center justify-between">
+                        <span class="pill" style="background: oklch(0.65 0.20 25 / 0.2); border-color: oklch(0.65 0.20 25 / 0.5); color: oklch(0.85 0.18 25)">
+                          <span class="dot" style="background: oklch(0.65 0.20 25); box-shadow: 0 0 12px oklch(0.65 0.20 25)"></span>
+                          LIVE · 67'
+                        </span>
+                        <span class="text-white/70 text-[10px] uppercase tracking-widest font-bold">Cupa Toamnei</span>
+                      </div>
+
+                      <!-- Score -->
+                      <div class="flex-1 flex items-center justify-around mt-3">
+                        <div class="text-center">
+                          <div class="text-white/60 text-[10px] uppercase tracking-widest font-bold mb-1">Acasă</div>
+                          <div class="font-display text-white text-[64px] leading-none">3</div>
+                          <div class="text-cyan text-[10px] uppercase tracking-widest mt-1 font-bold">Dan Matei U11</div>
+                        </div>
+                        <div class="font-display text-white/30 text-3xl">·</div>
+                        <div class="text-center">
+                          <div class="text-white/60 text-[10px] uppercase tracking-widest font-bold mb-1">Oaspeți</div>
+                          <div class="font-display text-white/60 text-[64px] leading-none">1</div>
+                          <div class="text-white/45 text-[10px] uppercase tracking-widest mt-1 font-bold">CFR Junior</div>
+                        </div>
+                      </div>
+
+                      <!-- Goal scorers -->
+                      <div class="grid grid-cols-2 gap-2 mt-2">
+                        <div class="feature-card" style="margin-top: 0; padding: 10px">
+                          <div class="text-[9px] uppercase tracking-[0.18em] font-bold text-cyan/80 mb-1">Goluri</div>
+                          <div class="text-[11px] text-white">⚽ Luca P. · 12'</div>
+                          <div class="text-[11px] text-white">⚽ Andrei P. · 34'</div>
+                          <div class="text-[11px] text-gold">⚽ Luca P. · 58'</div>
+                        </div>
+                        <div class="feature-card" style="margin-top: 0; padding: 10px">
+                          <div class="text-[9px] uppercase tracking-[0.18em] font-bold text-white/60 mb-1">Asisturi</div>
+                          <div class="text-[11px] text-white">🎯 Matei C. · 12'</div>
+                          <div class="text-[11px] text-white">🎯 Tudor M. · 34'</div>
+                          <div class="text-[11px] text-white">🎯 Andrei P. · 58'</div>
+                        </div>
+                      </div>
+
+                      <!-- Chant button -->
+                      <div class="relative mt-3">
+                        <span class="rim-glow" style="border-radius: 16px"></span>
+                        <div class="feature-card gold" style="margin-top: 0; padding: 12px">
+                          <div class="flex items-center justify-between">
+                            <div>
+                              <div class="text-[9px] uppercase tracking-[0.22em] font-bold text-gold/85">Suporteri</div>
+                              <div class="font-display text-white text-xl leading-none mt-0.5">42 părinți live</div>
+                            </div>
+                            <div class="text-3xl">📣</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item active"><div class="tab-icon">🔴</div>Live</div>
+                    <div class="tab-item"><div class="tab-icon">📋</div>Grupe</div>
+                    <div class="tab-item"><div class="tab-icon">💬</div>Chat</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/match/live</div>
+          </div>
+
+          <!-- TRAINER INBOX (NEW LEAD TRANSCRIPT) -->
+          <div class="reveal">
+            <div class="device">
+              <div class="device-screen">
+                <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+                <div class="screen-content">
+                  <div class="flex-1 overflow-hidden p-[16px]">
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <div class="font-display text-white text-[28px] leading-none uppercase">Inbox</div>
+                        <div class="text-white/65 text-[11px] mt-1 font-medium">3 lead-uri noi · AI agent</div>
+                      </div>
+                      <span class="bg-cyan text-[oklch(0.08_0.02_250)] text-[11px] font-extrabold rounded-full px-2 py-0.5">3</span>
+                    </div>
+
+                    <!-- Highlighted new lead with transcript card -->
+                    <div class="relative mt-3">
+                      <span class="rim-glow" style="border-radius: 18px"></span>
+                      <div class="feature-card cyan" style="margin-top: 0; padding: 14px">
+                        <div class="flex items-start gap-2.5">
+                          <div class="w-9 h-9 rounded-full bg-cyan/20 border border-cyan/40 flex items-center justify-center text-cyan text-[10px] font-extrabold flex-shrink-0">AP</div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                              <div class="text-white text-[12.5px] font-bold">Andrei Popescu</div>
+                              <div class="text-cyan text-[9.5px] font-bold uppercase tracking-wider">acum 4 min</div>
+                            </div>
+                            <div class="text-[10px] text-white/55 uppercase tracking-widest font-bold mt-0.5">Părinte · copil 9 ani · U9</div>
+                          </div>
+                        </div>
+
+                        <div class="mt-3 rounded-xl bg-white/5 border border-white/10 p-2.5">
+                          <div class="flex items-center gap-2 mb-2">
+                            <span class="text-[8.5px] uppercase tracking-[0.22em] text-cyan font-extrabold">📝 Rezumat AI</span>
+                          </div>
+                          <p class="text-[11px] text-white/85 leading-relaxed">Vrea să vină joi 16:00 la primul antrenament. Întreabă de prețul lunar și dacă acceptăm copii care încep de la zero.</p>
+                          <div class="mt-2 pt-2 border-t border-white/5 flex items-center gap-1.5">
+                            <span class="text-[9px] uppercase tracking-widest text-gold font-bold">Intent:</span>
+                            <span class="text-[10px] text-white">Programare vizită</span>
+                          </div>
+                        </div>
+
+                        <div class="mt-2.5 grid grid-cols-3 gap-1.5">
+                          <button class="btn btn-cyan" style="padding: 8px 6px; font-size: 9.5px">📞 Apel</button>
+                          <button class="btn btn-ghost" style="padding: 8px 6px; font-size: 9.5px">💬 WA</button>
+                          <button class="btn btn-ghost" style="padding: 8px 6px; font-size: 9.5px">📅 Programează</button>
+                        </div>
+
+                        <div class="mt-2 flex items-center gap-1.5 text-[9.5px] text-white/55">
+                          <span>▶ Ascultă apel · 3:42</span>
+                          <span>·</span>
+                          <span>📄 Transcriere completă</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Other inbox items -->
+                    <div class="space-y-2 mt-3">
+                      <div class="feature-card" style="margin-top: 0; padding: 10px">
+                        <div class="flex items-start gap-2.5">
+                          <div class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white text-[9px] font-extrabold flex-shrink-0">MI</div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                              <div class="text-white text-[11.5px] font-bold truncate">Maria Ionescu — U7</div>
+                              <div class="text-white/45 text-[9px] uppercase tracking-wider">2h</div>
+                            </div>
+                            <div class="text-white/65 text-[10.5px] mt-0.5 truncate">Întreabă info preț + program zi</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="feature-card" style="margin-top: 0; padding: 10px">
+                        <div class="flex items-start gap-2.5">
+                          <div class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white text-[9px] font-extrabold flex-shrink-0">RD</div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                              <div class="text-white text-[11.5px] font-bold truncate">Răzvan Dobre — U11</div>
+                              <div class="text-white/45 text-[9px] uppercase tracking-wider">ieri</div>
+                            </div>
+                            <div class="text-white/65 text-[10.5px] mt-0.5 truncate">Reprogramare antrenament</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-bar">
+                    <div class="tab-item"><div class="tab-icon">⚽</div>Acasă</div>
+                    <div class="tab-item"><div class="tab-icon">👥</div>Grupe</div>
+                    <div class="tab-item active"><div class="tab-icon">📥</div>Inbox</div>
+                    <div class="tab-item"><div class="tab-icon">💬</div>Chat</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="label">Route</div>
+            <div class="label-name">/tabs/inbox · antrenor</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           Timeline 2017 → 2026
+           ================================================================= -->
+      <section class="mb-32 reveal">
+        <div class="text-center mb-10">
+          <div class="section-eyebrow">Drumul nostru</div>
+          <h2 class="section-title mt-3">9 ani de fotbal</h2>
+        </div>
+        <div class="timeline">
+          <div class="timeline-step"><div class="y">2017</div><div class="l">Înființare · prima grupă U7</div></div>
+          <div class="timeline-step"><div class="y">2019</div><div class="l">Mutare la Baza Mănăștur · 5 grupe</div></div>
+          <div class="timeline-step"><div class="y">2021</div><div class="l">Primul trofeu Cupa Toamnei</div></div>
+          <div class="timeline-step"><div class="y">2024</div><div class="l">240+ copii formați · 3 antrenori UEFA</div></div>
+          <div class="timeline-step"><div class="y">2026</div><div class="l">Aplicația mobilă · AI consilier · live</div></div>
+        </div>
+      </section>
+
+      <!-- =================================================================
+           Testimonial
+           ================================================================= -->
+      <section class="mb-32 reveal">
+        <div class="text-center mb-8">
+          <div class="section-eyebrow">Părinții vorbesc</div>
+        </div>
+        <div class="testimonial">
+          <blockquote>
+            După doi ani la academie, fiul meu nu a învățat doar fotbal. A
+            învățat ce înseamnă echipa, disciplina, respectul față de adversar.
+            Și recunosc — și eu, ca tată, am învățat. Antrenorii sunt mai
+            mult decât niște profesori — sunt mentori.
+          </blockquote>
+          <footer>
+            <div class="w-11 h-11 rounded-full bg-cyan/15 border-2 border-cyan/40 flex items-center justify-center text-cyan font-bold">AP</div>
+            <div>
+              <div class="who">Andrei Popescu</div>
+              <div class="rel">Tată Luca · Grupa U11</div>
+            </div>
+          </footer>
+        </div>
+      </section>
+
       <footer class="text-center text-white/55 text-sm mt-16 pb-12">
         <div class="flex justify-center mb-6">
           <img src="/logo-official.jpg" class="w-16 h-16 rounded-2xl border border-white/10" alt="Logo" />
@@ -1587,6 +2481,231 @@
     </main>
 
     <script>
+      // ============================================================
+      // SCROLL-TRIGGERED REVEALS — fade-up sections when they enter view.
+      // Safety net: any element still hidden after 4s is force-revealed,
+      // so headless screenshots, search-engine crawlers, and reduced-motion
+      // users always see content.
+      // ============================================================
+      (() => {
+        const targets = document.querySelectorAll(".reveal");
+        if (!targets.length) return;
+        const reveal = (el) => el.classList.add("in");
+        const reduced = window.matchMedia &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (!("IntersectionObserver" in window) || reduced) {
+          targets.forEach(reveal);
+          return;
+        }
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                reveal(e.target);
+                io.unobserve(e.target);
+              }
+            }
+          },
+          { rootMargin: "0px 0px -10% 0px", threshold: 0.05 },
+        );
+        targets.forEach((el) => io.observe(el));
+        setTimeout(() => targets.forEach(reveal), 4000);
+      })();
+
+      // ============================================================
+      // STATS COUNT-UP — animate the four hero stat cells when they enter view
+      // ============================================================
+      (() => {
+        const cells = document.querySelectorAll(".stat-cell .v[data-count]");
+        if (!cells.length) return;
+        const animate = (el) => {
+          const target = parseInt(el.getAttribute("data-count") ?? "0", 10);
+          const isPlus = (el.textContent ?? "").trim().endsWith("+");
+          const start = performance.now();
+          const duration = 1400;
+          const ease = (t) => 1 - Math.pow(1 - t, 3);
+          const tick = (now) => {
+            const t = Math.min(1, (now - start) / duration);
+            const v = Math.round(target * ease(t));
+            el.textContent = isPlus ? `${v}+` : `${v}`;
+            if (t < 1) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        };
+        if (!("IntersectionObserver" in window)) {
+          cells.forEach((el) => animate(el));
+          return;
+        }
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                animate(e.target);
+                io.unobserve(e.target);
+              }
+            }
+          },
+          { threshold: 0.5 },
+        );
+        cells.forEach((el) => {
+          el.textContent = "0";
+          io.observe(el);
+        });
+      })();
+
+      // ============================================================
+      // FLOATING CTA — show after the user scrolls past the hero
+      // ============================================================
+      (() => {
+        const cta = document.getElementById("ctaPill");
+        if (!cta) return;
+        const onScroll = () => {
+          const past = window.scrollY > 600;
+          cta.classList.toggle("show", past);
+        };
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+      })();
+
+      // INTRO SPLASH — fullscreen hero-chant.mp4 with skip button and progress
+      (() => {
+        const intro = document.getElementById("intro");
+        const v = document.getElementById("introVideo");
+        const skipBtn = document.getElementById("introSkip");
+        const soundBtn = document.getElementById("introSound");
+        const soundIcon = document.getElementById("introSoundIcon");
+        const soundLabel = document.getElementById("introSoundLabel");
+        const bar = document.getElementById("introBar");
+        const timeEl = document.getElementById("introTime");
+        if (!intro || !v) return;
+
+        let dismissed = false;
+        const dismiss = () => {
+          if (dismissed) return;
+          dismissed = true;
+          // Hand off audio to the in-page hero chant video, if present
+          const hero = document.getElementById("heroChant");
+          if (hero) {
+            try {
+              hero.muted = v.muted;
+              hero.currentTime = v.currentTime || 0;
+              hero.play().catch(() => {});
+            } catch {}
+          }
+          v.pause();
+          intro.classList.add("hidden");
+          document.body.style.overflow = "";
+          // Remove from the DOM after the fade so it can't trap focus
+          setTimeout(() => intro.remove(), 700);
+        };
+
+        document.body.style.overflow = "hidden";
+
+        const setSoundUI = (muted) => {
+          soundIcon.textContent = muted ? "🔇" : "🔊";
+          soundLabel.textContent = muted ? "Sunet OFF" : "Sunet ON";
+        };
+
+        // Optimistic unmuted autoplay; fallback to muted on autoplay block
+        v.muted = false;
+        v.volume = 0.85;
+        const tryPlay = v.play();
+        if (tryPlay && typeof tryPlay.then === "function") {
+          tryPlay
+            .then(() => setSoundUI(false))
+            .catch(() => {
+              v.muted = true;
+              setSoundUI(true);
+              v.play().catch(() => {});
+            });
+        } else {
+          setSoundUI(v.muted);
+        }
+
+        soundBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          v.muted = !v.muted;
+          if (!v.muted) v.play().catch(() => {});
+          setSoundUI(v.muted);
+        });
+
+        skipBtn.addEventListener("click", dismiss);
+
+        // Press Esc to skip
+        const onKey = (e) => {
+          if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            dismiss();
+          }
+        };
+        window.addEventListener("keydown", onKey);
+
+        v.addEventListener("ended", dismiss);
+        v.addEventListener("error", dismiss);
+
+        v.addEventListener("timeupdate", () => {
+          if (!v.duration || !isFinite(v.duration)) return;
+          const pct = Math.min(100, (v.currentTime / v.duration) * 100);
+          bar.style.width = pct + "%";
+          const remaining = Math.max(0, Math.ceil(v.duration - v.currentTime));
+          timeEl.textContent = remaining + "s";
+        });
+
+        // Safety net: if the video never starts (e.g. file missing), auto-dismiss after 12s
+        setTimeout(() => {
+          if (v.currentTime < 0.2) dismiss();
+        }, 12000);
+      })();
+
+      // hero-chant.mp4 — try unmuted autoplay, fall back to muted with toggle.
+      // Mirrors client/src/components/HeroChantCard.tsx.
+      (() => {
+        const v = document.getElementById("heroChant");
+        const btn = document.getElementById("soundToggle");
+        const icon = document.getElementById("soundIcon");
+        const label = document.getElementById("soundLabel");
+        if (!v || !btn) return;
+
+        const setUI = (muted) => {
+          icon.textContent = muted ? "🔇" : "🔊";
+          label.textContent = muted ? "Activează sunetul" : "Oprește sunetul";
+          btn.setAttribute("aria-label", muted ? "Activează sunetul" : "Oprește sunetul");
+        };
+
+        // Optimistically try unmuted autoplay
+        v.muted = false;
+        v.volume = 0.7;
+        const tryPlay = v.play();
+        if (tryPlay && typeof tryPlay.then === "function") {
+          tryPlay.catch(() => {
+            v.muted = true;
+            setUI(true);
+            v.play().catch(() => {});
+          }).then(() => setUI(v.muted));
+        } else {
+          setUI(v.muted);
+        }
+
+        // First user gesture anywhere on the page → unmute
+        const onFirstGesture = () => {
+          if (!v.muted) return;
+          v.muted = false;
+          v.play().catch(() => {});
+          setUI(false);
+          window.removeEventListener("pointerdown", onFirstGesture);
+          window.removeEventListener("keydown", onFirstGesture);
+        };
+        window.addEventListener("pointerdown", onFirstGesture, { once: false });
+        window.addEventListener("keydown", onFirstGesture, { once: false });
+
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          v.muted = !v.muted;
+          if (!v.muted) v.play().catch(() => {});
+          setUI(v.muted);
+        });
+      })();
+
       // Letter-by-letter reveal — walk TEXT NODES only so we never corrupt HTML.
       // Skip text inside elements that use background-clip:text (gradient text)
       // because per-character spans break the gradient mask.
@@ -1620,35 +2739,98 @@
             return;
           }
           const frag = document.createDocumentFragment();
-          for (const ch of text) {
-            if (ch === " " || ch === "\n") {
-              frag.appendChild(document.createTextNode(ch));
+          // Split into words so per-character spans don't wrap mid-word.
+          const tokens = text.split(/(\s+)/);
+          for (const token of tokens) {
+            if (!token) continue;
+            if (/^\s+$/.test(token)) {
+              frag.appendChild(document.createTextNode(token));
               continue;
             }
-            const span = document.createElement("span");
-            span.textContent = ch;
-            span.style.animationDelay = `${i * 0.035}s`;
-            frag.appendChild(span);
-            i += 1;
+            const wordWrap = document.createElement("span");
+            wordWrap.style.display = "inline-block";
+            wordWrap.style.whiteSpace = "nowrap";
+            for (const ch of token) {
+              const span = document.createElement("span");
+              span.textContent = ch;
+              span.style.animationDelay = `${i * 0.035}s`;
+              wordWrap.appendChild(span);
+              i += 1;
+            }
+            frag.appendChild(wordWrap);
           }
           node.parentNode.replaceChild(frag, node);
         });
       });
 
-      // Swiper for trainers
-      new Swiper("#trainerSwiper", {
+      // Swiper for trainers — one-swipe = one-slide hard snap.
+      const trainerSwiper = new Swiper("#trainerSwiper", {
         slidesPerView: "auto",
-        spaceBetween: 20,
+        spaceBetween: 28,
         centeredSlides: true,
         grabCursor: true,
-        speed: 700,
+        loop: true,
+
+        // Snap behavior: any swipe past a tiny threshold advances exactly 1.
+        speed: 380,
+        slidesPerGroup: 1,
+        slidesPerGroupAuto: false,
+        threshold: 4,
+        touchRatio: 1,
+        touchAngle: 35,
+        longSwipes: true,
+        longSwipesRatio: 0.12,
+        longSwipesMs: 180,
+        shortSwipes: true,
+        followFinger: true,
+        resistance: true,
+        resistanceRatio: 0.6,
+        watchSlidesProgress: true,
+
+        keyboard: { enabled: true, onlyInViewport: true },
+        // Mousewheel: also a single-snap-per-tick (no momentum accumulation).
+        mousewheel: {
+          forceToAxis: true,
+          sensitivity: 1,
+          releaseOnEdges: true,
+          thresholdDelta: 30,
+          thresholdTime: 350,
+        },
+
         pagination: { el: ".swiper-pagination", clickable: true },
-        breakpoints: {
-          640: { slidesPerView: 1.4, centeredSlides: true },
-          900: { slidesPerView: 2, centeredSlides: false },
-          1200: { slidesPerView: 2.4, centeredSlides: false },
+        navigation: { nextEl: "#trainerNext", prevEl: "#trainerPrev" },
+        on: {
+          slideChange(swiper) {
+            const idx = swiper.realIndex + 1;
+            const cur = document.getElementById("trainerCurrent");
+            if (cur) cur.textContent = String(idx).padStart(2, "0");
+          },
+          afterInit(swiper) {
+            const total = swiper.slides.length;
+            const totalEl = document.getElementById("trainerTotal");
+            if (totalEl) totalEl.textContent = String(total - swiper.loopedSlides * 2 || 3).padStart(2, "0");
+          },
         },
       });
+
+      // Pause autoplaying trainer videos when slide is not active for performance
+      const updateTrainerVideos = () => {
+        document.querySelectorAll("#trainerSwiper .swiper-slide video").forEach((vid) => {
+          const slide = vid.closest(".swiper-slide");
+          if (!slide) return;
+          const isActive = slide.classList.contains("swiper-slide-active") ||
+                           slide.classList.contains("swiper-slide-next") ||
+                           slide.classList.contains("swiper-slide-prev");
+          if (isActive) {
+            vid.play().catch(() => {});
+          } else {
+            vid.pause();
+          }
+        });
+      };
+      trainerSwiper.on("slideChange", updateTrainerVideos);
+      trainerSwiper.on("init", updateTrainerVideos);
+      updateTrainerVideos();
 
       // GSAP timeline mirroring the hyperframes composition (ball + title + sub + badge)
       if (window.gsap) {
