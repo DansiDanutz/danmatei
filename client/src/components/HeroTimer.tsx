@@ -1,10 +1,11 @@
 /**
- * HeroTimer — wraps the landing hero card with a 5-second auto-redirect to
+ * HeroTimer — wraps the landing hero card with a 10-second auto-redirect to
  * `/cunoaste`. Renders a circular progress ring + "Sări peste" skip pill in
  * the top-right of the card so the redirect is never a surprise.
  *
  * Constraints:
- *   - Animation budget capped at 5s (HERO_REDIRECT_MS).
+ *   - Animation budget capped at HERO_REDIRECT_MS (currently 10s) so visitors
+ *     have time to actually watch the football-hero clip before we transition.
  *   - Honors prefers-reduced-motion: no animated ring, but still redirects
  *     on schedule. Users who can't tolerate motion still progress.
  *   - Devx escape: ?stay=1 in the URL pauses the redirect indefinitely so

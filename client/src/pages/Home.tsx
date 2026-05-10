@@ -1,5 +1,5 @@
 /**
- * Home — Landing card. After 5 seconds (HERO_REDIRECT_MS) the page
+ * Home — Landing card. After HERO_REDIRECT_MS (10s) the page
  * auto-advances to `/cunoaste` where the 3-card swipe deck lives.
  *
  * Visual identity is anchored on the brand jersey color (equipment cyan,

@@ -344,4 +344,4 @@ export const AGE_GROUPS: AgeGroup[] = [
   },
 ];
 
-export const HERO_REDIRECT_MS = 5000;
+export const HERO_REDIRECT_MS = 10000;
