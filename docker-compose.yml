@@ -1,0 +1,133 @@
+name: danmatei-voice
+# Self-hosted voice + WhatsApp stack for Academia Dan Matei.
+# See docs/OPERATIONALIZE.md for full deployment instructions.
+#
+# Bring up: docker compose --env-file .env up -d
+# Tail:     docker compose logs -f voice-agent
+# Stop:     docker compose down
+
+services:
+  # ─────────────────────────────────────────────────────────────────────
+  # Ollama — local LLM. Pulls llama3.1:8b on first start (see init service).
+  # ─────────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    # If you have a GPU, uncomment:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: [gpu]
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["sh", "-c"]
+    command:
+      - >
+        OLLAMA_HOST=http://ollama:11434 ollama pull ${OLLAMA_MODEL:-llama3.1:8b-instruct-q4_K_M} &&
+        echo "model pulled"
+    restart: "no"
+
+  # ─────────────────────────────────────────────────────────────────────
+  # LiveKit — open-source WebRTC media server
+  # ─────────────────────────────────────────────────────────────────────
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml"]
+    ports:
+      - "7880:7880"     # WebSocket signalling
+      - "7881:7881"     # TCP fallback
+      - "50000-50100:50000-50100/udp"  # RTC media
+    volumes:
+      - ./services/livekit/livekit.yaml:/etc/livekit.yaml:ro
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Voice agent — Pipecat pipeline (Whisper + Ollama + Piper + LiveKit)
+  # ─────────────────────────────────────────────────────────────────────
+  voice-agent:
+    build: ./services/voice-agent
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      VOICE_AGENT_AUTH_TOKEN: ${VOICE_AGENT_AUTH_TOKEN}
+      API_BASE: ${API_BASE:-https://danmatei.vercel.app}
+      PIPECAT_WEBHOOK_SECRET: ${PIPECAT_WEBHOOK_SECRET}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b-instruct-q4_K_M}
+      WHISPER_MODEL: ${WHISPER_MODEL:-medium}
+      PIPER_VOICE: ${PIPER_VOICE:-ro_RO-mihai-medium}
+      MAX_CALL_SECONDS: ${MAX_CALL_SECONDS:-360}
+    volumes:
+      - whisper_cache:/root/.cache/huggingface
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Evolution API — open-source WhatsApp gateway (Baileys based)
+  # ─────────────────────────────────────────────────────────────────────
+  evolution-api:
+    image: atendai/evolution-api:latest
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      AUTHENTICATION_TYPE: apikey
+      LOG_LEVEL: ERROR,WARN,LOG
+      DEL_INSTANCE: "false"
+      QRCODE_LIMIT: 30
+      CONFIG_SESSION_PHONE_CLIENT: "Academia Dan Matei"
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      WEBHOOK_GLOBAL_URL: ${API_BASE:-https://danmatei.vercel.app}/api/whatsapp/inbound
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      WEBHOOK_EVENTS_MESSAGES_UPSERT: "true"
+    volumes:
+      - evolution_data:/evolution/instances
+      - evolution_store:/evolution/store
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Caddy — TLS termination + a stable public entrypoint.
+  # Optional. If you point a domain at the host, this gives you HTTPS for
+  # both LiveKit (wss://) and the agent's /spawn.
+  # ─────────────────────────────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    profiles: ["public"]    # only starts with `docker compose --profile public up`
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./services/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST}
+
+volumes:
+  ollama_data:
+  whisper_cache:
+  evolution_data:
+  evolution_store:
+  caddy_data:
+  caddy_config:
