@@ -7,6 +7,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./lib/auth";
 import { PublicOnly, RequireAuth, RequireRole } from "./components/RouteGuards";
+import FloatingProgramareCTA from "./components/FloatingProgramareCTA";
 import Home from "./pages/Home";
 import Cunoaste from "./pages/Cunoaste";
 import Login from "./pages/Login";
@@ -185,6 +186,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <Router />
+            <FloatingProgramareCTA />
           </TooltipProvider>
         </AuthProvider>
       </ThemeProvider>
