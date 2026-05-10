@@ -1,0 +1,14 @@
+# LiveKit dev config. For production, set TURN credentials and a real
+# external IP / hostname. See https://docs.livekit.io/realtime/self-hosting/
+port: 7880
+bind_addresses:
+  - "0.0.0.0"
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: true
+keys:
+  # The actual key/secret pair comes from the LIVEKIT_KEYS env var.
+  # This empty block keeps the parser happy.
+log_level: info
