@@ -18,6 +18,7 @@ import {
   Bot,
   CalendarDays,
   ClipboardCheck,
+  Inbox,
   Loader2,
   MessageSquare,
   Swords,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import TrainerAIPanel from "@/components/TrainerAIPanel";
 import AtribuiriTab from "@/components/trainer/AtribuiriTab";
+import InboxAITab from "@/components/trainer/InboxAITab";
 import MatchesTab from "@/components/trainer/MatchesTab";
 import AttendanceTab from "@/components/trainer/AttendanceTab";
 import { Link } from "wouter";
@@ -48,6 +50,21 @@ type Trainer = {
   whatsapp_number: string | null;
   elevenlabs_agent_id: string | null;
 };
+
+/**
+ * Map a trainer's age range to the slug used by the AI-call lead routing
+ * in `api/lead/create.ts`. Mirrors that switch:
+ *   age 5-9   → t-sopi
+ *   age 10-13 → t-kelemen
+ *   age 14-15 → t-dan (also CC on every lead)
+ */
+function derivedTrainerSlug(t: Trainer | null): string | null {
+  if (!t) return null;
+  const mid = (t.age_min + t.age_max) / 2;
+  if (mid <= 9) return "t-sopi";
+  if (mid <= 13) return "t-kelemen";
+  return "t-dan";
+}
 
 type Child = {
   id: string;
@@ -240,6 +257,9 @@ export default function Antrenor() {
           <Trigger value="profil" icon={<UserCog className="size-3.5" />}>
             Profil
           </Trigger>
+          <Trigger value="inbox-ai" icon={<Inbox className="size-3.5" />}>
+            Inbox AI
+          </Trigger>
           <Trigger value="ai" icon={<Bot className="size-3.5" />}>
             AI · WhatsApp
           </Trigger>
@@ -421,6 +441,13 @@ export default function Antrenor() {
         <TabsContent value="profil" className="mt-5">
           <LazyTab active={tab === "profil"}>
             <TrainerProfileForm trainer={trainer} onSaved={t => setTrainer(t)} />
+          </LazyTab>
+        </TabsContent>
+
+        {/* INBOX AI — leads with AI call transcripts */}
+        <TabsContent value="inbox-ai" className="mt-5">
+          <LazyTab active={tab === "inbox-ai"}>
+            <InboxAITab trainerSlug={derivedTrainerSlug(trainer)} />
           </LazyTab>
         </TabsContent>
 
