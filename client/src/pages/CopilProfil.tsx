@@ -24,6 +24,7 @@ import {
   UserRound,
 } from "lucide-react";
 import MemberShell from "@/components/MemberShell";
+import PlayerStatsHeader from "@/components/player/PlayerStatsHeader";
 import { supabase } from "@/lib/supabase";
 import { currentAge, formatTimelineDate } from "@/lib/age";
 import { useAuth } from "@/lib/auth";
@@ -277,8 +278,11 @@ export default function CopilProfil() {
 
   return (
     <MemberShell>
-      {/* Header card */}
-      <section className="rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5 sm:p-7">
+      {/* Premium player header — stats + skill tree */}
+      <PlayerStatsHeader child={child} />
+
+      {/* Original header card (info + status + edit) */}
+      <section className="mt-5 rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5 sm:p-7">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="grid size-16 place-items-center rounded-full border border-brand-cyan/30 bg-gradient-to-br from-[oklch(0.55_0.13_230)] via-[oklch(0.32_0.10_230)] to-[oklch(0.18_0.06_240)] font-heading text-xl font-bold text-white">

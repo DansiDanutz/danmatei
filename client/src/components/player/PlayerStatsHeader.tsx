@@ -1,0 +1,471 @@
+/**
+ * PlayerStatsHeader — premium header for /copil/:childId.
+ *
+ * Reads `fotbal.v_child_stats` (attendance %, streak, matches, goals,
+ * assists) + `fotbal.player_skills` (5-dim trainer rating) for the given
+ * child and renders the audit-doc mockup: hero photo, name, badge, streak,
+ * match line, skill tree, and (for trainer/owner) an "Editează abilități"
+ * editor.
+ */
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Edit3,
+  Flame,
+  Loader2,
+  Save,
+  Star,
+  Trophy,
+  X,
+} from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { currentAge } from "@/lib/age";
+import { useAuth } from "@/lib/auth";
+
+type Child = {
+  id: string;
+  full_name: string;
+  dob: string;
+  photo_path: string | null;
+  age_group_label: string | null;
+  trainer_id: string | null;
+};
+
+type Stats = {
+  child_id: string;
+  attendance_total: number;
+  attendance_present: number;
+  attendance_percent: number | null;
+  current_streak: number;
+  matches_played: number;
+  goals_total: number;
+  assists_total: number;
+};
+
+type Skills = {
+  child_id: string;
+  pasare: number;
+  conducere: number;
+  tehnica: number;
+  cooperare: number;
+  disciplina: number;
+  notes: string | null;
+  updated_at: string;
+};
+
+type SkillKey = "pasare" | "conducere" | "tehnica" | "cooperare" | "disciplina";
+
+const SKILL_LABEL: Record<SkillKey, string> = {
+  pasare: "Pasare",
+  conducere: "Conducere",
+  tehnica: "Tehnică",
+  cooperare: "Cooperare",
+  disciplina: "Disciplină",
+};
+
+const SKILL_ORDER: SkillKey[] = [
+  "pasare",
+  "conducere",
+  "tehnica",
+  "cooperare",
+  "disciplina",
+];
+
+const DEFAULT_SKILLS = {
+  pasare: 3,
+  conducere: 3,
+  tehnica: 3,
+  cooperare: 3,
+  disciplina: 3,
+};
+
+function avg(skills: Pick<Skills, SkillKey>): number {
+  const sum = SKILL_ORDER.reduce((acc, k) => acc + skills[k], 0);
+  return sum / SKILL_ORDER.length;
+}
+
+function StarBar({ value }: { value: number }) {
+  const rounded = Math.round(value * 2) / 2;
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-label={`${rounded}/5`}>
+      {[1, 2, 3, 4, 5].map((i) => {
+        const filled = rounded >= i;
+        const half = !filled && rounded + 0.5 >= i;
+        return (
+          <Star
+            key={i}
+            className="size-3.5"
+            fill={filled ? "currentColor" : half ? "currentColor" : "none"}
+            style={half ? { clipPath: "inset(0 50% 0 0)" } : undefined}
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
+        );
+      })}
+    </span>
+  );
+}
+
+function SkillRow({
+  k,
+  value,
+  editable,
+  onChange,
+}: {
+  k: SkillKey;
+  value: number;
+  editable: boolean;
+  onChange?: (next: number) => void;
+}) {
+  const pct = (value / 5) * 100;
+  const tone =
+    value >= 4 ? "bg-brand-gold" : value >= 3 ? "bg-brand-cyan" : "bg-white/30";
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="w-20 sm:w-24 font-heading text-[11px] uppercase tracking-[0.16em] text-white/70">
+        {SKILL_LABEL[k]}
+      </span>
+      <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+        <div
+          className={`h-full ${tone} transition-[width] duration-500 ease-out`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {editable && onChange ? (
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onChange(Math.max(1, value - 1))}
+            className="size-6 rounded-md bg-white/[0.04] border border-white/10 text-white/70 hover:bg-white/[0.08]"
+            aria-label="Mai puțin"
+          >
+            −
+          </button>
+          <span className="w-6 text-center font-heading text-sm text-brand-cyan tabular-nums">
+            {value}
+          </span>
+          <button
+            type="button"
+            onClick={() => onChange(Math.min(5, value + 1))}
+            className="size-6 rounded-md bg-white/[0.04] border border-white/10 text-white/70 hover:bg-white/[0.08]"
+            aria-label="Mai mult"
+          >
+            +
+          </button>
+        </div>
+      ) : (
+        <span className="w-10 text-right font-heading text-xs text-white/60 tabular-nums">
+          {value}/5
+        </span>
+      )}
+    </div>
+  );
+}
+
+export default function PlayerStatsHeader({ child }: { child: Child }) {
+  const { profile } = useAuth();
+  const canEdit =
+    profile?.role === "trainer" ||
+    profile?.role === "owner" ||
+    profile?.role === "super_admin";
+
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [skills, setSkills] = useState<Skills | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    const [{ data: s }, { data: sk }] = await Promise.all([
+      supabase
+        .from("v_child_stats")
+        .select(
+          "child_id, attendance_total, attendance_present, attendance_percent, current_streak, matches_played, goals_total, assists_total",
+        )
+        .eq("child_id", child.id)
+        .maybeSingle(),
+      supabase
+        .from("player_skills")
+        .select(
+          "child_id, pasare, conducere, tehnica, cooperare, disciplina, notes, updated_at",
+        )
+        .eq("child_id", child.id)
+        .maybeSingle(),
+    ]);
+    setStats((s as Stats | null) ?? null);
+    setSkills((sk as Skills | null) ?? null);
+    setLoading(false);
+  }, [child.id]);
+
+  useEffect(() => {
+    void refetch();
+  }, [refetch]);
+
+  // Hero photo via signed URL (storage_path is private)
+  useEffect(() => {
+    let cancelled = false;
+    if (!child.photo_path) {
+      setPhotoUrl(null);
+      return;
+    }
+    supabase.storage
+      .from("media")
+      .createSignedUrl(child.photo_path, 60 * 60 * 4)
+      .then(({ data }) => {
+        if (!cancelled) setPhotoUrl(data?.signedUrl ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [child.photo_path]);
+
+  const age = useMemo(() => currentAge(child.dob), [child.dob]);
+  const skillView = skills ?? { ...DEFAULT_SKILLS, child_id: child.id, notes: null, updated_at: "" };
+  const skillAvg = avg(skillView);
+
+  return (
+    <section className="relative overflow-hidden rounded-3xl border border-white/8 bg-[oklch(0.10_0.02_250)]">
+      {/* Hero band — photo + name */}
+      <div className="relative h-44 sm:h-52">
+        {photoUrl ? (
+          <img
+            src={photoUrl}
+            alt={child.full_name}
+            className="absolute inset-0 size-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.78_0.13_210/0.25),oklch(0.08_0.02_250)_60%)]" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-[oklch(0.08_0.02_250)] via-[oklch(0.08_0.02_250)]/40 to-transparent" />
+        {child.age_group_label && (
+          <span className="absolute top-3 right-3 px-3 py-1.5 rounded-full bg-black/55 border border-brand-gold/40 backdrop-blur-md font-heading text-[10px] uppercase tracking-[0.22em] text-brand-gold">
+            {child.age_group_label}
+          </span>
+        )}
+        <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-heading text-3xl sm:text-4xl uppercase leading-[0.95] text-white truncate">
+              {child.full_name}
+            </h1>
+            <div className="mt-1 text-[11px] uppercase tracking-[0.22em] text-brand-cyan font-bold">
+              {age} ani · Naștere {new Date(child.dob).toLocaleDateString("ro-RO", { year: "numeric", month: "short" })}
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-white/55 font-bold">
+              Skill
+            </div>
+            <div className="mt-1 text-brand-gold">
+              <StarBar value={skillAvg} />
+            </div>
+            <div className="text-[10px] mt-1 text-white/45 font-bold tabular-nums">
+              {skillAvg.toFixed(1)} / 5
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.06]">
+        <Stat
+          label="Streak"
+          value={stats ? `${stats.current_streak}` : "—"}
+          icon={<Flame className="size-3.5" />}
+          tone={stats && stats.current_streak >= 5 ? "gold" : "cyan"}
+          sub={stats?.current_streak ? "antrenamente la rând" : "fără antrenamente recente"}
+        />
+        <Stat
+          label="Prezență"
+          value={stats?.attendance_percent != null ? `${stats.attendance_percent}%` : "—"}
+          tone={stats?.attendance_percent && stats.attendance_percent >= 80 ? "gold" : "cyan"}
+          sub={stats ? `${stats.attendance_present}/${stats.attendance_total} sesiuni` : "—"}
+        />
+        <Stat
+          label="Goluri"
+          value={stats ? String(stats.goals_total) : "—"}
+          icon={<Trophy className="size-3.5" />}
+          tone="gold"
+          sub={stats ? `${stats.matches_played} meciuri` : "—"}
+        />
+        <Stat
+          label="Asisturi"
+          value={stats ? String(stats.assists_total) : "—"}
+          tone="cyan"
+          sub="pase decisive"
+        />
+      </div>
+
+      {/* Skill tree */}
+      <div className="p-4 sm:p-5 space-y-2.5">
+        <header className="flex items-center justify-between">
+          <h2 className="font-heading text-sm uppercase tracking-[0.18em] text-white">
+            Profilul de joc
+          </h2>
+          {canEdit && !editing && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-brand-cyan/40 bg-brand-cyan/10 text-brand-cyan text-[10px] uppercase tracking-[0.18em] font-heading hover:bg-brand-cyan/20"
+            >
+              <Edit3 className="size-3" />
+              Editează
+            </button>
+          )}
+        </header>
+
+        {loading ? (
+          <div className="grid place-items-center py-6">
+            <Loader2 className="size-4 animate-spin text-brand-cyan" />
+          </div>
+        ) : editing ? (
+          <SkillEditor
+            childId={child.id}
+            initial={skillView}
+            onCancel={() => setEditing(false)}
+            onSaved={async () => {
+              setEditing(false);
+              await refetch();
+            }}
+          />
+        ) : (
+          <div className="space-y-2">
+            {SKILL_ORDER.map((k) => (
+              <SkillRow k={k} value={skillView[k]} editable={false} key={k} />
+            ))}
+            {skills?.updated_at && (
+              <div className="pt-2 text-[10px] uppercase tracking-[0.18em] text-white/35 font-bold">
+                Actualizat {new Date(skills.updated_at).toLocaleDateString("ro-RO")}
+              </div>
+            )}
+            {!skills && (
+              <div className="pt-2 text-[10px] uppercase tracking-[0.18em] text-white/35 font-bold">
+                Valori implicite — antrenorul nu a evaluat încă
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  sub,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon?: React.ReactNode;
+  tone: "cyan" | "gold";
+}) {
+  const valColor = tone === "gold" ? "text-brand-gold" : "text-brand-cyan";
+  return (
+    <div className="bg-[oklch(0.10_0.02_250)] p-3 sm:p-4">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-white/55 font-bold">
+        {icon}
+        {label}
+      </div>
+      <div className={`font-heading text-3xl leading-none mt-2 ${valColor}`}>
+        {value}
+      </div>
+      {sub && (
+        <div className="mt-1 text-[10.5px] text-white/55">{sub}</div>
+      )}
+    </div>
+  );
+}
+
+function SkillEditor({
+  childId,
+  initial,
+  onCancel,
+  onSaved,
+}: {
+  childId: string;
+  initial: Pick<Skills, SkillKey> & { notes: string | null };
+  onCancel: () => void;
+  onSaved: () => void | Promise<void>;
+}) {
+  const [draft, setDraft] = useState<Record<SkillKey, number>>(() => ({
+    pasare: initial.pasare,
+    conducere: initial.conducere,
+    tehnica: initial.tehnica,
+    cooperare: initial.cooperare,
+    disciplina: initial.disciplina,
+  }));
+  const [notes, setNotes] = useState<string>(initial.notes ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    const { error: err } = await supabase
+      .from("player_skills")
+      .upsert(
+        {
+          child_id: childId,
+          ...draft,
+          notes: notes.trim() ? notes.trim() : null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "child_id" },
+      );
+    setSaving(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    await onSaved();
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        {SKILL_ORDER.map((k) => (
+          <SkillRow
+            k={k}
+            value={draft[k]}
+            editable
+            onChange={(next) => setDraft((d) => ({ ...d, [k]: next }))}
+            key={k}
+          />
+        ))}
+      </div>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Notițe pentru părinte (opțional)"
+        rows={2}
+        className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-sm text-white/85 placeholder-white/30 outline-none focus:border-brand-cyan/50"
+      />
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/15 text-white/80 text-[11px] uppercase tracking-[0.16em] font-heading hover:bg-white/[0.04]"
+        >
+          <X className="size-3.5" /> Renunță
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-brand-cyan text-[oklch(0.08_0.02_250)] text-[11px] uppercase tracking-[0.16em] font-heading hover:opacity-90 disabled:opacity-50"
+        >
+          {saving ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Save className="size-3.5" />
+          )}
+          Salvează
+        </button>
+      </div>
+    </div>
+  );
+}
