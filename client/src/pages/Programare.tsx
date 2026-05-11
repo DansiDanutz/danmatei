@@ -17,17 +17,19 @@ export default function Programare() {
           <div className="absolute inset-0 bg-[radial-gradient(700px_400px_at_0%_30%,oklch(0.85_0.13_85/0.06),transparent_60%)]" />
         </div>
 
-        {/* Decorative background portrait — sits on the right, faded into
-            the page so it reads as atmosphere rather than foreground. Hidden
-            on small screens where it would crowd the form. */}
+        {/* Decorative background portrait — sits on the right edge, faded
+            into the page so it reads as atmosphere rather than foreground.
+            Hidden below lg: the 1:1 portrait would otherwise dominate the
+            tablet viewport. The mask aggressively fades the inner edge so
+            only the rightmost slice shows past the centered form. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 hidden sm:block"
+          className="pointer-events-none absolute inset-0 -z-10 hidden lg:block"
         >
           <img
             src="/black-white.png"
             alt=""
-            className="absolute right-[-6%] bottom-0 h-[88%] w-auto max-w-none opacity-[0.08] mix-blend-screen select-none [mask-image:linear-gradient(to_left,black_45%,transparent_95%)]"
+            className="absolute right-0 bottom-0 h-[78%] w-auto max-w-[42%] opacity-[0.09] mix-blend-screen select-none [mask-image:linear-gradient(to_left,black_25%,transparent_100%)]"
           />
         </div>
 
