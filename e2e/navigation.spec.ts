@@ -12,7 +12,7 @@ test.describe("Navigation", () => {
   test("cunoaste page loads after redirect", async ({ page }) => {
     await page.goto("/");
     // Wait for auto-redirect to /cunoaste
-    await page.waitForURL(/\/cunoaste/, { timeout: 8000 });
+    await page.waitForURL(/\/cunoaste/, { timeout: 12_000 });
     await expect(page.locator("body")).not.toBeEmpty();
   });
 

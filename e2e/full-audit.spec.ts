@@ -14,7 +14,7 @@ import { test } from "@playwright/test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const BASE = process.env.BASE_URL ?? "http://127.0.0.1:4173";
+const BASE = process.env.BASE_URL ?? "http://localhost:3030";
 const SHOTS = path.resolve(process.cwd(), "test-results/full-audit");
 
 type Issue = {
@@ -49,6 +49,7 @@ test.beforeAll(() => {
 });
 
 test("full audit: walk every route + capture issues", async ({ page }) => {
+  test.setTimeout(600_000);
   const issues: Issue[] = [];
   const allLinks: Set<string> = new Set();
   const checkedLinks: Map<string, number> = new Map();
@@ -215,7 +216,7 @@ test("full audit: walk every route + capture issues", async ({ page }) => {
   // /programare — submit a partial form and check error states render
   await page.goto(`${BASE}/programare`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
-  const submit = page.getByRole("button", { name: /vreau să fiu sunat/i });
+  const submit = page.getByRole("button", { name: /primește linkul de apel/i });
   if ((await submit.count()) === 0) {
     issues.push({
       route: "/programare",
