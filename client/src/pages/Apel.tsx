@@ -30,8 +30,13 @@ type SessionData = {
   livekitUrl: string;
   room: string;
   token: string;
-  agentSpawned: boolean;
-  agentReason: string | null;
+  // New auto-dispatch shape (current). LiveKit Cloud dispatches the named
+  // agent when the parent joins — no separate spawn step on our side.
+  agentDispatch?: { mode: "livekit-auto-dispatch"; agentName: string };
+  // Legacy fields kept for back-compat with older deploys; safe to drop
+  // once /api/voice/start.ts has been on auto-dispatch for a while.
+  agentSpawned?: boolean;
+  agentReason?: string | null;
 };
 
 type Phase = "idle" | "starting" | "asking_mic" | "live" | "ended" | "error";
@@ -116,7 +121,12 @@ export default function Apel() {
             className="contents"
           >
             <RoomAudioRenderer />
-            <CallStage agentSpawned={session.agentSpawned} />
+            <CallStage
+              autoDispatch={Boolean(session.agentDispatch)}
+              legacySpawnFailed={
+                session.agentSpawned === false && !session.agentDispatch
+              }
+            />
           </LiveKitRoom>
         ) : (
           <CallShell
@@ -195,11 +205,24 @@ function CallShell({
  * Renders inside <LiveKitRoom>. Watches connection + agent state so the UI
  * can show "the agent is here, speak" or "connecting".
  */
-function CallStage({ agentSpawned }: { agentSpawned: boolean }) {
+function CallStage({
+  autoDispatch,
+  legacySpawnFailed,
+}: {
+  autoDispatch: boolean;
+  legacySpawnFailed: boolean;
+}) {
   const connection = useConnectionState();
   const { state: agentState } = useVoiceAssistant();
   const tracks = useTracks([Track.Source.Microphone], { onlySubscribed: false });
-  const agentTrack = tracks.find((t) => t.participant.identity === "andra-agent");
+  // In auto-dispatch the agent's identity is assigned by LiveKit Cloud; the
+  // canonical way to find it is by `isAgent` flag on the participant.
+  const agentTrack = tracks.find(
+    (t) =>
+      t.participant.isAgent === true ||
+      t.participant.identity === "andra-agent" ||
+      t.participant.identity?.startsWith("agent-"),
+  );
 
   return (
     <div>
@@ -210,7 +233,7 @@ function CallStage({ agentSpawned }: { agentSpawned: boolean }) {
       <p className="text-white/70 leading-relaxed mb-8">
         {connection !== ConnectionState.Connected
           ? "Se conectează..."
-          : !agentSpawned
+          : legacySpawnFailed
             ? "Consilierul nu a putut fi pornit — antrenorul te va contacta direct."
             : agentState === "listening"
               ? "Andra te ascultă. Răspunde firesc — îți punem câteva întrebări scurte despre copil."
@@ -220,7 +243,9 @@ function CallStage({ agentSpawned }: { agentSpawned: boolean }) {
                   ? "Se gândește..."
                   : agentTrack
                     ? "Andra este conectată."
-                    : "Se așteaptă Andra..."}
+                    : autoDispatch
+                      ? "Așteptăm consilierul Andra să intre în apel..."
+                      : "Se așteaptă Andra..."}
       </p>
 
       <PulseRing speaking={agentState === "speaking"} />
