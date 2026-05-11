@@ -17,7 +17,23 @@ export default function Programare() {
           <div className="absolute inset-0 bg-[radial-gradient(700px_400px_at_0%_30%,oklch(0.85_0.13_85/0.06),transparent_60%)]" />
         </div>
 
-        <div className="container max-w-3xl">
+        {/* Decorative background portrait — sits on the right edge, faded
+            into the page so it reads as atmosphere rather than foreground.
+            Hidden below lg: the 1:1 portrait would otherwise dominate the
+            tablet viewport. The mask aggressively fades the inner edge so
+            only the rightmost slice shows past the centered form. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 hidden lg:block"
+        >
+          <img
+            src="/black-white.png"
+            alt=""
+            className="absolute right-0 bottom-0 h-[78%] w-auto max-w-[42%] opacity-[0.09] mix-blend-screen select-none [mask-image:linear-gradient(to_left,black_25%,transparent_100%)]"
+          />
+        </div>
+
+        <div className="container relative max-w-3xl">
           <div className="text-center mb-10">
             <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-brand-cyan/30 text-[11px] font-heading uppercase tracking-[0.22em] text-brand-cyan">
               <span className="size-1.5 rounded-full bg-brand-cyan animate-pulse" />
