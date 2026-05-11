@@ -83,7 +83,7 @@ export default function CunoasteDeck() {
   };
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col bg-[oklch(0.08_0.02_250)] text-white lg:h-[100dvh] lg:overflow-hidden">
+    <div className="relative flex min-h-[100dvh] flex-col bg-[oklch(0.08_0.02_250)] text-white">
       {/* Background atmosphere — academy blue dominates, with three tiny
           painterly accent orbs (cyan, magenta, orange) borrowed from the
           trainer portraits. All low opacity, all heavily blurred — they

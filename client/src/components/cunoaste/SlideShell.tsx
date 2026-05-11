@@ -96,7 +96,7 @@ export default function SlideShell({
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, delay: 0.28, ease: expoOut }}
-        className="mt-6 flex-1 lg:min-h-0 lg:overflow-y-auto"
+        className="mt-6 flex-1"
       >
         {children}
       </motion.div>
