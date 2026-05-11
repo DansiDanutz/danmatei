@@ -309,9 +309,10 @@ function CallStage({
         />
       </div>
 
-      {/* Two cards: Andra (AI) + You (user) — both portraits of the same
-          goalkeeper, the right one mirrored so they face each other across
-          the gap. The ball passes between them — see <ConversationBall /> */}
+      {/* Two cards: Andra (AI, goalkeeper portrait) + You (user, football
+          player portrait). Both shot against dark backgrounds with a ball,
+          so they read as a matched pair facing each other across the gap.
+          The ball passes between them — see <ConversationBall /> */}
       <div className="relative grid grid-cols-2 gap-3 sm:gap-4 mb-6">
         <ParticipantCard
           name="Andra"
@@ -324,11 +325,10 @@ function CallStage({
         <ParticipantCard
           name="Tu"
           role="Părinte"
-          src="/black-white.png"
+          src="/football-player.jpg"
           fallbackInitial="P"
           accent="emerald"
           active={agentListening}
-          imageMirror
         />
 
         <ConversationBall
