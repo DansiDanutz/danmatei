@@ -92,8 +92,9 @@ export default async function handler(req: Req, res: Res) {
   const livekitUrl = process.env.LIVEKIT_URL;
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
-  const agentSpawnUrl = process.env.VOICE_AGENT_SPAWN_URL;
-  const agentAuthToken = process.env.VOICE_AGENT_AUTH_TOKEN;
+  // Auto-dispatch agent name — must match the registered LIVEKIT_AGENT_NAME
+  // on the Fly-hosted worker (services/voice-agent/agent.py).
+  const agentName = process.env.LIVEKIT_AGENT_NAME || "danmatei-voice-agent";
   if (!livekitUrl || !apiKey || !apiSecret) {
     return res.status(503).json({ error: "voice_not_configured" });
   }
@@ -121,7 +122,17 @@ export default async function handler(req: Req, res: Res) {
 
   const room = `lead-${verified.leadId.slice(0, 8)}-${Date.now().toString(36)}`;
 
-  // Mint the parent token (publish + subscribe; short TTL)
+  // Lead context that the agent reads from room.metadata on connect.
+  const roomMetadata = JSON.stringify({
+    leadId: lead.id,
+    parentName: lead.parent_name,
+    childName: lead.child_name,
+    childAge: lead.child_age,
+  });
+
+  // Mint the parent's token with LiveKit auto-dispatch wired up: when the
+  // parent joins this room, LiveKit Cloud spawns the agent worker named
+  // `agentName` against the same room. No /spawn HTTP call needed.
   const parentToken = await mintToken({
     apiKey,
     apiSecret,
@@ -130,56 +141,9 @@ export default async function handler(req: Req, res: Res) {
     name: lead.parent_name,
     ttlSeconds: 60 * 30, // 30 min
     metadata: JSON.stringify({ role: "parent", leadId: lead.id }),
+    agentName,
+    roomMetadata,
   });
-
-  // Mint the agent token (same room)
-  const agentToken = await mintToken({
-    apiKey,
-    apiSecret,
-    room,
-    identity: "andra-agent",
-    name: "Andra · Academia Dan Matei",
-    ttlSeconds: 60 * 30,
-    metadata: JSON.stringify({
-      role: "agent",
-      leadId: lead.id,
-      parentName: lead.parent_name,
-      childName: lead.child_name,
-      childAge: lead.child_age,
-    }),
-  });
-
-  // Tell the Pipecat agent to spawn a pipeline for this room.
-  // Best effort — if the agent service is unreachable we still return the
-  // parent token so dev can see the page; user-visible error tells them.
-  let agentSpawned = false;
-  let agentReason: string | null = null;
-  if (agentSpawnUrl) {
-    try {
-      const r = await fetch(agentSpawnUrl, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(agentAuthToken ? { authorization: `Bearer ${agentAuthToken}` } : {}),
-        },
-        body: JSON.stringify({
-          leadId: lead.id,
-          parentName: lead.parent_name,
-          childName: lead.child_name,
-          childAge: lead.child_age,
-          livekitUrl,
-          room,
-          token: agentToken,
-        }),
-      });
-      agentSpawned = r.ok;
-      if (!r.ok) agentReason = `agent_${r.status}`;
-    } catch (err) {
-      agentReason = err instanceof Error ? err.message : String(err);
-    }
-  } else {
-    agentReason = "VOICE_AGENT_SPAWN_URL not set";
-  }
 
   // Move the lead to 'calling' status (best effort)
   await supabase
@@ -193,8 +157,7 @@ export default async function handler(req: Req, res: Res) {
     livekitUrl,
     room,
     token: parentToken,
-    agentSpawned,
-    agentReason,
+    agentDispatch: { mode: "livekit-auto-dispatch", agentName },
   });
 }
 
@@ -206,6 +169,12 @@ async function mintToken(opts: {
   name: string;
   ttlSeconds: number;
   metadata?: string;
+  // When set, LiveKit Cloud auto-dispatches the named agent into the room
+  // as soon as the participant joins. `roomMetadata` is attached to the
+  // room (separate from the participant's `metadata`) and is what the
+  // agent reads to learn about the lead.
+  agentName?: string;
+  roomMetadata?: string;
 }): Promise<string> {
   const at = new AccessToken(opts.apiKey, opts.apiSecret, {
     identity: opts.identity,
@@ -219,5 +188,14 @@ async function mintToken(opts: {
     canPublish: true,
     canSubscribe: true,
   });
+  if (opts.agentName) {
+    // Cast through `never` — `roomConfig` is part of the JWT claims spec
+    // but isn't typed on the older AccessToken class. The LiveKit server
+    // reads it and creates the room with these settings.
+    (at as unknown as { roomConfig: unknown }).roomConfig = {
+      agents: [{ agentName: opts.agentName }],
+      metadata: opts.roomMetadata,
+    };
+  }
   return at.toJwt();
 }

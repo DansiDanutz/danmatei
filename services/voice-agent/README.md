@@ -1,56 +1,103 @@
-# Voice Agent — Pipecat (local Whisper + Ollama + Piper)
+# Voice Agent — Andra (LiveKit Agents + Cloud Inference)
 
-Self-hosted Romanian voice agent that runs a 3-5 minute discovery conversation
-with an interested parent. Triggered via WebRTC (LiveKit or Daily) from the
-`/apel/:token` page, posts the transcript + summary to `/api/voice/webhook`
-on disconnect.
+Romanian voice agent that runs a 3–5 minute discovery conversation with an
+interested parent. Triggered by **LiveKit auto-dispatch** when the parent
+joins their `lead-*` room from `/apel/:token` on the website. On disconnect,
+POSTs the transcript + summary + intent to `/api/voice/webhook`,
+HMAC-signed with `PIPECAT_WEBHOOK_SECRET`.
 
-This service intentionally **does not** depend on any per-minute SaaS:
-
-| Layer | Software | Notes |
+| Layer | Provider | Notes |
 | --- | --- | --- |
-| Framework | [Pipecat](https://github.com/pipecat-ai/pipecat) | Real-time audio pipeline |
-| STT | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `large-v3` (or `medium` on smaller GPUs) | Local, very accurate Romanian |
-| LLM | [Ollama](https://ollama.com) running `llama3.1:8b-instruct` or `gemma2:9b` | Local; swap to NVIDIA NIM if you have a GPU server |
-| TTS | [Piper](https://github.com/rhasspy/piper) — voice `ro_RO-mihai-medium` | Fast CPU TTS |
-| Transport | LiveKit (open source) or Daily WebRTC | Browser-based, no PSTN |
+| Framework | [LiveKit Agents](https://docs.livekit.io/agents/) | Python, async, auto-dispatch |
+| STT | Deepgram **Nova-3** (Romanian) via LiveKit Inference | ~200 ms |
+| LLM | OpenAI **gpt-4o-mini** via LiveKit Inference | ~1 s typical turn |
+| TTS | ElevenLabs `eleven_multilingual_v2` (voice: Bella, premade) via Inference | ~1 s |
+| Transport | LiveKit Cloud WebRTC | parent connects from browser |
+| Hosting | Fly.io single shared-cpu-1x 1GB machine | ~$2/month |
 
-## Quick start
+No GPU, no local models, no Ollama sidecar. Models proxied through your
+LiveKit Cloud billing — set `LIVEKIT_*` and the agent works.
 
-```bash
-cd services/voice-agent
-docker compose up
-# pull the LLM model the first time:
-docker compose exec ollama ollama pull llama3.1:8b-instruct-q4_K_M
+## Architecture
+
+```
+parent's browser  ──WebRTC──▶  LiveKit Cloud (danmatei-y9jlaz1k.livekit.cloud)
+       ▲                              │
+       │                              │ dispatches agentName=danmatei-voice-agent
+       │ audio                        ▼
+       │                       Fly machine running this service
+       │                              │
+       │ ◀────────agent audio─────────┘
+                                      │
+                  on disconnect       │  POST /api/voice/webhook
+                  ─────────────────▶ Vercel (Next.js)
+                                      │  HMAC X-Pipecat-Signature
+                                      ▼
+                                  Supabase (lead_calls)
 ```
 
-Then visit `https://danmatei.vercel.app/programare`, fill the form, click
-the WhatsApp link → browser opens `/apel/<token>` → mic access → the agent
-joins the LiveKit room and starts the conversation.
+## Deploy to Fly.io
 
-## Files
+```bash
+# 1. Authenticate (once)
+flyctl auth login
 
-- `pipeline.py` — Pipecat pipeline: STT → LLM → TTS, including the webhook
-  hook that fires at end-of-call.
-- `prompt.ro.md` — Romanian system prompt for the agent ("Andra, consilier al
-  Academiei Dan Matei"). Tone, goals, anti-goals.
-- `Dockerfile` — Python 3.12 + faster-whisper + Pipecat + Piper.
-- `docker-compose.yml` — agent + ollama + livekit-server.
+# 2. Create the app (once — uses fly.toml in this directory)
+cd services/voice-agent
+flyctl apps create danmatei-voice-agent --org personal
+
+# 3. Set secrets BEFORE first deploy (otherwise the worker can't register
+#    with LiveKit Cloud and the machine crashloops).
+flyctl secrets set \
+  LIVEKIT_URL="wss://danmatei-y9jlaz1k.livekit.cloud" \
+  LIVEKIT_API_KEY="..." \
+  LIVEKIT_API_SECRET="..." \
+  PIPECAT_WEBHOOK_SECRET="$(openssl rand -base64 32)" \
+  --app danmatei-voice-agent
+
+# 4. Deploy
+flyctl deploy --app danmatei-voice-agent
+
+# 5. Watch logs
+flyctl logs --app danmatei-voice-agent
+```
+
+Expected log on healthy startup:
+
+```
+INFO livekit.agents starting worker  {"version": "1.5.x"}
+INFO livekit.agents plugin registered  {"plugin": "livekit.plugins.silero"}
+INFO livekit.agents starting inference executor
+INFO livekit.agents registered worker  {"agent_name": "danmatei-voice-agent", "url": "wss://...livekit.cloud"}
+```
+
+## Vercel env vars (the matching side)
+
+The Vercel-hosted `/api/voice/start.ts` and `/api/voice/webhook.ts` need:
+
+| Env var | Where | Value |
+|---|---|---|
+| `LIVEKIT_URL` | already set | same as Fly |
+| `LIVEKIT_API_KEY` | already set | same as Fly |
+| `LIVEKIT_API_SECRET` | already set | same as Fly |
+| `LIVEKIT_AGENT_NAME` | **NEW** | `danmatei-voice-agent` |
+| `PIPECAT_WEBHOOK_SECRET` | **NEW** | **must match Fly's value exactly** |
+
+Old vars no longer used (safe to delete on Vercel):
+- `VOICE_AGENT_SPAWN_URL`
+- `VOICE_AGENT_AUTH_TOKEN`
 
 ## Webhook payload
 
-When the call ends (`on_disconnect`), the agent POSTs to
-`POST {API_BASE}/api/voice/webhook` with:
+The agent POSTs this shape to `POST {API_BASE}/api/voice/webhook` on disconnect:
 
 ```json
 {
   "leadId": "uuid",
-  "vendor_call_id": "pipecat-...",
-  "started_at": "2026-05-09T18:30:00Z",
-  "ended_at":   "2026-05-09T18:34:12Z",
+  "started_at": 1715000000.0,
+  "ended_at":   1715000252.0,
   "duration_seconds": 252,
   "status": "completed",
-  "recording_url": "https://...",
   "transcript": [
     { "role": "agent",  "text": "Bună ziua...", "started_at_ms": 0 },
     { "role": "parent", "text": "Bună!",        "started_at_ms": 1800 }
@@ -61,40 +108,39 @@ When the call ends (`on_disconnect`), the agent POSTs to
 }
 ```
 
-The webhook is HMAC-signed with `VAPI_WEBHOOK_SECRET` (kept the env name even
-though we use Pipecat — easy to swap providers later).
+Header `X-Pipecat-Signature` = `HMAC-SHA256(PIPECAT_WEBHOOK_SECRET, body)` hex.
 
-## Environment
+## Local development
 
+```bash
+cd services/voice-agent
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+export LIVEKIT_URL=wss://danmatei-y9jlaz1k.livekit.cloud
+export LIVEKIT_API_KEY=...
+export LIVEKIT_API_SECRET=...
+export PIPECAT_WEBHOOK_SECRET=dev-secret
+export API_BASE=http://localhost:3030
+
+python agent.py dev    # watches files, reloads
+# or
+python agent.py start  # production-mode worker
 ```
-API_BASE=https://danmatei.vercel.app
-WEBHOOK_SECRET=...                     # HMAC sign the outbound webhook
-LIVEKIT_URL=wss://livekit.example.com
-LIVEKIT_API_KEY=...
-LIVEKIT_API_SECRET=...
-OLLAMA_BASE_URL=http://ollama:11434
-OLLAMA_MODEL=llama3.1:8b-instruct-q4_K_M
-WHISPER_MODEL=large-v3                 # or "medium" on CPU/8GB GPU
-PIPER_VOICE=ro_RO-mihai-medium
-```
 
-## Why no PSTN?
+The worker registers with LiveKit Cloud immediately. Trigger a call from
+`https://danmatei.vercel.app/programare` (or the local Vite dev URL) and
+the agent dispatches automatically.
 
-We send a WhatsApp message with a one-tap web link instead of dialing the
-parent's phone. The "call" is a WebRTC session in the browser. This:
+## Tunables (env)
 
-- avoids per-minute Twilio/Vonage fees ($0 marginal cost);
-- gives us a richer experience (we can show the trainer's photo on screen
-  during the call);
-- works fully offline of the PSTN network (parent only needs internet).
-
-If a phone-based fallback is ever needed, Twilio Media Streams can be added
-without changing the Pipecat pipeline — just plug a different transport in.
-
-## TODO before shipping
-
-- [ ] Wire `pipeline.py` to LiveKit room URL passed via env or arg
-- [ ] Implement HMAC signing on the outbound webhook
-- [ ] Add summarization step using the same Ollama model
-- [ ] Add "always greet by parent + child name" via a per-room metadata field
-- [ ] Containerize and deploy on the academy's GPU box
+- `LIVEKIT_AGENT_NAME` — must match what `/api/voice/start.ts` sets in the
+  participant's `roomConfig.agents`. Default `danmatei-voice-agent`.
+- `LIVEKIT_STT_MODEL` / `LIVEKIT_STT_LANGUAGE` — Inference STT (default
+  `deepgram/nova-3` / `ro`).
+- `LIVEKIT_LLM_MODEL` — Inference LLM (default `openai/gpt-4o-mini`).
+- `LIVEKIT_TTS_MODEL` / `LIVEKIT_TTS_VOICE` — Inference TTS (default
+  `elevenlabs/eleven_multilingual_v2` / `hpp4J3VqNfWAUOO0d1Us` Bella).
+- `MAX_CALL_SECONDS` — hard cap before agent disconnects. Default 360 (6 min).
+- `API_BASE` — where the webhook posts to. Default `https://danmatei.vercel.app`.

@@ -1,0 +1,42 @@
+# Fly.io config for the danmatei voice agent.
+# Deploy:  cd services/voice-agent && flyctl deploy
+# Set secrets first via: flyctl secrets set KEY=value KEY2=value2
+
+app = "danmatei-voice-agent"
+primary_region = "fra"   # Frankfurt — closest to LiveKit eu-west-1 region
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  API_BASE = "https://danmatei.vercel.app"
+  LIVEKIT_AGENT_NAME = "danmatei-voice-agent"
+  LIVEKIT_STT_MODEL = "deepgram/nova-3"
+  LIVEKIT_STT_LANGUAGE = "ro"
+  LIVEKIT_LLM_MODEL = "openai/gpt-4o-mini"
+  LIVEKIT_TTS_MODEL = "elevenlabs/eleven_multilingual_v2"
+  LIVEKIT_TTS_VOICE = "hpp4J3VqNfWAUOO0d1Us"
+  MAX_CALL_SECONDS = "360"
+
+# LiveKit Agents workers maintain a persistent WebSocket to LiveKit Cloud
+# (their job dispatch channel). We expose the agents' built-in health HTTP
+# port so Fly can monitor liveness — but we do NOT auto-scale to zero,
+# because the worker must always be reachable for LiveKit to dispatch jobs.
+[http_service]
+  internal_port = 8081
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+    method = "GET"
+    path = "/"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
