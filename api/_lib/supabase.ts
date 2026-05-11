@@ -25,7 +25,7 @@ function assertEnv() {
 
 export const FOTBAL_SCHEMA = "fotbal";
 
-export function serviceClient(): SupabaseClient {
+export function serviceClient(): SupabaseClient<any, "fotbal"> {
   assertEnv();
   if (!SERVICE) {
     throw new Error("SUPABASE_SERVICE_ROLE missing on server.");
@@ -36,7 +36,7 @@ export function serviceClient(): SupabaseClient {
   });
 }
 
-export function userClient(jwt: string): SupabaseClient {
+export function userClient(jwt: string): SupabaseClient<any, "fotbal"> {
   assertEnv();
   return createClient(URL!, ANON!, {
     db: { schema: FOTBAL_SCHEMA },

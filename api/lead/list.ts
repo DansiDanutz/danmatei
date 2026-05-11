@@ -31,6 +31,15 @@ type Res = {
   json: (body: unknown) => Res;
 };
 
+type LeadCallRow = {
+  status: string;
+  created_at: string;
+};
+
+type LeadRow = Record<string, unknown> & {
+  lead_calls?: LeadCallRow[] | null;
+};
+
 function readQuery(req: Req): Record<string, string> {
   if (req.query) {
     return Object.fromEntries(
@@ -162,11 +171,8 @@ export default async function handler(req: Req, res: Res) {
   }
 
   // Reduce each lead to its latest completed call, if any.
-  const items = (data ?? []).map((lead) => {
-    const calls = (lead.lead_calls as Array<{
-      status: string;
-      created_at: string;
-    }> | null) ?? [];
+  const items = ((data ?? []) as LeadRow[]).map((lead: LeadRow) => {
+    const calls = lead.lead_calls ?? [];
     const latest =
       calls
         .filter((c) => c.status === "completed")
