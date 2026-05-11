@@ -206,7 +206,7 @@ export default function LeadForm() {
         disabled={isSubmitting}
         className="w-full mt-2 inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-brand-cyan text-[oklch(0.08_0.02_250)] font-heading uppercase tracking-[0.16em] text-sm hover:opacity-90 transition disabled:opacity-50"
       >
-        {isSubmitting ? "Se trimite..." : "Vreau să fiu sunat acum"}
+        {isSubmitting ? "Se trimite..." : "Vreau să am o conversație acum"}
       </button>
 
       {submitError ? (
