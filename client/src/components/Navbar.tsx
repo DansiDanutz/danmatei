@@ -115,7 +115,9 @@ export default function Navbar() {
               <span className="xl:hidden">Sună</span>
             </a>
             <a
-              href="/programare"
+              href="https://wa.me/40744311147?text=Bun%C4%83%21%20Sunt%20interesat%20de%20%C8%98coala%20de%20Fotbal%20Dan%20Matei."
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-2 bg-brand-cyan text-[oklch(0.08_0.02_250)] px-4 py-2.5 rounded-lg font-heading text-xs uppercase tracking-wider hover:opacity-90 transition-all duration-300 shadow-[0_0_30px_-8px_oklch(0.78_0.13_210/0.55)]"
             >
               <PhoneCall className="w-4 h-4" />
@@ -203,12 +205,14 @@ export default function Navbar() {
                 className="py-6 border-t border-white/5 space-y-3"
               >
                 <a
-                  href="/programare"
+                  href="https://wa.me/40744311147?text=Bun%C4%83%21%20Sunt%20interesat%20de%20%C8%98coala%20de%20Fotbal%20Dan%20Matei."
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center justify-center gap-3 bg-brand-cyan text-[oklch(0.08_0.02_250)] px-6 py-4 rounded-xl font-heading text-base uppercase tracking-wider touch-target w-full shadow-[0_0_40px_-10px_oklch(0.78_0.13_210/0.6)]"
                   onClick={() => setMobileOpen(false)}
                 >
                   <PhoneCall className="w-5 h-5" />
-                  Vorbește cu un consilier
+                  Scrie pe WhatsApp
                 </a>
                 <a
                   href="tel:0744311147"

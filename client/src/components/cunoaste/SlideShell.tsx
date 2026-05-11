@@ -38,7 +38,7 @@ export default function SlideShell({
   title,
   subtitle,
   ctaLabel = "Înscrie copilul",
-  ctaHref = "/inregistrare",
+  ctaHref = "/programare",
   accent,
   children,
 }: Props) {
