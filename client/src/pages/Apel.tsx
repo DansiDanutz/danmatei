@@ -331,6 +331,7 @@ function CallStage({
           accent="emerald"
           active={agentListening}
           imageMirror
+          imageGrayscale
         />
 
         <ConversationBall
@@ -407,6 +408,7 @@ function ParticipantCard({
   accent,
   active,
   imageMirror,
+  imageGrayscale,
 }: {
   name: string;
   role: string;
@@ -416,6 +418,8 @@ function ParticipantCard({
   active: boolean;
   /** Flip image horizontally so the two cards face each other. */
   imageMirror?: boolean;
+  /** Desaturate the image to match the B&W portrait on the other card. */
+  imageGrayscale?: boolean;
 }) {
   const [errored, setErrored] = useState(false);
   const ringActive =
@@ -462,6 +466,7 @@ function ParticipantCard({
             className={[
               "absolute inset-0 h-full w-full object-cover transition-all duration-500",
               imageMirror ? "scale-x-[-1]" : "",
+              imageGrayscale ? "grayscale" : "",
               active
                 ? "brightness-110 saturate-110"
                 : "saturate-75 brightness-90 opacity-80",
