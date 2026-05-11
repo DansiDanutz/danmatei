@@ -38,5 +38,8 @@ primary_region = "fra"   # Frankfurt — closest to LiveKit eu-west-1 region
     path = "/"
 
 [[vm]]
+  # 2gb is the minimum that fits the LiveKit Agents inference executor
+  # (silero VAD + multilingual turn-detector + livekit-rtc native libs).
+  # 1gb gets OOM-killed at startup during turn-detector model load.
   size = "shared-cpu-1x"
-  memory = "1gb"
+  memory = "2gb"

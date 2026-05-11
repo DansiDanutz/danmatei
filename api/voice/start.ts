@@ -192,8 +192,19 @@ async function mintToken(opts: {
     // Cast through `never` — `roomConfig` is part of the JWT claims spec
     // but isn't typed on the older AccessToken class. The LiveKit server
     // reads it and creates the room with these settings.
+    //
+    // We attach lead context as BOTH:
+    //   - `agents[0].metadata` → becomes `ctx.job.metadata` on the agent
+    //     (per-dispatch, set reliably before entrypoint runs)
+    //   - `roomConfig.metadata` → becomes `ctx.room.metadata` (back-compat
+    //     and useful for multi-agent or telephony scenarios)
     (at as unknown as { roomConfig: unknown }).roomConfig = {
-      agents: [{ agentName: opts.agentName }],
+      agents: [
+        {
+          agentName: opts.agentName,
+          metadata: opts.roomMetadata,
+        },
+      ],
       metadata: opts.roomMetadata,
     };
   }

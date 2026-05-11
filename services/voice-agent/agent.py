@@ -218,15 +218,22 @@ def prewarm(proc: JobProcess) -> None:
 async def entrypoint(ctx: JobContext) -> None:
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
 
-    # Parent context — Vercel writes it into the room metadata via the
-    # AccessToken roomConfig.metadata field when minting the parent's token.
-    raw_meta = ctx.room.metadata or ""
+    # Parent context — Vercel writes it into BOTH `agents[0].metadata`
+    # (becomes ctx.job.metadata) and `roomConfig.metadata` (becomes
+    # ctx.room.metadata). Prefer job.metadata since it's set per-dispatch
+    # and is guaranteed populated before entrypoint runs.
+    raw_meta = ""
+    job_meta = getattr(ctx, "job", None)
+    if job_meta is not None:
+        raw_meta = getattr(job_meta, "metadata", "") or ""
+    if not raw_meta:
+        raw_meta = ctx.room.metadata or ""
     meta: dict[str, Any] = {}
     if raw_meta:
         try:
             meta = json.loads(raw_meta)
         except json.JSONDecodeError:
-            log.warning("room.metadata is not JSON: %r", raw_meta[:200])
+            log.warning("metadata is not JSON: %r", raw_meta[:200])
 
     state = CallState(
         lead_id=str(meta.get("leadId") or meta.get("lead_id") or ""),
@@ -250,12 +257,25 @@ async def entrypoint(ctx: JobContext) -> None:
     if tts_voice:
         tts_kwargs["voice"] = tts_voice
 
+    # Multilingual turn detector needs ~50MB of HuggingFace model files. If
+    # the build didn't pre-download them, instantiation throws at runtime —
+    # fall back to plain VAD-based detection so the call still works.
+    turn_detector: Any
+    if MultilingualModel is not None:
+        try:
+            turn_detector = MultilingualModel()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("MultilingualModel unavailable (%s), falling back to vad", exc)
+            turn_detector = "vad"
+    else:
+        turn_detector = "vad"
+
     session = AgentSession(
         vad=ctx.proc.userdata["vad"],
         stt=inference.STT(model=stt_model, language=stt_lang),
         llm=inference.LLM(model=llm_model),
         tts=inference.TTS(**tts_kwargs),
-        turn_detection=MultilingualModel() if MultilingualModel is not None else "vad",
+        turn_detection=turn_detector,
     )
 
     # ----- Transcript capture -----

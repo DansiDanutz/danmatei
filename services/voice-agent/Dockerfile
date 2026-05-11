@@ -22,12 +22,17 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
-# Pre-download the silero VAD + turn-detector models so first call doesn't
-# wait on Hugging Face.
-RUN python -c "from livekit.plugins import silero; silero.VAD.load()" || true
-RUN python -c "from livekit.plugins.turn_detector.multilingual import MultilingualModel; MultilingualModel()" || true
+# Pre-download Silero VAD so first call doesn't wait on Hugging Face.
+RUN python -c "from livekit.plugins import silero; silero.VAD.load()"
 
+# Pre-download the multilingual turn-detector. Use livekit-agents' built-in
+# `download-files` command which knows where each plugin's models live, so
+# this catches all required files (model_q8.onnx, languages.json, etc.).
+# If the download fails (network blip during build), the agent falls back
+# to VAD turn detection at runtime — call still works, just slightly less
+# natural pauses.
 COPY agent.py prompt.ro.md ./
+RUN python agent.py download-files || echo "WARN: turn-detector model pre-download failed; agent will fall back to VAD"
 
 # LiveKit Agents workers expose a tiny HTTP debug server on this port —
 # default port the framework binds to. Fly will probe it for readiness.
