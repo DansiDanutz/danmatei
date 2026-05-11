@@ -46,11 +46,18 @@ const TRAINER_NAMES: Record<string, string> = {
   "t-dan": "Dan Matei",
 };
 
+// Disable Vercel's default JSON body parser — we need the raw request
+// bytes verbatim to HMAC them. If we let Vercel parse + we re-stringify,
+// whitespace and unicode escaping diverge from Python's `json.dumps` (the
+// agent's encoder), making every signature fail.
+export const config = { api: { bodyParser: false } };
+
 type Req = {
   method?: string;
   headers?: Record<string, string | string[] | undefined>;
-  body?: unknown;
-  rawBody?: string;
+  // When bodyParser is disabled, the request is the raw Node IncomingMessage
+  // (AsyncIterable of Buffer chunks). We don't get req.body for free anymore.
+  on?: (event: string, listener: (...args: unknown[]) => void) => void;
 };
 
 type Res = {
@@ -63,16 +70,22 @@ function readHeader(req: Req, key: string): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
-function verifySignature(req: Req): boolean {
+async function readRawBody(req: Req): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req as unknown as AsyncIterable<Buffer | string>) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+function verifySignature(rawBody: Buffer, headerSig: string | undefined): boolean {
   const secret = process.env.PIPECAT_WEBHOOK_SECRET;
   if (!secret) return true; // dev mode — skip
-  const sig = readHeader(req, "x-pipecat-signature");
-  if (!sig) return false;
-  const raw = req.rawBody ?? JSON.stringify(req.body ?? {});
-  const expected = createHmac("sha256", secret).update(raw).digest("hex");
-  if (sig.length !== expected.length) return false;
+  if (!headerSig) return false;
+  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
+  if (headerSig.length !== expected.length) return false;
   try {
-    return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+    return timingSafeEqual(Buffer.from(headerSig), Buffer.from(expected));
   } catch {
     return false;
   }
@@ -91,11 +104,32 @@ export default async function handler(req: Req, res: Res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
   }
-  if (!verifySignature(req)) {
+
+  let rawBody: Buffer;
+  try {
+    rawBody = await readRawBody(req);
+  } catch (err) {
+    return res.status(400).json({
+      error: "body_read_failed",
+      detail: err instanceof Error ? err.message : "read failed",
+    });
+  }
+
+  if (!verifySignature(rawBody, readHeader(req, "x-pipecat-signature"))) {
     return res.status(401).json({ error: "invalid_signature" });
   }
 
-  const parsed = Body.safeParse(req.body ?? {});
+  let bodyJson: unknown;
+  try {
+    bodyJson = rawBody.length ? JSON.parse(rawBody.toString("utf8")) : {};
+  } catch (err) {
+    return res.status(400).json({
+      error: "invalid_json",
+      detail: err instanceof Error ? err.message : "parse failed",
+    });
+  }
+
+  const parsed = Body.safeParse(bodyJson);
   if (!parsed.success) {
     return res.status(400).json({
       error: "invalid_body",
