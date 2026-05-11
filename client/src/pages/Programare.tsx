@@ -17,23 +17,17 @@ export default function Programare() {
           <div className="absolute inset-0 bg-[radial-gradient(700px_400px_at_0%_30%,oklch(0.85_0.13_85/0.06),transparent_60%)]" />
         </div>
 
-        {/* Decorative background figures — Maria (consilier) on the right,
-            player silhouette on the left. Faded so they read as atmosphere,
-            not foreground content. Hidden on small screens where they'd
-            crowd the form. */}
+        {/* Decorative background portrait — sits on the right, faded into
+            the page so it reads as atmosphere rather than foreground. Hidden
+            on small screens where it would crowd the form. */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 -z-10 hidden sm:block"
         >
           <img
-            src="/player.png"
+            src="/black-white.png"
             alt=""
-            className="absolute left-[-6%] bottom-0 w-[42%] max-w-[460px] opacity-[0.06] mix-blend-screen select-none [mask-image:linear-gradient(to_right,black_55%,transparent_100%)]"
-          />
-          <img
-            src="/andra.png"
-            alt=""
-            className="absolute right-[-4%] bottom-0 w-[40%] max-w-[440px] opacity-[0.07] mix-blend-screen select-none grayscale [mask-image:linear-gradient(to_left,black_55%,transparent_100%)]"
+            className="absolute right-[-6%] bottom-0 h-[88%] w-auto max-w-none opacity-[0.08] mix-blend-screen select-none [mask-image:linear-gradient(to_left,black_45%,transparent_95%)]"
           />
         </div>
 
