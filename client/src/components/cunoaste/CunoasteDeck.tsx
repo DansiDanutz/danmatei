@@ -4,13 +4,15 @@
  *   - Touch swipe on mobile
  *   - Keyboard ←/→ navigation
  *   - Dot pager + slide counter + arrow buttons in a sticky bottom bar
- *   - Top bar with brand mark and an "Acasă" link back to /
+ *
+ * The top brand bar + main nav now come from <PublicShell> in the parent
+ * page (Cunoaste.tsx) — same nav as the rest of the public marketing
+ * pages.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Home as HomeIcon } from "lucide-react";
-import { Link } from "wouter";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import SlideOwner from "./SlideOwner";
 import SlideTrainers from "./SlideTrainers";
 import SlidePlayers from "./SlidePlayers";
@@ -83,7 +85,7 @@ export default function CunoasteDeck() {
   };
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col bg-[oklch(0.08_0.02_250)] text-white">
+    <div className="relative flex min-h-[100dvh] flex-col text-white">
       {/* Background atmosphere — academy blue dominates, with three tiny
           painterly accent orbs (cyan, magenta, orange) borrowed from the
           trainer portraits. All low opacity, all heavily blurred — they
@@ -101,40 +103,7 @@ export default function CunoasteDeck() {
         <div className="absolute right-[18%] top-[8%] hidden size-[14rem] rounded-full bg-[oklch(0.65_0.22_50)]/[0.07] blur-3xl md:block" />
         <div className="absolute left-[12%] bottom-[14%] hidden size-[16rem] rounded-full bg-[oklch(0.65_0.25_340)]/[0.05] blur-3xl md:block" />
         <div className="absolute right-[32%] bottom-[36%] hidden size-[10rem] rounded-full bg-brand-gold/[0.05] blur-3xl md:block" />
-
-        {/* Top divider line — same as Home, ties the two pages together */}
-        <div className="absolute left-1/2 top-0 h-px w-[60%] -translate-x-1/2 bg-gradient-to-r from-transparent via-brand-cyan/30 to-transparent" />
       </div>
-
-      {/* Top bar */}
-      <header className="relative z-10 flex items-center justify-between gap-4 px-5 py-4 sm:px-10 lg:px-20">
-        <Link
-          href="/"
-          className="group inline-flex items-center gap-3"
-          aria-label="Înapoi la pagina principală"
-        >
-          <span className="relative grid size-10 place-items-center rounded-full ring-1 ring-brand-cyan/30 shadow-[0_0_24px_-6px_oklch(0.75_0.12_230/0.45)] transition-transform group-hover:scale-105">
-            <img
-              src="/logo-official.jpg"
-              alt=""
-              width={32}
-              height={32}
-              className="size-8 rounded-full"
-            />
-          </span>
-          <span className="hidden font-heading text-xs font-semibold uppercase tracking-[0.22em] text-white/85 sm:inline">
-            Școala Dan Matei
-          </span>
-        </Link>
-
-        <Link
-          href="/"
-          className="touch-target inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 font-heading text-[11px] font-medium uppercase tracking-[0.16em] text-white/75 transition-colors hover:border-brand-cyan/40 hover:text-white"
-        >
-          <HomeIcon className="size-3.5" />
-          Acasă
-        </Link>
-      </header>
 
       {/* Mobile single-slide swiper. Only the active slide is mounted so the
           page height comes from visible content, not offscreen slides. */}

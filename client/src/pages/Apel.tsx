@@ -310,19 +310,11 @@ function CallStage({
       </div>
 
       {/* Two cards facing each other across the gap:
-            LEFT  = You (parent) — illustrated kicker, kicks toward the right
-            RIGHT = Andra (AI) — goalkeeper portrait, mirrored so she faces
-                    the kicker on the left
+            LEFT  = Andra (AI) — goalkeeper portrait, native facing
+            RIGHT = You (parent) — illustrated kicker, mirrored so he
+                    faces left toward Andra (native art kicks rightward)
           The ball passes between them — see <ConversationBall /> */}
       <div className="relative grid grid-cols-2 gap-3 sm:gap-4 mb-6">
-        <ParticipantCard
-          name="Tu"
-          role="Părinte"
-          src="/football-player.jpg"
-          fallbackInitial="P"
-          accent="emerald"
-          active={agentListening}
-        />
         <ParticipantCard
           name="Andra"
           role="Consilier AI"
@@ -330,6 +322,14 @@ function CallStage({
           fallbackInitial="A"
           accent="cyan"
           active={agentSpeaking || agentState === "thinking"}
+        />
+        <ParticipantCard
+          name="Tu"
+          role="Părinte"
+          src="/football-player.jpg"
+          fallbackInitial="P"
+          accent="emerald"
+          active={agentListening}
           imageMirror
         />
 
@@ -582,9 +582,9 @@ function ConversationBall({
   visible: boolean;
 }) {
   // 25% and 75% map to the centers of the two columns in the grid-cols-2
-  // layout — LEFT is the user card, RIGHT is Andra. 50% is a neutral
-  // resting spot before either side has talked.
-  const leftPct = target === "user" ? "25%" : target === "andra" ? "75%" : "50%";
+  // layout — LEFT is Andra, RIGHT is the user. 50% is a neutral resting
+  // spot before either side has talked.
+  const leftPct = target === "user" ? "75%" : target === "andra" ? "25%" : "50%";
 
   return (
     <AnimatePresence>
