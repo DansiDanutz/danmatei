@@ -24,13 +24,15 @@ export default function Programare() {
             only the rightmost slice shows past the centered form. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 hidden lg:block"
+          className="pointer-events-none absolute inset-0 -z-10"
         >
           <img
             src="/black-white.png"
             alt=""
-            className="absolute right-0 bottom-0 h-[78%] w-auto max-w-[42%] opacity-[0.09] mix-blend-screen select-none [mask-image:linear-gradient(to_left,black_25%,transparent_100%)]"
+            className="absolute inset-0 h-full w-full object-cover object-[58%_center] opacity-45 grayscale select-none sm:object-[62%_center] lg:object-center"
           />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,oklch(0.08_0.02_250/0.96)_0%,oklch(0.08_0.02_250/0.84)_42%,oklch(0.08_0.02_250/0.60)_72%,oklch(0.08_0.02_250/0.78)_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,oklch(0.08_0.02_250/0.55)_0%,oklch(0.08_0.02_250/0.20)_42%,oklch(0.08_0.02_250/0.92)_100%)]" />
         </div>
 
         <div className="container relative max-w-3xl">
