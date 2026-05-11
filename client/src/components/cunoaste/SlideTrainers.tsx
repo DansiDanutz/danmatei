@@ -78,7 +78,7 @@ export default function SlideTrainers() {
                     delay: 0.3 + i * 0.1,
                     ease: expoOut,
                   }}
-                  className="relative min-w-0 flex-[0_0_92%] sm:flex-[0_0_60%] lg:flex-[0_0_36%]"
+                  className="relative min-w-0 flex-[0_0_88%] xs:flex-[0_0_82%] sm:flex-[0_0_60%] lg:flex-[0_0_36%]"
                 >
                   {/* Animated cyan rim */}
                   <span

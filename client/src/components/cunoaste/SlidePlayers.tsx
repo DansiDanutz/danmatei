@@ -75,7 +75,7 @@ export default function SlidePlayers() {
       {/* Uniform grid: every card has the same width and stretches to the
           tallest content via auto-rows-fr. Mobile = 1 col, tablet = 2 col
           (last row holds one card alone), desktop = 5 col (single row). */}
-      <div className="grid h-full auto-rows-fr gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-5">
+      <div className="grid auto-rows-auto gap-4 sm:h-full sm:auto-rows-fr sm:grid-cols-2 sm:gap-5 lg:grid-cols-5">
         {AGE_GROUPS.map((g, i) => {
           const groupTrainers = g.trainerIds
             .map(id => trainersById[id])
@@ -101,7 +101,7 @@ export default function SlidePlayers() {
                 style={{ animationDelay: `${i * -1.2}s` }}
               />
 
-              <div className="group relative flex h-full flex-col gap-4 overflow-hidden rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/85 p-5 transition-all hover:-translate-y-0.5 hover:border-brand-cyan/40 hover:shadow-[0_24px_60px_-22px_oklch(0.75_0.12_230/0.4)] sm:p-6">
+              <div className="group relative flex flex-col gap-3 overflow-hidden rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/85 p-4 transition-all hover:-translate-y-0.5 hover:border-brand-cyan/40 hover:shadow-[0_24px_60px_-22px_oklch(0.75_0.12_230/0.4)] xs:gap-4 xs:p-5 sm:h-full sm:p-6">
                 {/* Themed glow background — varies by group code */}
                 <span
                   aria-hidden="true"
@@ -135,7 +135,7 @@ export default function SlidePlayers() {
                   {/* Code + label header */}
                   <div className="flex items-baseline justify-between gap-3">
                     <span
-                      className="font-heading text-5xl font-bold leading-none tabular-nums tracking-tight sm:text-6xl"
+                      className="font-heading text-4xl font-bold leading-none tabular-nums tracking-tight xs:text-5xl sm:text-6xl"
                       style={{ color: theme.accent }}
                     >
                       {g.code}

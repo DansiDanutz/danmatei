@@ -3,6 +3,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Custom breakpoint: xs = 400 px — covers larger small phones / landscape orientation. */
+@custom-variant xs (@media (min-width: 400px));
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

@@ -52,7 +52,7 @@ export default function SlideOwner() {
       }
       subtitle={OWNER.role}
     >
-      <div className="grid content-start gap-5 lg:h-full lg:grid-cols-12 lg:gap-10">
+      <div className="grid content-start gap-4 sm:gap-5 lg:h-full lg:grid-cols-12 lg:gap-10">
         {/* Portrait video + quote */}
         <div className="flex flex-col gap-5 lg:col-span-5">
           <div className="relative">
@@ -60,7 +60,7 @@ export default function SlideOwner() {
               aria-hidden="true"
               className="card-rim-glow pointer-events-none absolute -inset-[3px] rounded-[calc(1rem+3px)] opacity-90"
             />
-            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-brand-cyan/30 bg-[oklch(0.10_0.025_250)] shadow-[0_28px_70px_-22px_oklch(0.75_0.12_230/0.55)]">
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-brand-cyan/30 bg-[oklch(0.10_0.025_250)] shadow-[0_28px_70px_-22px_oklch(0.75_0.12_230/0.55)] xs:aspect-[4/5]">
               {/* Preloaded poster — best frame from the clip. Sits behind the
                 video at low opacity so the swap when the clip ends is
                 imperceptible (no flash, no missing-asset gap). */}
@@ -156,7 +156,7 @@ export default function SlideOwner() {
           </div>
 
           {/* Stats strip — gold reserved for the trophy stat (achievement) */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2 xs:grid-cols-4">
             {OWNER.stats.map((s, i) => {
               const isAchievement = s.label.toLowerCase().includes("trofee");
               return (
@@ -206,7 +206,7 @@ export default function SlideOwner() {
                 className="card-rim-glow pointer-events-none absolute -inset-[3px] rounded-[calc(1rem+3px)] opacity-70"
                 style={{ animationDelay: `${i * -1.5}s` }}
               />
-              <div className="group relative flex gap-4 rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-4 transition-all hover:-translate-y-0.5 hover:border-brand-cyan/40 hover:bg-[oklch(0.15_0.03_250)]/85 hover:shadow-[0_18px_50px_-20px_oklch(0.75_0.12_230/0.45)] sm:p-5">
+              <div className="group relative flex gap-3 rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-3 transition-all hover:-translate-y-0.5 hover:border-brand-cyan/40 hover:bg-[oklch(0.15_0.03_250)]/85 hover:shadow-[0_18px_50px_-20px_oklch(0.75_0.12_230/0.45)] xs:p-4 sm:p-5">
                 <span
                   aria-hidden="true"
                   className="grid size-9 shrink-0 place-items-center rounded-full border border-brand-cyan/30 bg-brand-cyan/10 font-heading text-sm font-bold tabular-nums text-brand-cyan"

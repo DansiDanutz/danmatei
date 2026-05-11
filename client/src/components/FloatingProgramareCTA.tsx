@@ -29,7 +29,7 @@ export default function FloatingProgramareCTA() {
     <a
       href="/programare"
       aria-label="Vorbește cu un consilier acum"
-      className={`fixed z-[60] bottom-4 right-4 sm:bottom-6 sm:right-6 inline-flex items-center gap-2.5 rounded-full bg-brand-cyan text-[oklch(0.08_0.02_250)] font-heading uppercase tracking-[0.16em] text-[11px] sm:text-xs px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_0_0_1px_oklch(0.78_0.13_210/0.7),0_18px_40px_-10px_oklch(0.78_0.13_210/0.55),0_0_60px_-15px_oklch(0.78_0.13_210/0.6)] transition-all duration-300 ${
+      className={`fixed z-[60] bottom-20 right-4 sm:bottom-6 sm:right-6 inline-flex items-center gap-2.5 rounded-full bg-brand-cyan text-[oklch(0.08_0.02_250)] font-heading uppercase tracking-[0.16em] text-[11px] sm:text-xs px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_0_0_1px_oklch(0.78_0.13_210/0.7),0_18px_40px_-10px_oklch(0.78_0.13_210/0.55),0_0_60px_-15px_oklch(0.78_0.13_210/0.6)] transition-all duration-300 ${
         show
           ? "opacity-100 translate-y-0 pointer-events-auto"
           : "opacity-0 translate-y-3 pointer-events-none"
@@ -40,8 +40,8 @@ export default function FloatingProgramareCTA() {
         className="size-2 rounded-full bg-[oklch(0.08_0.02_250)] animate-pulse"
       />
       <PhoneCall className="size-4" />
-      <span className="hidden xs:inline sm:inline">Vorbește cu un consilier</span>
-      <span className="xs:hidden sm:hidden">Programează</span>
+      <span className="hidden xs:inline">Vorbește cu un consilier</span>
+      <span className="xs:hidden">Programează</span>
     </a>
   );
 }

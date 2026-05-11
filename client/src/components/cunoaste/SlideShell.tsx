@@ -46,7 +46,7 @@ export default function SlideShell({
     <section
       aria-roledescription="slide"
       aria-label={`${eyebrow} (${index} din ${total})`}
-      className="relative flex w-full flex-col px-5 pb-10 pt-6 sm:h-full sm:px-10 sm:pb-28 sm:pt-10 lg:px-20 lg:pb-32 lg:pt-14"
+      className="relative flex w-full flex-col px-5 pb-24 pt-5 sm:h-full sm:px-10 sm:pb-28 sm:pt-10 lg:px-20 lg:pb-32 lg:pt-14"
     >
       {/* Eyebrow */}
       <motion.div
@@ -75,7 +75,7 @@ export default function SlideShell({
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, delay: 0.08, ease: expoOut }}
-        className="mt-6 font-heading text-4xl font-bold uppercase leading-[1.02] tracking-[0.02em] text-white sm:text-6xl lg:text-7xl"
+        className="mt-4 font-heading text-3xl font-bold uppercase leading-[1.02] tracking-[0.02em] text-white xs:text-4xl sm:text-6xl lg:text-7xl"
       >
         {title}
       </motion.h2>
@@ -85,7 +85,7 @@ export default function SlideShell({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.18, ease: expoOut }}
-          className="mt-4 max-w-2xl font-body text-base text-white/65 sm:text-lg"
+          className="mt-3 max-w-2xl font-body text-sm text-white/65 xs:text-base sm:text-lg"
         >
           {subtitle}
         </motion.p>
@@ -96,7 +96,7 @@ export default function SlideShell({
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, delay: 0.28, ease: expoOut }}
-        className="mt-8 flex-1"
+        className="mt-6 flex-1 overflow-y-auto sm:overflow-visible"
       >
         {children}
       </motion.div>
