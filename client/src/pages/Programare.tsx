@@ -24,8 +24,8 @@ export default function Programare() {
               Apel direct cu un consilier
             </span>
             <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl uppercase font-bold mt-5 leading-[0.95]">
-              <span className="block text-white">Programează-i</span>
-              <span className="block text-gradient-cyan">primul antrenament</span>
+              <span className="block text-white">Înscrie-te</span>
+              <span className="block text-gradient-cyan">la primul antrenament</span>
             </h1>
             <p className="mt-5 text-white/70 leading-relaxed max-w-xl mx-auto">
               Lasă-ne numărul tău. Îți trimitem pe WhatsApp un link prin care

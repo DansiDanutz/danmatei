@@ -46,8 +46,7 @@ export default function FloatingProgramareCTA() {
         className="size-2 rounded-full bg-[oklch(0.08_0.02_250)] animate-pulse"
       />
       <PhoneCall className="size-4" />
-      <span className="hidden xs:inline">Scrie pe WhatsApp</span>
-      <span className="xs:hidden">WhatsApp</span>
+      <span>Contact</span>
     </a>
   );
 }
