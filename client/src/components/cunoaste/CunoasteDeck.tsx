@@ -83,7 +83,7 @@ export default function CunoasteDeck() {
   };
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col bg-[oklch(0.08_0.02_250)] text-white sm:h-[100dvh] sm:overflow-hidden">
+    <div className="relative flex min-h-[100dvh] flex-col bg-[oklch(0.08_0.02_250)] text-white lg:h-[100dvh] lg:overflow-hidden">
       {/* Background atmosphere — academy blue dominates, with three tiny
           painterly accent orbs (cyan, magenta, orange) borrowed from the
           trainer portraits. All low opacity, all heavily blurred — they
@@ -139,7 +139,7 @@ export default function CunoasteDeck() {
       {/* Mobile single-slide swiper. Only the active slide is mounted so the
           page height comes from visible content, not offscreen slides. */}
       <div
-        className="relative z-10 overflow-x-hidden sm:hidden"
+        className="relative z-10 overflow-x-hidden lg:hidden"
         onTouchStart={(event) => {
           touchStartX.current = event.touches[0]?.clientX ?? null;
         }}
@@ -171,8 +171,8 @@ export default function CunoasteDeck() {
       </div>
 
       {/* Embla viewport */}
-      <div className="relative z-10 hidden overflow-hidden sm:block sm:flex-1" ref={emblaRef}>
-        <div className="flex sm:h-full">
+      <div className="relative z-10 hidden overflow-hidden lg:block lg:flex-1" ref={emblaRef}>
+        <div className="flex lg:h-full">
           <div className="min-w-0 flex-[0_0_100%]">
             <SlideOwner />
           </div>
@@ -186,7 +186,7 @@ export default function CunoasteDeck() {
       </div>
 
       {/* Bottom controls */}
-      <footer className="pointer-events-none fixed inset-x-0 bottom-0 z-20 hidden px-5 pb-5 sm:block sm:px-10 sm:pb-6 lg:px-20">
+      <footer className="pointer-events-none fixed inset-x-0 bottom-0 z-20 hidden px-5 pb-5 lg:block lg:px-10 lg:pb-6 xl:px-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
