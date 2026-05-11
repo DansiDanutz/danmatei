@@ -121,7 +121,7 @@ export default function Navbar() {
               className="flex items-center gap-2 bg-brand-cyan text-[oklch(0.08_0.02_250)] px-4 py-2.5 rounded-lg font-heading text-xs uppercase tracking-wider hover:opacity-90 transition-all duration-300 shadow-[0_0_30px_-8px_oklch(0.78_0.13_210/0.55)]"
             >
               <PhoneCall className="w-4 h-4" />
-              Programează
+              Contact
             </a>
           </div>
 
@@ -212,7 +212,7 @@ export default function Navbar() {
                   onClick={() => setMobileOpen(false)}
                 >
                   <PhoneCall className="w-5 h-5" />
-                  Scrie pe WhatsApp
+                  Contact
                 </a>
                 <a
                   href="tel:0744311147"

@@ -34,7 +34,7 @@ const MENU_ITEMS: Array<{
   icon: typeof Newspaper;
   primary?: boolean;
 }> = [
-  { label: "Programează", href: "/programare", icon: PhoneCall, primary: true },
+  { label: "Contact", href: "https://wa.me/40744311147?text=Bun%C4%83%21%20Sunt%20interesat%20de%20%C8%98coala%20de%20Fotbal%20Dan%20Matei.", icon: PhoneCall, primary: true },
   { label: "Academia", href: "/academie", icon: Trophy },
   { label: "Grupe", href: "/grupe", icon: Users },
   { label: "Turnee", href: "/turnee", icon: CalendarClock },
@@ -221,27 +221,45 @@ export default function Home() {
         <ul className="mx-auto grid max-w-md grid-cols-4 gap-1.5 rounded-2xl border border-white/8 bg-[oklch(0.10_0.02_250)]/70 p-1.5 backdrop-blur-md sm:flex sm:max-w-3xl sm:justify-center sm:gap-1">
           {MENU_ITEMS.map(item => {
             const Icon = item.icon;
+            const isExternal = /^https?:\/\//.test(item.href);
             const baseClass =
               "group/menu inline-flex min-w-0 items-center justify-center gap-1 rounded-xl px-1.5 py-2 font-heading text-[9px] font-semibold uppercase tracking-[0.04em] transition-all sm:shrink-0 sm:gap-1.5 sm:rounded-full sm:px-4 sm:text-[12px] sm:tracking-[0.16em]";
             const variantClass = item.primary
               ? "border border-brand-cyan/60 bg-brand-cyan/20 text-brand-cyan hover:border-brand-cyan hover:bg-brand-cyan/30 hover:text-white"
               : "border border-transparent text-white/70 hover:border-brand-cyan/40 hover:bg-brand-cyan/10 hover:text-white";
+            const content = (
+              <>
+                <Icon
+                  className={`size-3.5 transition-colors ${
+                    item.primary
+                      ? "text-brand-cyan"
+                      : "text-brand-cyan/80 group-hover/menu:text-brand-cyan"
+                  }`}
+                />
+                {item.label}
+              </>
+            );
             return (
               <li key={item.href} className="min-w-0">
-                <Link
-                  href={item.href}
-                  aria-label={item.label}
-                  className={`${baseClass} ${variantClass}`}
-                >
-                  <Icon
-                    className={`size-3.5 transition-colors ${
-                      item.primary
-                        ? "text-brand-cyan"
-                        : "text-brand-cyan/80 group-hover/menu:text-brand-cyan"
-                    }`}
-                  />
-                  {item.label}
-                </Link>
+                {isExternal ? (
+                  <a
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={item.label}
+                    className={`${baseClass} ${variantClass}`}
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <Link
+                    href={item.href}
+                    aria-label={item.label}
+                    className={`${baseClass} ${variantClass}`}
+                  >
+                    {content}
+                  </Link>
+                )}
               </li>
             );
           })}
