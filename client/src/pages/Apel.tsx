@@ -101,7 +101,7 @@ export default function Apel() {
 
   return (
     <main className="min-h-[100dvh] flex items-center justify-center px-6 py-12 bg-[radial-gradient(900px_500px_at_50%_-10%,oklch(0.78_0.13_210/0.18),transparent_55%)]">
-      <div className="w-full max-w-md text-center">
+      <div className="w-full max-w-md lg:max-w-2xl text-center">
         <div className="font-heading text-[10px] uppercase tracking-[0.32em] text-brand-cyan mb-4">
           Academia Dan Matei · Apel
         </div>
@@ -120,7 +120,6 @@ export default function Apel() {
             }}
             className="contents"
           >
-            <RoomAudioRenderer />
             <CallStage
               autoDispatch={Boolean(session.agentDispatch)}
               legacySpawnFailed={
@@ -215,8 +214,6 @@ function CallStage({
   const connection = useConnectionState();
   const { state: agentState } = useVoiceAssistant();
   const tracks = useTracks([Track.Source.Microphone], { onlySubscribed: false });
-  // In auto-dispatch the agent's identity is assigned by LiveKit Cloud; the
-  // canonical way to find it is by `isAgent` flag on the participant.
   const agentTrack = tracks.find(
     (t) =>
       t.participant.isAgent === true ||
@@ -224,55 +221,230 @@ function CallStage({
       t.participant.identity?.startsWith("agent-"),
   );
 
+  const [speakerMuted, setSpeakerMuted] = useState(false);
+
+  const agentSpeaking = agentState === "speaking";
+  const agentListening = agentState === "listening";
+
+  const statusLine =
+    connection !== ConnectionState.Connected
+      ? "Se conectează..."
+      : legacySpawnFailed
+        ? "Consilierul nu a putut fi pornit — antrenorul te va contacta direct."
+        : agentSpeaking
+          ? "Andra vorbește..."
+          : agentListening
+            ? "Andra te ascultă. Răspunde firesc."
+            : agentState === "thinking"
+              ? "Se gândește..."
+              : agentTrack
+                ? "Andra este conectată."
+                : autoDispatch
+                  ? "Așteptăm consilierul Andra să intre în apel..."
+                  : "Se așteaptă Andra...";
+
   return (
     <div>
-      <h1 className="font-heading text-4xl sm:text-5xl uppercase leading-[0.95] mb-3">
+      {/* Controls audio output volume — speakerMuted=true sets volume=0. */}
+      <RoomAudioRenderer volume={speakerMuted ? 0 : 1} />
+
+      <h1 className="font-heading text-3xl sm:text-4xl uppercase leading-[0.95] mb-6">
         <span className="text-gradient-cyan">Vorbim acum</span>
       </h1>
 
-      <p className="text-white/70 leading-relaxed mb-8">
-        {connection !== ConnectionState.Connected
-          ? "Se conectează..."
-          : legacySpawnFailed
-            ? "Consilierul nu a putut fi pornit — antrenorul te va contacta direct."
-            : agentState === "listening"
-              ? "Andra te ascultă. Răspunde firesc — îți punem câteva întrebări scurte despre copil."
-              : agentState === "speaking"
-                ? "Andra vorbește..."
-                : agentState === "thinking"
-                  ? "Se gândește..."
-                  : agentTrack
-                    ? "Andra este conectată."
-                    : autoDispatch
-                      ? "Așteptăm consilierul Andra să intre în apel..."
-                      : "Se așteaptă Andra..."}
+      {/* Two cards: Andra (AI) + You (user). Active card glows. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+        <ParticipantCard
+          name="Andra"
+          role="Consilier AI"
+          src="/andra.png"
+          fallbackInitial="A"
+          accent="cyan"
+          active={agentSpeaking || agentState === "thinking"}
+          imageInvert={false}
+        />
+        <ParticipantCard
+          name="Tu"
+          role="Părinte"
+          src="/player.png"
+          fallbackInitial="P"
+          accent="emerald"
+          active={agentListening}
+          imageInvert
+        />
+      </div>
+
+      <p className="text-white/75 text-sm sm:text-base leading-relaxed mb-6 min-h-[3em]">
+        {statusLine}
       </p>
 
-      <PulseRing speaking={agentState === "speaking"} />
+      {/* Controls row */}
+      <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
+        <button
+          type="button"
+          onClick={() => setSpeakerMuted((m) => !m)}
+          aria-pressed={speakerMuted}
+          aria-label={speakerMuted ? "Activează sunetul" : "Oprește sunetul"}
+          className={[
+            "inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading text-xs uppercase tracking-[0.16em] transition-colors",
+            speakerMuted
+              ? "bg-red-500/15 border border-red-400/50 text-red-200 hover:bg-red-500/25"
+              : "bg-white/[0.04] border border-white/15 text-white/85 hover:border-white/30 hover:text-white",
+          ].join(" ")}
+        >
+          {speakerMuted ? <SpeakerOffIcon /> : <SpeakerOnIcon />}
+          {speakerMuted ? "Activează sunetul" : "Sunet"}
+        </button>
 
-      <p className="mt-8 text-[10px] uppercase tracking-[0.22em] text-white/35">
+        <a
+          href="https://wa.me/40744311147?text=Bun%C4%83%21%20Sunt%20interesat%20de%20%C8%98coala%20de%20Fotbal%20Dan%20Matei."
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Scrie pe WhatsApp"
+          className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading text-xs uppercase tracking-[0.16em] bg-[oklch(0.7_0.18_150)] text-[oklch(0.12_0.02_150)] hover:opacity-90 transition shadow-[0_18px_40px_-12px_oklch(0.7_0.18_150/0.5)]"
+        >
+          <WhatsAppIcon />
+          Vorbește pe WhatsApp
+        </a>
+      </div>
+
+      <p className="mt-6 text-[10px] uppercase tracking-[0.22em] text-white/35">
         {connection === ConnectionState.Connected ? "În direct" : "Se conectează"}
       </p>
     </div>
   );
 }
 
-function PulseRing({ speaking }: { speaking: boolean }) {
+/* ---------- ParticipantCard ---------- */
+
+function ParticipantCard({
+  name,
+  role,
+  src,
+  fallbackInitial,
+  accent,
+  active,
+  imageInvert,
+}: {
+  name: string;
+  role: string;
+  src: string;
+  fallbackInitial: string;
+  accent: "cyan" | "emerald";
+  active: boolean;
+  imageInvert?: boolean;
+}) {
+  const [errored, setErrored] = useState(false);
+  const ringActive =
+    accent === "cyan" ? "ring-brand-cyan/70" : "ring-emerald-400/70";
+  const ringIdle = "ring-white/15";
+  const glow =
+    active && accent === "cyan"
+      ? "shadow-[0_0_0_2px_oklch(0.78_0.13_210/0.45),0_0_60px_-15px_oklch(0.78_0.13_210/0.6)]"
+      : active && accent === "emerald"
+        ? "shadow-[0_0_0_2px_rgba(52,211,153,0.45),0_0_60px_-15px_rgba(52,211,153,0.6)]"
+        : "";
+
   return (
-    <div className="relative inline-block">
-      {speaking && (
-        <>
-          <span className="absolute inset-0 rounded-full bg-brand-cyan/30 animate-ping" />
-          <span className="absolute inset-0 rounded-full bg-brand-cyan/15 animate-pulse" />
-        </>
-      )}
-      <span className="relative flex items-center justify-center size-28 rounded-full bg-brand-cyan/15 border-2 border-brand-cyan/50">
-        <span className="text-4xl">🎙️</span>
-      </span>
-    </div>
+    <article
+      className={[
+        "rounded-2xl border bg-white/[0.02] p-3 sm:p-4 transition-all duration-500",
+        active
+          ? accent === "cyan"
+            ? "border-brand-cyan/60"
+            : "border-emerald-400/60"
+          : "border-white/10",
+        glow,
+      ].join(" ")}
+    >
+      <div
+        className={[
+          "relative aspect-square overflow-hidden rounded-xl transition-all duration-500",
+          "ring-2",
+          active ? ringActive : ringIdle,
+        ].join(" ")}
+        style={{
+          background:
+            accent === "cyan"
+              ? "radial-gradient(circle at 30% 30%, oklch(0.78 0.13 210 / 0.22), transparent 60%), oklch(0.12 0.025 250)"
+              : "radial-gradient(circle at 70% 30%, rgba(52,211,153,0.18), transparent 60%), oklch(0.10 0.02 250)",
+        }}
+      >
+        {!errored ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt={name}
+            onError={() => setErrored(true)}
+            className={[
+              "absolute inset-0 h-full w-full transition-all duration-500",
+              imageInvert
+                ? "object-contain p-3 sm:p-4 [filter:invert(1)]"
+                : "object-cover",
+              active
+                ? "brightness-110 saturate-110"
+                : imageInvert
+                  ? "opacity-80"
+                  : "saturate-75 brightness-90 opacity-80",
+            ].join(" ")}
+          />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center">
+            <span className="font-heading text-4xl sm:text-5xl font-bold text-white/85">
+              {fallbackInitial}
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="mt-2 text-left px-0.5">
+        <p className="font-heading text-sm font-semibold text-white truncate">
+          {name}
+        </p>
+        <p
+          className={[
+            "text-[10px] uppercase tracking-[0.16em]",
+            active
+              ? accent === "cyan"
+                ? "text-brand-cyan"
+                : "text-emerald-300"
+              : "text-white/45",
+          ].join(" ")}
+        >
+          {role}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function SpeakerOnIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 5L6 9H2v6h4l5 4z" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  );
+}
+
+function SpeakerOffIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 5L6 9H2v6h4l5 4z" />
+      <line x1="22" y1="9" x2="16" y2="15" />
+      <line x1="16" y1="9" x2="22" y2="15" />
+    </svg>
+  );
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.87 9.87 0 0 0 4.73 1.2h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.15h-.01a8.24 8.24 0 0 1-4.19-1.15l-.3-.18-3.11.82.83-3.04-.2-.31a8.22 8.22 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.83 2.41a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.25 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.14-.25-.02-.39.11-.51.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.42h-.48c-.17 0-.43.06-.66.31-.23.25-.86.84-.86 2.06s.88 2.4 1.01 2.56c.12.17 1.74 2.66 4.21 3.73.59.25 1.05.4 1.4.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.15-1.18-.07-.1-.23-.16-.48-.29z"/>
+    </svg>
   );
 }
 
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 function _unused(phase: Phase) { return phase; }
-useEffect; // keep import warm for future extensions
+void useEffect; // keep import warm for future extensions
