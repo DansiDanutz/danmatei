@@ -22,6 +22,7 @@ import {
   useVoiceAssistant,
 } from "@livekit/components-react";
 import { ConnectionState, Track } from "livekit-client";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 
@@ -268,8 +269,9 @@ function CallStage({
         <span className="text-gradient-cyan">Vorbim acum</span>
       </h1>
 
-      {/* Two cards: Andra (AI) + You (user). Active card glows. */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+      {/* Two cards: Andra (AI) + You (user). Active card glows. The ball
+          passes between them — see <ConversationBall /> below. */}
+      <div className="relative grid grid-cols-2 gap-3 sm:gap-4 mb-6">
         <ParticipantCard
           name="Andra"
           role="Consilier AI"
@@ -287,6 +289,17 @@ function CallStage({
           accent="emerald"
           active={agentListening}
           imageInvert
+        />
+
+        <ConversationBall
+          target={
+            agentSpeaking || agentState === "thinking"
+              ? "andra"
+              : agentListening
+                ? "user"
+                : "idle"
+          }
+          visible={connection === ConnectionState.Connected && Boolean(agentTrack)}
         />
       </div>
 
@@ -441,6 +454,89 @@ function ParticipantCard({
         </p>
       </div>
     </article>
+  );
+}
+
+/* ---------- ConversationBall ----------
+ *
+ * Soccer ball that hovers over whichever card is currently active. When the
+ * AI is speaking/thinking, it sits on Andra's side; when she's listening,
+ * it crosses to the user's side. Spring physics give a natural arc; a
+ * continuous bounce + spin make it feel like a kid is actually playing
+ * with it while waiting for the other to talk.
+ */
+function ConversationBall({
+  target,
+  visible,
+}: {
+  target: "andra" | "user" | "idle";
+  visible: boolean;
+}) {
+  // 25% and 75% map to the centers of the two columns in the grid-cols-2
+  // layout. 50% is a neutral resting spot when nobody's talking yet.
+  const leftPct = target === "user" ? "75%" : target === "andra" ? "25%" : "50%";
+
+  return (
+    <AnimatePresence>
+      {visible ? (
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute -translate-x-1/2 drop-shadow-[0_8px_14px_rgba(0,0,0,0.45)]"
+          // bottom: ~28% sits the ball near the figure's feet inside the
+          // participant card, regardless of card height.
+          style={{ bottom: "28%", width: 40, height: 40 }}
+          initial={{ opacity: 0, scale: 0.4, left: leftPct }}
+          animate={{ opacity: 1, scale: 1, left: leftPct }}
+          exit={{ opacity: 0, scale: 0.4 }}
+          transition={{
+            left: { type: "spring", stiffness: 95, damping: 14, mass: 0.7 },
+            opacity: { duration: 0.25 },
+            scale: { type: "spring", stiffness: 220, damping: 18 },
+          }}
+        >
+          {/* Inner motion handles the continuous spin + idle bounce. */}
+          <motion.div
+            animate={{
+              y: [0, -10, 0],
+              rotate: 360,
+            }}
+            transition={{
+              y: { duration: 0.75, repeat: Infinity, ease: "easeInOut" },
+              rotate: { duration: 1.6, repeat: Infinity, ease: "linear" },
+            }}
+            style={{ width: 40, height: 40 }}
+          >
+            <SoccerBallIcon />
+          </motion.div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function SoccerBallIcon() {
+  return (
+    <svg viewBox="0 0 32 32" width="40" height="40" aria-hidden="true">
+      <defs>
+        <radialGradient id="ballHi" cx="35%" cy="32%" r="65%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="60%" stopColor="#f0f0f0" />
+          <stop offset="100%" stopColor="#c9c9c9" />
+        </radialGradient>
+      </defs>
+      <circle cx="16" cy="16" r="15" fill="url(#ballHi)" stroke="#1a1a1a" strokeWidth="1.3" />
+      <polygon
+        points="16,9 22,13.2 19.7,19.5 12.3,19.5 10,13.2"
+        fill="#1a1a1a"
+      />
+      <path
+        d="M16 9 L16 3 M22 13.2 L27 11 M19.7 19.5 L23.5 24 M12.3 19.5 L8.5 24 M10 13.2 L5 11"
+        stroke="#1a1a1a"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
   );
 }
 
