@@ -126,3 +126,4 @@ apps/mobile/assets/onboarding-hero.mp4
 # Playwright test artifacts
 test-results/
 playwright-report/
+.env*.local
