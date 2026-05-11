@@ -3,8 +3,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Custom breakpoint: xs = 400 px — covers larger small phones / landscape orientation. */
-@custom-variant xs (@media (min-width: 400px));
+/* Custom breakpoint: xs = 400 px. Registered via @theme (not
+   @custom-variant) so it lands in the correct cascade position
+   between base and sm:, instead of after lg: where it would
+   incorrectly override larger-breakpoint utilities. */
+@theme {
+  --breakpoint-xs: 400px;
+}
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
