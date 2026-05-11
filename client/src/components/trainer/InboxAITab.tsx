@@ -6,9 +6,9 @@
  * next steps, and quick actions (call, WhatsApp, schedule trial training,
  * play recording).
  *
- * Backed by /api/lead/list. The trainer's slug (e.g. 't-sopi') is read
- * from the Antrenor profile metadata or, as a fallback in dev, from the
- * URL ?as= query.
+ * Backed by /api/lead/list. The API derives the trainer routing slug from
+ * the authenticated Supabase session; the prop is only used for the realtime
+ * notification filter.
  *
  * See docs/AI_CALL_FLOW.md for the full feature design.
  */
@@ -23,6 +23,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 import { useLeadRealtime } from "@/lib/use-lead-realtime";
 
 type LeadCallSummary = {
@@ -85,17 +86,25 @@ function formatDuration(s: number | null | undefined): string {
 }
 
 export default function InboxAITab({ trainerSlug }: Props) {
+  const { session } = useAuth();
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const fetchLeads = useCallback(async () => {
-    const url = trainerSlug
-      ? `/api/lead/list?trainerSlug=${encodeURIComponent(trainerSlug)}`
-      : "/api/lead/list";
+    const token = session?.access_token;
+    if (!token) {
+      setError("not_authenticated");
+      setLeads([]);
+      return;
+    }
+
     try {
-      const r = await fetch(url, { cache: "no-store" });
+      const r = await fetch("/api/lead/list", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const j = (await r.json().catch(() => ({}))) as {
         ok?: boolean;
         items?: Lead[];
@@ -111,7 +120,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
       setError(e instanceof Error ? e.message : String(e));
       setLeads([]);
     }
-  }, [trainerSlug]);
+  }, [session?.access_token]);
 
   useEffect(() => {
     setLeads(null);

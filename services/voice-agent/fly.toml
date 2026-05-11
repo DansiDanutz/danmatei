@@ -16,7 +16,7 @@ primary_region = "fra"   # Frankfurt — closest to LiveKit eu-west-1 region
   LIVEKIT_LLM_MODEL = "openai/gpt-4o-mini"
   LIVEKIT_TTS_MODEL = "elevenlabs/eleven_multilingual_v2"
   LIVEKIT_TTS_VOICE = "hpp4J3VqNfWAUOO0d1Us"
-  MAX_CALL_SECONDS = "360"
+  MAX_CALL_SECONDS = "120"
 
 # LiveKit Agents workers maintain a persistent WebSocket to LiveKit Cloud
 # (their job dispatch channel). We expose the agents' built-in health HTTP

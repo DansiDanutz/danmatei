@@ -80,7 +80,9 @@ async function readRawBody(req: Req): Promise<Buffer> {
 
 function verifySignature(rawBody: Buffer, headerSig: string | undefined): boolean {
   const secret = process.env.PIPECAT_WEBHOOK_SECRET;
-  if (!secret) return true; // dev mode — skip
+  if (!secret) {
+    return process.env.NODE_ENV !== "production" && process.env.VERCEL_ENV !== "production";
+  }
   if (!headerSig) return false;
   const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
   if (headerSig.length !== expected.length) return false;

@@ -22,6 +22,7 @@ import {
   Phone,
   ArrowUpRight,
   LogOut,
+  UserPlus,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { expoOut } from "@/lib/motion";
@@ -59,6 +60,7 @@ export default function PublicShell({
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [location] = useLocation();
+  const onProgramare = location === "/programare";
 
   useEffect(() => {
     let ticking = false;
@@ -152,9 +154,18 @@ export default function PublicShell({
           </nav>
 
           <div className="flex items-center gap-2">
+            {!onProgramare && (
+              <Link
+                href="/programare"
+                className="hidden items-center gap-2 rounded-full bg-brand-cyan px-4 py-2 font-heading text-[11px] font-semibold uppercase tracking-[0.16em] text-[oklch(0.08_0.02_250)] shadow-[0_12px_32px_-16px_oklch(0.78_0.13_210/0.8)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-18px_oklch(0.78_0.13_210/0.9)] sm:inline-flex"
+              >
+                <UserPlus className="size-3.5" />
+                Înscriere
+              </Link>
+            )}
             <Link
               href={profile ? "/dashboard" : "/login"}
-              className="hidden items-center gap-2 rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-4 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/20 sm:inline-flex"
+              className="hidden items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/75 transition-colors hover:border-brand-cyan/30 hover:bg-brand-cyan/10 hover:text-brand-cyan sm:inline-flex"
             >
               {profile ? "Dashboard" : "Cont"}
               <ArrowUpRight className="size-3.5" />
@@ -254,11 +265,22 @@ export default function PublicShell({
                 })}
               </div>
 
-              <div className="mt-6 flex items-center gap-2 border-t border-white/5 pt-5">
+              <div className="mt-6 space-y-3 border-t border-white/5 pt-5">
+                {!onProgramare && (
+                  <Link
+                    href="/programare"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-cyan py-3 text-center font-heading text-sm font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)]"
+                  >
+                    <UserPlus className="size-4" />
+                    Înscrie copilul
+                  </Link>
+                )}
+                <div className="flex items-center gap-2">
                 <Link
                   href={profile ? "/dashboard" : "/login"}
                   onClick={() => setMobileOpen(false)}
-                  className="flex-1 rounded-full bg-brand-cyan py-3 text-center font-heading text-sm font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)]"
+                  className="flex-1 rounded-full border border-white/12 bg-white/[0.04] py-3 text-center font-heading text-sm font-semibold uppercase tracking-[0.18em] text-white/85"
                 >
                   {profile ? "Dashboard" : "Intră în cont"}
                 </Link>
@@ -279,6 +301,7 @@ export default function PublicShell({
                 >
                   <Phone className="size-5" />
                 </a>
+                </div>
               </div>
             </div>
           </motion.div>

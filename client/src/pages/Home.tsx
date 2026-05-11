@@ -34,7 +34,7 @@ const MENU_ITEMS: Array<{
   icon: typeof Newspaper;
   primary?: boolean;
 }> = [
-  { label: "Contact", href: "https://wa.me/40744311147?text=Bun%C4%83%21%20Sunt%20interesat%20de%20%C8%98coala%20de%20Fotbal%20Dan%20Matei.", icon: PhoneCall, primary: true },
+  { label: "Programează", href: "/programare", icon: PhoneCall, primary: true },
   { label: "Academia", href: "/academie", icon: Trophy },
   { label: "Grupe", href: "/grupe", icon: Users },
   { label: "Turnee", href: "/turnee", icon: CalendarClock },

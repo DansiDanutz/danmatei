@@ -70,7 +70,8 @@ SYSTEM_PROMPT_BASE = (ROOT / "prompt.ro.md").read_text(encoding="utf-8")
 AGENT_NAME = os.environ.get("LIVEKIT_AGENT_NAME", "danmatei-voice-agent")
 API_BASE = os.environ.get("API_BASE", "https://danmatei.vercel.app")
 WEBHOOK_SECRET = os.environ.get("PIPECAT_WEBHOOK_SECRET", "")
-MAX_CALL_SECONDS = int(os.environ.get("MAX_CALL_SECONDS", "360"))  # 6 min hard cap
+MAX_CALL_SECONDS = int(os.environ.get("MAX_CALL_SECONDS", "120"))  # 2 min hard cap
+WRAPUP_AT_SECONDS = max(MAX_CALL_SECONDS - 25, MAX_CALL_SECONDS // 2)  # 95s if cap=120
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +300,28 @@ async def entrypoint(ctx: JobContext) -> None:
         except Exception:
             pass
 
-    # ----- Hard call-duration cap -----
+    # ----- Wrap-up signal + hard call-duration cap -----
+    async def wrap_up_signal() -> None:
+        """At T=WRAPUP_AT_SECONDS push Andra to start closing the call."""
+        await asyncio.sleep(WRAPUP_AT_SECONDS)
+        if state.finalized:
+            return
+        log.info("wrap-up signal at %ds — telling agent to close", WRAPUP_AT_SECONDS)
+        try:
+            await session.generate_reply(
+                instructions=(
+                    "ATENȚIE: timpul se apropie de sfârșit. Mai ai sub "
+                    "30 de secunde. Începe IMEDIAT închiderea politicoasă "
+                    "EXCLUSIV ÎN LIMBA ROMÂNĂ (zero cuvinte în engleză): "
+                    "rezumă scurt, dă o încurajare scurtă, anunță că "
+                    "antrenorul scrie pe WhatsApp și salută cu 'mulțumesc' "
+                    "sau 'la revedere'. Folosește una dintre formulele "
+                    "de închidere din instrucțiunile tale. MAX 2 propoziții."
+                )
+            )
+        except Exception:
+            log.exception("wrap-up generate_reply failed")
+
     async def hard_cap() -> None:
         await asyncio.sleep(MAX_CALL_SECONDS)
         log.info("hard cap reached (%ds), disconnecting", MAX_CALL_SECONDS)
@@ -309,6 +331,7 @@ async def entrypoint(ctx: JobContext) -> None:
             pass
 
     cap_task = asyncio.create_task(hard_cap())
+    wrap_task = asyncio.create_task(wrap_up_signal())
 
     # ----- Finalize on shutdown -----
     async def finalize() -> None:
@@ -317,6 +340,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 return
             state.finalized = True
         cap_task.cancel()
+        wrap_task.cancel()
         if not state.lead_id:
             log.info("no leadId in room metadata, skipping webhook")
             return
@@ -352,10 +376,15 @@ async def entrypoint(ctx: JobContext) -> None:
 
     await session.generate_reply(
         instructions=(
-            "Începe conversația ÎN ROMÂNĂ. Urmărește instrucțiunile tale: "
-            "salută părintele pe nume, menționează numele copilului, anunță "
-            "scurt înregistrarea, apoi întreabă ce vor să afle. Vorbește "
-            "cald, calm, NU robotic. Răspunsuri scurte — maxim 2 propoziții."
+            "ÎNCEPE CONVERSAȚIA ÎN LIMBA ROMÂNĂ. "
+            "REGULA ABSOLUTĂ: răspunde EXCLUSIV în limba română. ZERO "
+            "cuvinte în engleză — nici 'ok', nici 'sorry', nici 'thanks'. "
+            "Doar nume proprii (WhatsApp, Google, Cluj-Napoca, Dan Matei) "
+            "rămân așa cum sunt. "
+            "Salută părintele pe nume, menționează numele copilului, "
+            "anunță scurt înregistrarea, apoi întreabă-l dacă e deja "
+            "înscris la academie sau e prima dată. Ton cald, NU robotic. "
+            "Maxim 2 propoziții."
         )
     )
 
