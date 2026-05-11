@@ -1,16 +1,20 @@
 /**
- * FloatingProgramareCTA — sticky bottom-right pill that drives visitors to
- * /programare. Mirrors the conversion CTA from /mobile-preview.html.
+ * FloatingProgramareCTA — sticky bottom-right pill that opens WhatsApp
+ * directly to the academy owner. Faster path than the /programare form
+ * for parents who want a quick human reply.
  *
- * Hidden on the /programare and /apel pages (no point pointing somewhere
- * the user already is) and on auth pages (avoid distraction during sign-up).
- * Fades in after the visitor scrolls past 600px so the hero stays clean.
+ * Hidden on auth pages (avoid distraction during sign-up). Fades in after
+ * the visitor scrolls past 600px so the hero stays clean.
  */
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { PhoneCall } from "lucide-react";
 
-const HIDDEN_ROUTES = [/^\/programare/, /^\/apel/, /^\/login/, /^\/inregistrare/];
+const HIDDEN_ROUTES = [/^\/apel/, /^\/login/, /^\/inregistrare/];
+
+const WHATSAPP_URL =
+  "https://wa.me/40744311147?text=" +
+  encodeURIComponent("Bună! Sunt interesat de Școala de Fotbal Dan Matei.");
 
 export default function FloatingProgramareCTA() {
   const [location] = useLocation();
@@ -27,8 +31,10 @@ export default function FloatingProgramareCTA() {
 
   return (
     <a
-      href="/programare"
-      aria-label="Vorbește cu un consilier acum"
+      href={WHATSAPP_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Scrie-ne pe WhatsApp"
       className={`fixed z-[60] bottom-20 right-4 sm:bottom-6 sm:right-6 inline-flex items-center gap-2.5 rounded-full bg-brand-cyan text-[oklch(0.08_0.02_250)] font-heading uppercase tracking-[0.16em] text-[11px] sm:text-xs px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_0_0_1px_oklch(0.78_0.13_210/0.7),0_18px_40px_-10px_oklch(0.78_0.13_210/0.55),0_0_60px_-15px_oklch(0.78_0.13_210/0.6)] transition-all duration-300 ${
         show
           ? "opacity-100 translate-y-0 pointer-events-auto"
@@ -40,8 +46,8 @@ export default function FloatingProgramareCTA() {
         className="size-2 rounded-full bg-[oklch(0.08_0.02_250)] animate-pulse"
       />
       <PhoneCall className="size-4" />
-      <span className="hidden xs:inline">Vorbește cu un consilier</span>
-      <span className="xs:hidden">Programează</span>
+      <span className="hidden xs:inline">Scrie pe WhatsApp</span>
+      <span className="xs:hidden">WhatsApp</span>
     </a>
   );
 }
