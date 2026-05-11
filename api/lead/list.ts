@@ -1,26 +1,27 @@
 /**
- * GET /api/lead/list?trainerSlug=t-sopi
+ * GET /api/lead/list
  *
  * Returns the inbox of leads + their latest completed AI call.
- * Filters by `assigned_trainer_id` OR being in `cc_trainer_ids`.
- *
- * NOTE: this endpoint currently uses the service role client. The RLS
- * policies in `0006_ai_call_leads.sql` key off `auth.jwt() ->> 'trainer_id'`,
- * which is not yet wired into the auth flow (no JWT custom claim setter).
- * Until that lands, callers pass the trainer slug explicitly. A follow-up
- * migration will add a `slug` column on `fotbal.trainers` and switch this
- * endpoint to use the user JWT directly.
+ * Returns the authenticated trainer's inbox of leads + their latest completed
+ * AI call. The caller's JWT is verified server-side; the trainer routing slug
+ * is derived from that trainer's own profile, not from caller-controlled query
+ * params.
  */
 import { z } from "zod";
-import { serviceClient } from "../_lib/supabase.js";
+import {
+  getJwtFromHeader,
+  getUserIdFromJwt,
+  serviceClient,
+  userClient,
+} from "../_lib/supabase.js";
 
 const Query = z.object({
-  trainerSlug: z.string().min(2).max(40).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
 type Req = {
   method?: string;
+  headers?: Record<string, string | string[] | undefined>;
   query?: Record<string, string | string[] | undefined>;
   url?: string;
 };
@@ -46,10 +47,30 @@ function readQuery(req: Req): Record<string, string> {
   return {};
 }
 
+function readAuthHeader(req: Req): string {
+  return (
+    (typeof req.headers?.authorization === "string"
+      ? req.headers.authorization
+      : Array.isArray(req.headers?.authorization)
+        ? req.headers.authorization[0]
+        : undefined) ?? ""
+  );
+}
+
+function trainerSlugForAgeRange(ageMin: number, ageMax: number): string {
+  const mid = (ageMin + ageMax) / 2;
+  if (mid <= 9) return "t-sopi";
+  if (mid <= 13) return "t-kelemen";
+  return "t-dan";
+}
+
 export default async function handler(req: Req, res: Res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "method_not_allowed" });
   }
+
+  const jwt = getJwtFromHeader(readAuthHeader(req));
+  if (!jwt) return res.status(401).json({ error: "missing_bearer_token" });
 
   const parsed = Query.safeParse(readQuery(req));
   if (!parsed.success) {
@@ -57,7 +78,24 @@ export default async function handler(req: Req, res: Res) {
       .status(400)
       .json({ error: "invalid_query", issues: parsed.error.issues });
   }
-  const { trainerSlug, limit } = parsed.data;
+  const { limit } = parsed.data;
+
+  let userId: string;
+  try {
+    userId = await getUserIdFromJwt(jwt);
+  } catch {
+    return res.status(401).json({ error: "not_authenticated" });
+  }
+
+  const u = userClient(jwt);
+  const { data: profile, error: profileErr } = await u
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+  if (profileErr || profile?.role !== "trainer") {
+    return res.status(403).json({ error: "trainer_role_required" });
+  }
 
   let supabase;
   try {
@@ -69,7 +107,22 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
-  // Pull leads. If a trainerSlug is provided, scope to that assignment or CC.
+  const { data: trainer, error: trainerErr } = await supabase
+    .from("trainers")
+    .select("age_min, age_max")
+    .eq("profile_id", userId)
+    .eq("active", true)
+    .single();
+  if (trainerErr || !trainer) {
+    return res.status(403).json({ error: "trainer_profile_required" });
+  }
+
+  const trainerSlug = trainerSlugForAgeRange(
+    Number(trainer.age_min),
+    Number(trainer.age_max),
+  );
+
+  // Pull leads scoped to the authenticated trainer's derived routing slug.
   let q = supabase
     .from("leads")
     .select(
@@ -99,11 +152,9 @@ export default async function handler(req: Req, res: Res) {
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (trainerSlug) {
-    q = q.or(
-      `assigned_trainer_id.eq.${trainerSlug},cc_trainer_ids.cs.{${trainerSlug}}`,
-    );
-  }
+  q = q.or(
+    `assigned_trainer_id.eq.${trainerSlug},cc_trainer_ids.cs.{${trainerSlug}}`,
+  );
 
   const { data, error } = await q;
   if (error) {
@@ -124,5 +175,10 @@ export default async function handler(req: Req, res: Res) {
     return { ...rest, latestCall: latest };
   });
 
-  return res.status(200).json({ ok: true, items, count: items.length });
+  return res.status(200).json({
+    ok: true,
+    trainerSlug,
+    items,
+    count: items.length,
+  });
 }

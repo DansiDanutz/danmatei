@@ -7,6 +7,7 @@
  * See docs/AI_CALL_FLOW.md for the full feature design.
  */
 import { zodResolver } from "@hookform/resolvers/zod";
+import { CheckCircle2, Loader2, PhoneCall, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
@@ -20,11 +21,14 @@ const Schema = z.object({
     .max(32)
     .regex(/^[+\d\s()-]+$/, "Folosește doar cifre și + - ( ) spațiu"),
   childName: z.string().trim().min(2, "Numele copilului este obligatoriu").max(120),
-  childAge: z.coerce
-    .number()
+  childAge: z.preprocess(
+    (value) => (value === "" || value == null ? undefined : Number(value)),
+    z
+    .number({ error: "Vârsta este obligatorie" })
     .int("Vârsta este obligatorie")
     .min(4, "Minim 4 ani")
     .max(18, "Maxim 18 ani"),
+  ),
   childPosition: z.string().trim().max(60).optional(),
   consent: z
     .boolean()
@@ -93,9 +97,11 @@ export default function LeadForm() {
   if (result) {
     const trainer = TRAINER_NAME[result.trainerId] ?? "antrenorul tău";
     return (
-      <div className="rounded-3xl border border-brand-cyan/30 bg-[oklch(0.10_0.02_250)] p-8 text-center">
-        <div className="text-5xl mb-3">✅</div>
-        <h2 className="font-heading text-3xl text-white mb-2">
+      <div className="rounded-3xl border border-brand-cyan/30 bg-[oklch(0.10_0.02_250)] p-6 text-center shadow-[0_24px_80px_-40px_oklch(0.78_0.13_210/0.65)] sm:p-8">
+        <div className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-brand-cyan/15 text-brand-cyan ring-1 ring-brand-cyan/35">
+          <CheckCircle2 className="size-7" />
+        </div>
+        <h2 className="font-heading text-2xl text-white mb-2 sm:text-3xl">
           Mulțumim! Te contactăm imediat.
         </h2>
         <p className="text-white/70 leading-relaxed">
@@ -109,7 +115,8 @@ export default function LeadForm() {
           target="_self"
           className="inline-flex items-center gap-2 mt-6 px-6 py-3 rounded-2xl bg-brand-cyan text-[oklch(0.08_0.02_250)] font-heading uppercase tracking-[0.16em] text-sm hover:opacity-90 transition"
         >
-          📞 Începe apelul
+          <PhoneCall className="size-4" />
+          Începe apelul
         </a>
 
         {!result.whatsapp.sent && result.whatsapp.reason ? (
@@ -124,15 +131,27 @@ export default function LeadForm() {
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="space-y-4 rounded-3xl border border-white/10 bg-[oklch(0.10_0.02_250)]/85 backdrop-blur-md p-6 sm:p-8"
+      className="space-y-5 rounded-3xl border border-white/10 bg-[oklch(0.10_0.02_250)]/90 backdrop-blur-md p-5 shadow-[0_24px_80px_-48px_black] sm:p-8"
       noValidate
     >
+      <div className="grid gap-2 rounded-2xl border border-brand-cyan/20 bg-brand-cyan/[0.06] p-4 text-left sm:grid-cols-3">
+        {["Completezi datele", "Primești linkul", "Vorbești cu Andra"].map((step, index) => (
+          <div key={step} className="flex items-center gap-2 text-xs text-white/70">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-brand-cyan/15 font-heading text-[10px] text-brand-cyan ring-1 ring-brand-cyan/30">
+              {index + 1}
+            </span>
+            <span>{step}</span>
+          </div>
+        ))}
+      </div>
+
       <div className="grid sm:grid-cols-2 gap-4">
         <Field label="Numele tău" error={errors.parentName?.message}>
           <input
             {...register("parentName")}
             type="text"
             autoComplete="name"
+            aria-invalid={!!errors.parentName}
             className={inputCls(!!errors.parentName)}
             placeholder="ex. Andrei Popescu"
           />
@@ -142,6 +161,8 @@ export default function LeadForm() {
             {...register("parentPhone")}
             type="tel"
             autoComplete="tel"
+            inputMode="tel"
+            aria-invalid={!!errors.parentPhone}
             className={inputCls(!!errors.parentPhone)}
             placeholder="07XX XXX XXX"
           />
@@ -150,6 +171,7 @@ export default function LeadForm() {
           <input
             {...register("childName")}
             type="text"
+            aria-invalid={!!errors.childName}
             className={inputCls(!!errors.childName)}
             placeholder="ex. Luca"
           />
@@ -160,6 +182,8 @@ export default function LeadForm() {
             type="number"
             min={4}
             max={18}
+            inputMode="numeric"
+            aria-invalid={!!errors.childAge}
             className={inputCls(!!errors.childAge)}
             placeholder="ex. 9"
           />
@@ -179,12 +203,12 @@ export default function LeadForm() {
         control={control}
         name="consent"
         render={({ field, fieldState }) => (
-          <label className="flex items-start gap-3 text-sm text-white/75 cursor-pointer">
+          <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/75 cursor-pointer transition-colors hover:border-brand-cyan/25">
             <input
               type="checkbox"
               checked={!!field.value}
               onChange={(e) => field.onChange(e.target.checked)}
-              className="mt-0.5 size-4 accent-[oklch(0.78_0.13_210)]"
+              className="mt-0.5 size-5 shrink-0 accent-[oklch(0.78_0.13_210)]"
             />
             <span>
               Sunt de acord ca datele mele să fie folosite pentru a fi contactat
@@ -204,17 +228,28 @@ export default function LeadForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full mt-2 inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-brand-cyan text-[oklch(0.08_0.02_250)] font-heading uppercase tracking-[0.16em] text-sm hover:opacity-90 transition disabled:opacity-50"
+        className="w-full mt-2 inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-brand-cyan px-5 py-4 text-center font-heading text-sm font-semibold uppercase tracking-[0.14em] text-[oklch(0.08_0.02_250)] transition hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-50 sm:tracking-[0.16em]"
       >
-        {isSubmitting ? "Se trimite..." : "Vreau să am o conversație acum"}
+        {isSubmitting ? (
+          <>
+            <Loader2 className="size-4 animate-spin" />
+            Se trimite...
+          </>
+        ) : (
+          <>
+            <PhoneCall className="size-4" />
+            Primește linkul de apel
+          </>
+        )}
       </button>
 
       {submitError ? (
         <p className="text-sm text-red-400 text-center">{submitError}</p>
       ) : null}
 
-      <p className="text-xs text-white/40 text-center pt-2">
-        Te sunăm în &lt;1 min via WhatsApp · GDPR · Cluj-Napoca
+      <p className="flex items-center justify-center gap-1.5 text-center text-xs text-white/45">
+        <ShieldCheck className="size-3.5 text-brand-cyan/70" />
+        WhatsApp în sub 1 minut · GDPR · Cluj-Napoca
       </p>
     </form>
   );
@@ -235,15 +270,15 @@ function Field({
         {label}
       </span>
       {children}
-      {error ? <span className="text-red-400 text-xs mt-1 block">{error}</span> : null}
+      {error ? <span className="text-red-300 text-xs mt-1.5 block">{error}</span> : null}
     </label>
   );
 }
 
 function inputCls(hasError: boolean): string {
   return [
-    "w-full rounded-xl bg-white/[0.04] border px-4 py-3 text-white placeholder-white/30",
-    "outline-none transition focus:bg-white/[0.07]",
+    "w-full rounded-xl bg-white/[0.05] border px-4 py-3.5 text-white placeholder-white/34",
+    "outline-none transition focus:bg-white/[0.08]",
     hasError
       ? "border-red-500/60 focus:border-red-400"
       : "border-white/10 focus:border-brand-cyan/50",

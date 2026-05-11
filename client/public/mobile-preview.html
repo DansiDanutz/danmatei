@@ -2813,6 +2813,19 @@
         },
       });
 
+      // Swiper loop can occasionally ignore the first navigation click right
+      // after it wraps from the last real slide back to the first duplicate.
+      // Detect a no-op and issue one explicit slideNext so keyboard/click
+      // navigation keeps moving one card per action.
+      document.getElementById("trainerNext")?.addEventListener("click", () => {
+        const before = trainerSwiper.realIndex;
+        window.setTimeout(() => {
+          if (trainerSwiper.realIndex === before && !trainerSwiper.animating) {
+            trainerSwiper.slideNext();
+          }
+        }, 450);
+      });
+
       // Pause autoplaying trainer videos when slide is not active for performance
       const updateTrainerVideos = () => {
         document.querySelectorAll("#trainerSwiper .swiper-slide video").forEach((vid) => {

@@ -19,7 +19,7 @@ import { test, expect } from "@playwright/test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const BASE = process.env.BASE_URL ?? "http://127.0.0.1:4173";
+const BASE = process.env.BASE_URL ?? "http://localhost:3030";
 const SHOTS = path.resolve(process.cwd(), "test-results/interaction-audit");
 const issues: string[] = [];
 
@@ -48,17 +48,17 @@ const HOME_TILES: Array<{ label: RegExp; expectPath: RegExp }> = [
 test.describe("Home grid", () => {
   for (const tile of HOME_TILES) {
     test(`clicking "${tile.label}" tile lands on a page matching ${tile.expectPath}`, async ({ page }) => {
-      await page.goto(BASE, { waitUntil: "networkidle" });
-      // The landing page auto-redirects to /cunoaste after 5s, race that.
+      await page.goto(`${BASE}/?stay=1`, { waitUntil: "networkidle" });
+      // The landing page normally auto-redirects; ?stay=1 keeps this test
+      // focused on whether the home nav link itself works.
       await page.waitForTimeout(500);
 
       const link = page.getByRole("link", { name: tile.label });
       const count = await link.count();
       if (count === 0) {
         issues.push(`Home tile not found: "${tile.label}"`);
-        test.fail(true, "tile not found");
-        return;
       }
+      expect(count).toBeGreaterThan(0);
       // Take the first matching link (some labels appear in nav too)
       await link.first().click();
       await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
@@ -108,7 +108,7 @@ test("Cunoaste deck: arrow navigation cycles slides", async ({ page }) => {
 test("Programare: empty submit shows validation errors", async ({ page }) => {
   await page.goto(`${BASE}/programare`, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
-  const submit = page.getByRole("button", { name: /vreau să fiu sunat/i });
+  const submit = page.getByRole("button", { name: /primește linkul de apel/i });
   await expect(submit).toBeVisible();
   await submit.click();
   await page.waitForTimeout(500);

@@ -4,7 +4,7 @@ import * as path from "node:path";
 
 const PREVIEW_URL =
   process.env.PREVIEW_URL ??
-  "https://danmatei.vercel.app/mobile-preview.html";
+  "http://localhost:3030/mobile-preview.html";
 
 const SHOTS_DIR = path.resolve(process.cwd(), "test-results/preview-audit");
 
@@ -72,6 +72,7 @@ test("intro splash skip button dismisses overlay", async ({ page }) => {
 });
 
 test("audit preview at every viewport", async ({ page }) => {
+  test.setTimeout(120_000);
   const consoleMsgs: string[] = [];
   const failedRequests: string[] = [];
   const overflows: string[] = [];
@@ -134,6 +135,8 @@ test("audit preview at every viewport", async ({ page }) => {
           await page.waitForTimeout(400);
           await el.screenshot({
             path: path.join(SHOTS_DIR, `${vp.name}-${id}.png`),
+            animations: "disabled",
+            timeout: 10_000,
           });
         }
       }

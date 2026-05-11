@@ -5,14 +5,14 @@
  */
 import { test, expect } from "@playwright/test";
 
-const BASE = process.env.BASE_URL ?? "http://127.0.0.1:4173";
+const BASE = process.env.BASE_URL ?? "http://localhost:3030";
 
 test("/programare page renders the lead form", async ({ page }) => {
   await page.goto(`${BASE}/programare`, { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByPlaceholder("ex. Andrei Popescu")).toBeVisible();
   await expect(page.getByPlaceholder("07XX XXX XXX")).toBeVisible();
-  await expect(page.getByRole("button", { name: /vreau să fiu sunat/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /primește linkul de apel/i })).toBeVisible();
 });
 
 test("floating Programare CTA appears after scroll on landing pages", async ({
