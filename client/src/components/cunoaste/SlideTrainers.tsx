@@ -5,9 +5,10 @@
  * range, bio, and certification badges. Embla powers the swipe; arrow
  * buttons + dot pager give keyboard / pointer alternatives.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
+import type { EmblaCarouselType } from "embla-carousel";
 import { ArrowLeft, ArrowRight, Award, Target } from "lucide-react";
 import { TRAINERS } from "@/data/landing";
 import SlideShell from "./SlideShell";
@@ -17,10 +18,53 @@ import TrainerVideo from "./TrainerVideo";
 const expoOut: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export default function SlideTrainers() {
+  // One-card-at-a-time guard. Embla's default momentum lets fast flicks carry
+  // past 2-3 cards; this intercepts pointer/touch end and snaps exactly one card.
+  const dragOriginX = useRef(0);
+  const dragOriginTime = useRef(0);
+
+  const watchDrag = useCallback(
+    (api: EmblaCarouselType, evt: MouseEvent | TouchEvent | PointerEvent) => {
+      const isTouch = evt.type.startsWith("touch");
+
+      if (evt.type === "pointerdown" || evt.type === "touchstart") {
+        dragOriginX.current = isTouch
+          ? (evt as TouchEvent).touches[0].clientX
+          : (evt as PointerEvent).clientX;
+        dragOriginTime.current = performance.now();
+        return true;
+      }
+
+      if (evt.type === "pointerup" || evt.type === "touchend") {
+        const endX = isTouch
+          ? (evt as TouchEvent).changedTouches[0]?.clientX ??
+            dragOriginX.current
+          : (evt as PointerEvent).clientX;
+        const deltaX = dragOriginX.current - endX;
+        const deltaT = performance.now() - dragOriginTime.current;
+        const speed = Math.abs(deltaX) / Math.max(deltaT, 1);
+
+        if (Math.abs(deltaX) > 40 || speed > 0.15) {
+          if (deltaX > 0) api.scrollNext();
+          else api.scrollPrev();
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [],
+  );
+
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     align: "start",
     containScroll: "trimSnaps",
+    skipSnaps: false,
+    dragFree: false,
+    duration: 18,
+    dragThreshold: 10,
+    watchDrag,
   });
   const [selected, setSelected] = useState(0);
 
