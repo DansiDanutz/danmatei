@@ -1,21 +1,14 @@
-# Core
-aiohttp>=3.9.0,<4
+# Cloud-API voice agent — LiveKit Agents framework with Inference proxy.
+# No local models, no GPU, no Ollama sidecar.
 
-# Pipecat — pin to a known-good range with the providers we use
-pipecat-ai[livekit,ollama,whisper,piper]>=0.0.59
+# Core agent framework + plugins
+livekit-agents[silero,turn-detector]>=1.2.0,<2.0.0
 
-# faster-whisper (Whisper runtime) ships separately because Pipecat pulls
-# in a higher-level wrapper. Pin to match Pipecat's expectations.
-faster-whisper>=1.0.0
+# Outbound webhook to /api/voice/webhook
+httpx>=0.27.0
 
-# LiveKit transport
-livekit>=0.17.0
-livekit-api>=0.6.0
+# Env loading
+python-dotenv>=1.0.0
 
-# Piper TTS — pure Python wrapper around the C library; the model file
-# (`ro_RO-mihai-medium.onnx` + `.json`) must be present at
-# /models/piper/ at runtime. See Dockerfile.
-piper-tts>=1.2.0
-
-# Ollama client (HTTP via stdlib also works — kept here for explicit dep)
-ollama>=0.3.0
+# Pydantic 2 is pulled transitively by livekit-agents; pin to avoid surprises
+pydantic>=2.0.0
