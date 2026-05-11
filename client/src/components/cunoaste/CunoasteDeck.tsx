@@ -83,7 +83,7 @@ export default function CunoasteDeck() {
   };
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col bg-[oklch(0.08_0.02_250)] text-white sm:h-[100dvh]">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-y-auto bg-[oklch(0.08_0.02_250)] text-white sm:h-[100dvh] sm:overflow-hidden">
       {/* Background atmosphere — academy blue dominates, with three tiny
           painterly accent orbs (cyan, magenta, orange) borrowed from the
           trainer portraits. All low opacity, all heavily blurred — they
@@ -139,7 +139,7 @@ export default function CunoasteDeck() {
       {/* Mobile single-slide swiper. Only the active slide is mounted so the
           page height comes from visible content, not offscreen slides. */}
       <div
-        className="relative z-10 sm:hidden"
+        className="relative z-10 overflow-x-hidden sm:hidden"
         onTouchStart={(event) => {
           touchStartX.current = event.touches[0]?.clientX ?? null;
         }}
