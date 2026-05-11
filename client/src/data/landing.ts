@@ -39,6 +39,13 @@ export type Trainer = {
   posterSrc?: string;
   /** Specialty areas — what this trainer is known for at the academy. */
   focus?: string[];
+  /**
+   * WhatsApp phone number in international E.164 format (e.g. "+40744311147").
+   * Undefined means "not yet configured" — the UI renders a disabled
+   * "Vine în curând" placeholder instead of an active WhatsApp pill.
+   * Will be editable through the admin dashboard (workstream E).
+   */
+  whatsapp?: string;
 };
 
 export type Player = {
@@ -124,6 +131,7 @@ export const TRAINERS: Trainer[] = [
     videoSrc: "/Kely.mp4",
     posterSrc: "/Kely-poster.jpg",
     focus: ["Tehnică individuală", "Citire de joc", "Comunicare în teren"],
+    whatsapp: "+40770922965",
   },
   {
     id: "t-sopi",
@@ -160,6 +168,7 @@ export const TRAINERS: Trainer[] = [
       "Sistem tactic complet",
       "Mentorat juniori",
     ],
+    whatsapp: "+40744311147",
   },
 ];
 

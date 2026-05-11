@@ -11,6 +11,11 @@ import useEmblaCarousel from "embla-carousel-react";
 import type { EmblaCarouselType } from "embla-carousel";
 import { ArrowLeft, ArrowRight, Award, Target } from "lucide-react";
 import { TRAINERS } from "@/data/landing";
+import {
+  buildWhatsAppLink,
+  defaultParentToTrainerGreeting,
+} from "@/lib/whatsapp";
+import { WhatsAppIcon } from "@/components/WhatsAppIcon";
 import SlideShell from "./SlideShell";
 import PortraitFrame from "./PortraitFrame";
 import TrainerVideo from "./TrainerVideo";
@@ -202,6 +207,35 @@ export default function SlideTrainers() {
                           </span>
                         ))}
                       </div>
+
+                      {/* Per-trainer WhatsApp pill — disabled placeholder
+                          when the number isn't configured yet (Sopi). */}
+                      {(() => {
+                        const href = buildWhatsAppLink(
+                          t.whatsapp,
+                          defaultParentToTrainerGreeting(t.name),
+                        );
+                        return href ? (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Scrie pe WhatsApp lui ${t.name}`}
+                            className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-[oklch(0.7_0.18_150)] text-[oklch(0.12_0.02_150)] px-4 py-2.5 font-heading text-[11px] uppercase tracking-[0.16em] hover:opacity-90 transition shadow-[0_12px_30px_-12px_oklch(0.7_0.18_150/0.5)]"
+                          >
+                            <WhatsAppIcon className="size-4" />
+                            WhatsApp direct
+                          </a>
+                        ) : (
+                          <span
+                            className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-2.5 font-heading text-[10px] uppercase tracking-[0.16em] text-white/40"
+                            title="Numărul de WhatsApp va fi adăugat în curând"
+                          >
+                            <WhatsAppIcon className="size-4 opacity-50" />
+                            WhatsApp · în curând
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     {/* Hover accent line */}
