@@ -6,9 +6,18 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useInView } from "framer-motion";
 import { useRef } from "react";
-import { Phone, Mail, MapPin, Clock, Send, Facebook, MessageCircle } from "lucide-react";
+import { Phone, Mail, MapPin, Clock, Send, Facebook } from "lucide-react";
 import { toast } from "sonner";
 import { expoOut, staggerContainer, staggerItem, tapScale } from "@/lib/motion";
+import { TRAINERS } from "@/data/landing";
+import {
+  buildWhatsAppLink,
+  defaultParentToTrainerGreeting,
+  formatRoPhone,
+} from "@/lib/whatsapp";
+import { WhatsAppIcon } from "@/components/WhatsAppIcon";
+
+const DAN_MATEI_WA = "+40744311147";
 
 const contactInfo = [
   { icon: Phone, label: "Telefon", value: "0744 311 147", href: "tel:0744311147", action: "Sună acum" },
@@ -122,12 +131,19 @@ export default function Contact() {
                   <span className="font-body text-sm">Facebook</span>
                 </motion.a>
                 <motion.a
-                  href="tel:0744311147"
-                  className="inline-flex items-center gap-2 bg-[oklch(0.14_0.025_250)] border border-white/10 text-white px-4 py-2.5 rounded-xl hover:border-cyan/50 hover:text-cyan transition-all touch-target"
+                  href={
+                    buildWhatsAppLink(
+                      DAN_MATEI_WA,
+                      defaultParentToTrainerGreeting("Dan Matei"),
+                    ) ?? "#"
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-[oklch(0.14_0.025_250)] border border-white/10 text-white px-4 py-2.5 rounded-xl hover:border-[oklch(0.7_0.18_150)]/60 hover:text-[oklch(0.78_0.18_150)] transition-all touch-target"
                   whileHover={{ scale: 1.03 }}
                   whileTap={tapScale}
                 >
-                  <MessageCircle className="w-4 h-4" />
+                  <WhatsAppIcon className="w-4 h-4" />
                   <span className="font-body text-sm">WhatsApp</span>
                 </motion.a>
               </div>
@@ -247,6 +263,83 @@ export default function Contact() {
             </div>
           </motion.form>
         </div>
+
+        {/* Per-trainer WhatsApp directory. The boss + each age-group trainer
+            gets a dedicated tile so parents reach the right person directly.
+            Trainers without a configured number render a "În curând" tile
+            (admin dashboard will let owners fill the gap). */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.6, delay: 0.3, ease: expoOut }}
+          className="mt-16 sm:mt-24"
+        >
+          <div className="text-center mb-8 sm:mb-10">
+            <span className="font-heading text-xs sm:text-sm uppercase tracking-[0.25em] text-[oklch(0.78_0.18_150)] mb-3 block">
+              Echipa noastră · WhatsApp
+            </span>
+            <h3 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold uppercase leading-[0.95] text-white">
+              Scrie <span className="text-gradient-cyan">direct antrenorului</span>
+            </h3>
+            <p className="mt-3 max-w-xl mx-auto text-sm sm:text-base text-white/65">
+              Fiecare grupă are antrenorul ei. Apasă pe WhatsApp și deschizi un
+              mesaj nou direct cu persoana potrivită.
+            </p>
+          </div>
+
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {TRAINERS.map((t) => {
+              const href = buildWhatsAppLink(
+                t.whatsapp,
+                defaultParentToTrainerGreeting(t.name),
+              );
+              return (
+                <li
+                  key={t.id}
+                  className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[oklch(0.12_0.02_250)] p-5 transition-colors hover:border-[oklch(0.7_0.18_150)]/40"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="grid size-14 shrink-0 place-items-center rounded-xl bg-[oklch(0.7_0.18_150)]/12 ring-1 ring-[oklch(0.7_0.18_150)]/30 font-heading text-lg font-bold text-[oklch(0.85_0.18_150)]">
+                      {t.initials}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-heading text-base font-bold text-white truncate">
+                        {t.name}
+                      </p>
+                      <p className="mt-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan/85">
+                        {t.position}
+                      </p>
+                      <p className="mt-2 font-body text-xs text-white/55">
+                        {t.whatsapp ? formatRoPhone(t.whatsapp) : "Număr în curând"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Scrie pe WhatsApp lui ${t.name}`}
+                      className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[oklch(0.7_0.18_150)] px-4 py-3 font-heading text-[11px] uppercase tracking-[0.18em] text-[oklch(0.12_0.02_150)] hover:opacity-90 transition shadow-[0_18px_40px_-18px_oklch(0.7_0.18_150/0.6)]"
+                    >
+                      <WhatsAppIcon className="size-4" />
+                      WhatsApp direct
+                    </a>
+                  ) : (
+                    <span
+                      className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-3 font-heading text-[10px] uppercase tracking-[0.18em] text-white/40"
+                      title="Numărul de WhatsApp va fi adăugat de admin"
+                    >
+                      <WhatsAppIcon className="size-4 opacity-50" />
+                      WhatsApp · în curând
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </motion.div>
       </div>
     </section>
   );
