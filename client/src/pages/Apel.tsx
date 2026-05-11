@@ -233,6 +233,10 @@ function CallStage({
 
   const [speakerMuted, setSpeakerMuted] = useState(false);
   const [ending, setEnding] = useState(false);
+  // Latches true the first time Andra joins the room; lets us detect when
+  // she leaves (hard-cap, finish_call tool, crash) so we can also disconnect
+  // the parent's side instead of leaving them on a stale "Vorbim acum" UI.
+  const [agentSeen, setAgentSeen] = useState(false);
 
   // Mirrors the agent's MAX_CALL_SECONDS env var (currently 120s) — the
   // worker hard-caps server-side regardless, so this is purely for the UI
@@ -251,6 +255,24 @@ function CallStage({
       // disconnect throws if already disconnecting — onDisconnected still fires
     }
   };
+
+  useEffect(() => {
+    if (agentTrack && !agentSeen) setAgentSeen(true);
+  }, [agentTrack, agentSeen]);
+
+  // Auto-disconnect when Andra leaves the room. The server-side hard-cap
+  // disconnects only the agent participant; without this hook the parent
+  // would be stuck on "Așteptăm consilierul Andra..." indefinitely with
+  // their mic still hot. 1.5s grace covers transient track drops.
+  useEffect(() => {
+    if (!agentSeen) return;
+    if (agentTrack) return;
+    if (connection !== ConnectionState.Connected) return;
+    const t = window.setTimeout(() => {
+      room.disconnect().catch(() => {});
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [agentSeen, agentTrack, connection, room]);
 
   const agentSpeaking = agentState === "speaking";
   const agentListening = agentState === "listening";

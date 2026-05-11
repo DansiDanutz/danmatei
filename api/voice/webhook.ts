@@ -22,21 +22,26 @@ const TranscriptTurn = z.object({
   ended_at_ms: z.number().optional(),
 });
 
+// Optional fields use `.nullish()` (accepts both null and undefined) because
+// the Python agent serialises unset optionals as JSON `null` rather than
+// omitting the key — and Zod's plain `.optional()` only accepts `undefined`.
+// Without this, every call where intent/summary/recording_url is unset
+// failed schema validation with HTTP 400 (observed live on 2026-05-12).
 const Body = z.object({
   leadId: z.string().uuid(),
-  vendor_call_id: z.string().optional(),
-  started_at: z.union([z.number(), z.string()]).optional(),
-  ended_at: z.union([z.number(), z.string()]).optional(),
-  duration_seconds: z.number().int().nonnegative().optional(),
+  vendor_call_id: z.string().nullish(),
+  started_at: z.union([z.number(), z.string()]).nullish(),
+  ended_at: z.union([z.number(), z.string()]).nullish(),
+  duration_seconds: z.number().int().nonnegative().nullish(),
   status: z
     .enum(["completed", "failed", "no_answer", "abandoned"])
     .default("completed"),
-  recording_url: z.string().url().optional(),
+  recording_url: z.string().url().nullish(),
   transcript: z.array(TranscriptTurn).default([]),
-  summary: z.string().optional(),
+  summary: z.string().nullish(),
   intent: z
     .enum(["register", "info", "visit", "price", "schedule", "other"])
-    .optional(),
+    .nullish(),
   next_steps: z.array(z.string()).default([]),
 });
 

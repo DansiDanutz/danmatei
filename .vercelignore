@@ -10,4 +10,11 @@ logs
 .env.*
 .env*.local
 dev-*.log
-*.png
+# Audit/test screenshots that puppeteer + playwright drop at the repo root.
+# DO NOT use a bare `*.png` — that glob also matched client/public/*.png
+# and stopped real site assets (e.g. black-white.png) from deploying.
+audit-*.png
+programare-*.png
+apel-*.png
+cunoaste-*.png
+contact-*.png
