@@ -68,7 +68,7 @@ export default function SlideOwner() {
                 src={POSTER_SRC}
                 alt=""
                 aria-hidden="true"
-                className="absolute inset-0 h-full w-full object-cover"
+                className="absolute inset-0 h-full w-full object-cover object-top"
               />
               <video
                 ref={videoRef}
@@ -91,7 +91,7 @@ export default function SlideOwner() {
                     setEnded(true);
                   }
                 }}
-                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+                className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-300 ${
                   ended ? "opacity-0" : "opacity-100"
                 }`}
               />
