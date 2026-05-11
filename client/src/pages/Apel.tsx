@@ -269,26 +269,26 @@ function CallStage({
         <span className="text-gradient-cyan">Vorbim acum</span>
       </h1>
 
-      {/* Two cards: Andra (AI) + You (user). Active card glows. The ball
-          passes between them — see <ConversationBall /> below. */}
+      {/* Two cards: Andra (AI) + You (user) — both portraits of the same
+          goalkeeper, the right one mirrored so they face each other across
+          the gap. The ball passes between them — see <ConversationBall /> */}
       <div className="relative grid grid-cols-2 gap-3 sm:gap-4 mb-6">
         <ParticipantCard
           name="Andra"
           role="Consilier AI"
-          src="/andra.png"
+          src="/black-white.png"
           fallbackInitial="A"
           accent="cyan"
           active={agentSpeaking || agentState === "thinking"}
-          imageInvert={false}
         />
         <ParticipantCard
           name="Tu"
           role="Părinte"
-          src="/player.png"
+          src="/black-white.png"
           fallbackInitial="P"
           accent="emerald"
           active={agentListening}
-          imageInvert
+          imageMirror
         />
 
         <ConversationBall
@@ -364,7 +364,7 @@ function ParticipantCard({
   fallbackInitial,
   accent,
   active,
-  imageInvert,
+  imageMirror,
 }: {
   name: string;
   role: string;
@@ -372,7 +372,8 @@ function ParticipantCard({
   fallbackInitial: string;
   accent: "cyan" | "emerald";
   active: boolean;
-  imageInvert?: boolean;
+  /** Flip image horizontally so the two cards face each other. */
+  imageMirror?: boolean;
 }) {
   const [errored, setErrored] = useState(false);
   const ringActive =
@@ -417,15 +418,11 @@ function ParticipantCard({
             alt={name}
             onError={() => setErrored(true)}
             className={[
-              "absolute inset-0 h-full w-full transition-all duration-500",
-              imageInvert
-                ? "object-contain p-3 sm:p-4 [filter:invert(1)]"
-                : "object-cover",
+              "absolute inset-0 h-full w-full object-cover transition-all duration-500",
+              imageMirror ? "scale-x-[-1]" : "",
               active
                 ? "brightness-110 saturate-110"
-                : imageInvert
-                  ? "opacity-80"
-                  : "saturate-75 brightness-90 opacity-80",
+                : "saturate-75 brightness-90 opacity-80",
             ].join(" ")}
           />
         ) : (
@@ -459,11 +456,13 @@ function ParticipantCard({
 
 /* ---------- ConversationBall ----------
  *
- * Soccer ball that hovers over whichever card is currently active. When the
- * AI is speaking/thinking, it sits on Andra's side; when she's listening,
- * it crosses to the user's side. Spring physics give a natural arc; a
- * continuous bounce + spin make it feel like a kid is actually playing
- * with it while waiting for the other to talk.
+ * Soccer ball thrown between two goalkeepers. While the AI speaks/thinks,
+ * the ball sits with Andra (the kid on the left); when she finishes and
+ * starts listening, the ball is thrown overhead across to the parent
+ * (mirrored kid on the right). The outer motion handles the cross-card
+ * throw with spring physics; the inner motion handles the continuous
+ * overhead bounce + spin that makes the ball feel "in motion" as a
+ * goalkeeper readies the next throw.
  */
 function ConversationBall({
   target,
@@ -473,7 +472,7 @@ function ConversationBall({
   visible: boolean;
 }) {
   // 25% and 75% map to the centers of the two columns in the grid-cols-2
-  // layout. 50% is a neutral resting spot when nobody's talking yet.
+  // layout. 50% is a neutral resting spot before either side has talked.
   const leftPct = target === "user" ? "75%" : target === "andra" ? "25%" : "50%";
 
   return (
@@ -481,30 +480,33 @@ function ConversationBall({
       {visible ? (
         <motion.div
           aria-hidden="true"
-          className="pointer-events-none absolute -translate-x-1/2 drop-shadow-[0_8px_14px_rgba(0,0,0,0.45)]"
-          // bottom: ~28% sits the ball near the figure's feet inside the
-          // participant card, regardless of card height.
-          style={{ bottom: "28%", width: 40, height: 40 }}
+          className="pointer-events-none absolute -translate-x-1/2 drop-shadow-[0_10px_18px_rgba(0,0,0,0.55)]"
+          // bottom: ~38% sits the ball roughly at chest height of the
+          // figure — where a goalkeeper would catch/throw it.
+          style={{ bottom: "38%", width: 44, height: 44 }}
           initial={{ opacity: 0, scale: 0.4, left: leftPct }}
           animate={{ opacity: 1, scale: 1, left: leftPct }}
           exit={{ opacity: 0, scale: 0.4 }}
           transition={{
-            left: { type: "spring", stiffness: 95, damping: 14, mass: 0.7 },
-            opacity: { duration: 0.25 },
+            // Slower, heavier spring → ball arcs more visibly across the
+            // gap, like a goalkeeper throwing overhead.
+            left: { type: "spring", stiffness: 60, damping: 13, mass: 1 },
+            opacity: { duration: 0.3 },
             scale: { type: "spring", stiffness: 220, damping: 18 },
           }}
         >
-          {/* Inner motion handles the continuous spin + idle bounce. */}
+          {/* Continuous overhead bounce + spin so the ball reads as
+              "in play" even while parked on one side. */}
           <motion.div
             animate={{
-              y: [0, -10, 0],
+              y: [0, -18, 0],
               rotate: 360,
             }}
             transition={{
-              y: { duration: 0.75, repeat: Infinity, ease: "easeInOut" },
-              rotate: { duration: 1.6, repeat: Infinity, ease: "linear" },
+              y: { duration: 0.9, repeat: Infinity, ease: "easeInOut" },
+              rotate: { duration: 1.8, repeat: Infinity, ease: "linear" },
             }}
-            style={{ width: 40, height: 40 }}
+            style={{ width: 44, height: 44 }}
           >
             <SoccerBallIcon />
           </motion.div>
