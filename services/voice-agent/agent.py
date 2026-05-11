@@ -70,7 +70,8 @@ SYSTEM_PROMPT_BASE = (ROOT / "prompt.ro.md").read_text(encoding="utf-8")
 AGENT_NAME = os.environ.get("LIVEKIT_AGENT_NAME", "danmatei-voice-agent")
 API_BASE = os.environ.get("API_BASE", "https://danmatei.vercel.app")
 WEBHOOK_SECRET = os.environ.get("PIPECAT_WEBHOOK_SECRET", "")
-MAX_CALL_SECONDS = int(os.environ.get("MAX_CALL_SECONDS", "360"))  # 6 min hard cap
+MAX_CALL_SECONDS = int(os.environ.get("MAX_CALL_SECONDS", "120"))  # 2 min hard cap
+WRAPUP_AT_SECONDS = max(MAX_CALL_SECONDS - 25, MAX_CALL_SECONDS // 2)  # 95s if cap=120
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +300,27 @@ async def entrypoint(ctx: JobContext) -> None:
         except Exception:
             pass
 
-    # ----- Hard call-duration cap -----
+    # ----- Wrap-up signal + hard call-duration cap -----
+    async def wrap_up_signal() -> None:
+        """At T=WRAPUP_AT_SECONDS push Andra to start closing the call."""
+        await asyncio.sleep(WRAPUP_AT_SECONDS)
+        if state.finalized:
+            return
+        log.info("wrap-up signal at %ds — telling agent to close", WRAPUP_AT_SECONDS)
+        try:
+            await session.generate_reply(
+                instructions=(
+                    "ATENȚIE: timpul tău se apropie de sfârșit. Mai ai sub "
+                    "30 de secunde. Începe IMEDIAT închiderea politicoasă: "
+                    "rezumă scurt, dă o încurajare scurtă, anunță că "
+                    "antrenorul scrie pe WhatsApp și salută. Folosește una "
+                    "dintre formulele de închidere din instrucțiunile tale. "
+                    "MAX 2 propoziții."
+                )
+            )
+        except Exception:
+            log.exception("wrap-up generate_reply failed")
+
     async def hard_cap() -> None:
         await asyncio.sleep(MAX_CALL_SECONDS)
         log.info("hard cap reached (%ds), disconnecting", MAX_CALL_SECONDS)
@@ -309,6 +330,7 @@ async def entrypoint(ctx: JobContext) -> None:
             pass
 
     cap_task = asyncio.create_task(hard_cap())
+    wrap_task = asyncio.create_task(wrap_up_signal())
 
     # ----- Finalize on shutdown -----
     async def finalize() -> None:
@@ -317,6 +339,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 return
             state.finalized = True
         cap_task.cancel()
+        wrap_task.cancel()
         if not state.lead_id:
             log.info("no leadId in room metadata, skipping webhook")
             return

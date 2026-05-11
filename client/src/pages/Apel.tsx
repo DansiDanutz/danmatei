@@ -165,9 +165,9 @@ function CallShell({
         )}
       </h1>
 
-      <p className="text-white/70 leading-relaxed mb-8">
+      <p className="text-white/70 leading-relaxed mb-4">
         {phase === "idle" &&
-          "Apasă butonul de mai jos pentru a porni apelul cu consilierul AI al academiei. Conversația durează 3-5 minute și este înregistrată pentru calitatea serviciului."}
+          "Apasă butonul de mai jos pentru a porni apelul cu consilierul AI al academiei. Conversația este înregistrată pentru calitatea serviciului."}
         {phase === "asking_mic" && "Acceptă accesul la microfon din browser..."}
         {phase === "starting" && "Se conectează la consilierul Andra..."}
         {phase === "ended" &&
@@ -175,6 +175,13 @@ function CallShell({
         {phase === "error" &&
           (error ?? "Ceva nu a funcționat. Te rugăm să încerci din nou.")}
       </p>
+
+      {phase === "idle" && (
+        <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-brand-cyan/10 border border-brand-cyan/30 font-heading text-[11px] uppercase tracking-[0.18em] text-brand-cyan">
+          <ClockIcon />
+          Conversație de fix 2 minute
+        </div>
+      )}
 
       {(phase === "idle" || phase === "error") && (
         <button
@@ -227,6 +234,11 @@ function CallStage({
   const [speakerMuted, setSpeakerMuted] = useState(false);
   const [ending, setEnding] = useState(false);
 
+  // Mirrors the agent's MAX_CALL_SECONDS env var (currently 120s) — the
+  // worker hard-caps server-side regardless, so this is purely for the UI
+  // countdown. If the two ever drift, the server wins.
+  const CALL_DURATION_S = 120;
+
   // End-call handler: disconnect the LiveKit room. The room's
   // `onDisconnected` listener on the parent <LiveKitRoom> flips Apel
   // into the `ended` phase, which renders the thank-you screen.
@@ -265,9 +277,15 @@ function CallStage({
       {/* Controls audio output volume — speakerMuted=true sets volume=0. */}
       <RoomAudioRenderer volume={speakerMuted ? 0 : 1} />
 
-      <h1 className="font-heading text-3xl sm:text-4xl uppercase leading-[0.95] mb-6">
-        <span className="text-gradient-cyan">Vorbim acum</span>
-      </h1>
+      <div className="flex items-center justify-center gap-4 mb-6 flex-wrap">
+        <h1 className="font-heading text-3xl sm:text-4xl uppercase leading-[0.95]">
+          <span className="text-gradient-cyan">Vorbim acum</span>
+        </h1>
+        <CallCountdown
+          durationSeconds={CALL_DURATION_S}
+          running={connection === ConnectionState.Connected && Boolean(agentTrack)}
+        />
+      </div>
 
       {/* Two cards: Andra (AI) + You (user) — both portraits of the same
           goalkeeper, the right one mirrored so they face each other across
@@ -451,6 +469,74 @@ function ParticipantCard({
         </p>
       </div>
     </article>
+  );
+}
+
+/* ---------- CallCountdown ----------
+ *
+ * Visible MM:SS countdown that mirrors the agent's server-side cap. Starts
+ * when `running` flips to true (i.e. parent connected + Andra in the room).
+ * Colour shifts cyan → amber at 30s remaining → red + pulse at 15s. When it
+ * hits 0 the cap-task on the agent disconnects the room a beat later.
+ */
+function CallCountdown({
+  durationSeconds,
+  running,
+}: {
+  durationSeconds: number;
+  running: boolean;
+}) {
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (running && startedAt == null) {
+      setStartedAt(Date.now());
+    }
+  }, [running, startedAt]);
+
+  useEffect(() => {
+    if (!running || startedAt == null) return;
+    const id = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, [running, startedAt]);
+
+  const elapsed = startedAt == null ? 0 : Math.floor((now - startedAt) / 1000);
+  const remaining = Math.max(0, durationSeconds - elapsed);
+  const mm = Math.floor(remaining / 60)
+    .toString()
+    .padStart(1, "0");
+  const ss = (remaining % 60).toString().padStart(2, "0");
+
+  const tone =
+    remaining <= 15
+      ? "border-red-400/60 bg-red-500/15 text-red-200 animate-pulse"
+      : remaining <= 30
+        ? "border-amber-400/60 bg-amber-500/15 text-amber-200"
+        : "border-brand-cyan/40 bg-brand-cyan/10 text-brand-cyan";
+
+  return (
+    <div
+      role="timer"
+      aria-live="off"
+      aria-label={`Mai sunt ${mm}:${ss} din apel`}
+      className={[
+        "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 font-heading text-xs uppercase tracking-[0.16em] tabular-nums transition-colors",
+        tone,
+      ].join(" ")}
+    >
+      <ClockIcon />
+      {mm}:{ss}
+    </div>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
   );
 }
 
