@@ -1,8 +1,12 @@
-# Cloud-API voice agent — LiveKit Agents framework with Inference proxy.
+# Cloud-API voice agent — LiveKit Agents framework calling each provider
+# directly (Deepgram / OpenAI / ElevenLabs) instead of routing through
+# LiveKit Cloud's inference gateway. The gateway gives a shared credit
+# pool that exhausted under normal testing load; direct provider calls
+# use each service's own quota, which is much higher.
 # No local models, no GPU, no Ollama sidecar.
 
-# Core agent framework + plugins
-livekit-agents[silero,turn-detector]>=1.2.0,<2.0.0
+# Core agent framework + plugins + direct provider plugins
+livekit-agents[silero,turn-detector,deepgram,openai,elevenlabs]>=1.2.0,<2.0.0
 
 # Outbound webhook to /api/voice/webhook
 httpx>=0.27.0
