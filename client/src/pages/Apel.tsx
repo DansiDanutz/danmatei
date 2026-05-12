@@ -243,17 +243,36 @@ function CallStage({
   // countdown. If the two ever drift, the server wins.
   const CALL_DURATION_S = 120;
 
-  // End-call handler: disconnect the LiveKit room. The room's
-  // `onDisconnected` listener on the parent <LiveKitRoom> flips Apel
-  // into the `ended` phase, which renders the thank-you screen.
+  // End-call handler: politely ask Andra to close instead of yanking the
+  // call. We send a `user_end_call_request` data message; the agent
+  // responds with a short motivational close (see agent.py `graceful_close`)
+  // then disconnects the room itself. The parent's <LiveKitRoom>
+  // `onDisconnected` then flips Apel to the `ended` phase.
+  //
+  // A safety net forces a local disconnect after 12s in case the data
+  // message can't reach the agent (network issue, agent already gone).
   const endCall = async () => {
     if (ending) return;
     setEnding(true);
     try {
-      await room.disconnect();
+      const payload = new TextEncoder().encode(
+        JSON.stringify({ event: "user_end_call_request" }),
+      );
+      await room.localParticipant.publishData(payload, { reliable: true });
     } catch {
-      // disconnect throws if already disconnecting — onDisconnected still fires
+      // If we can't send the data message (no connection / no remote
+      // participants), fall back to an immediate local disconnect.
+      try {
+        await room.disconnect();
+      } catch {
+        // disconnect throws if already disconnecting — onDisconnected fires anyway
+      }
+      return;
     }
+    // Safety net for the rare case the agent doesn't disconnect itself.
+    window.setTimeout(() => {
+      room.disconnect().catch(() => {});
+    }, 12000);
   };
 
   useEffect(() => {
@@ -387,7 +406,7 @@ function CallStage({
           className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading text-xs uppercase tracking-[0.16em] bg-red-500/15 border border-red-400/50 text-red-200 hover:bg-red-500/25 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <EndCallIcon />
-          {ending ? "Se închide..." : "Încheie apelul"}
+          {ending ? "Andra te salută..." : "Încheie apelul"}
         </button>
       </div>
 

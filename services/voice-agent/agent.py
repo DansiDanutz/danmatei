@@ -300,28 +300,69 @@ async def entrypoint(ctx: JobContext) -> None:
         except Exception:
             pass
 
-    # ----- Wrap-up signal + hard call-duration cap -----
-    async def wrap_up_signal() -> None:
-        """At T=WRAPUP_AT_SECONDS push Andra to start closing the call."""
-        await asyncio.sleep(WRAPUP_AT_SECONDS)
-        if state.finalized:
+    # Latch so a polite-close, by data-message or by timer, only fires once.
+    closing_in_progress = asyncio.Event()
+
+    async def graceful_close(reason: str) -> None:
+        """Have Andra deliver a polite + motivational close, then disconnect.
+
+        Called from:
+          - the T=95s wrap-up timer, OR
+          - a `user_end_call_request` data message (parent pressed
+            "Încheie apelul" — we DON'T just yank the call, we let Andra
+            say goodbye first).
+        """
+        if closing_in_progress.is_set() or state.finalized:
             return
-        log.info("wrap-up signal at %ds — telling agent to close", WRAPUP_AT_SECONDS)
+        closing_in_progress.set()
+        log.info("graceful close (%s) — letting Andra finish politely", reason)
+
         try:
             await session.generate_reply(
                 instructions=(
-                    "ATENȚIE: timpul se apropie de sfârșit. Mai ai sub "
-                    "30 de secunde. Începe IMEDIAT închiderea politicoasă "
-                    "EXCLUSIV ÎN LIMBA ROMÂNĂ (zero cuvinte în engleză): "
-                    "rezumă scurt, dă o încurajare scurtă, anunță că "
-                    "antrenorul scrie pe WhatsApp și salută cu 'mulțumesc' "
-                    "sau 'la revedere'. Folosește una dintre formulele "
-                    "de închidere din instrucțiunile tale. MAX 2 propoziții."
+                    "Părintele a cerut să închidem apelul ACUM. "
+                    "EXCLUSIV ÎN LIMBA ROMÂNĂ, fără un singur cuvânt "
+                    "în engleză. În MAX 2 propoziții: "
+                    "(1) mulțumește părintelui pe nume pentru timpul "
+                    "acordat; "
+                    "(2) dă o încurajare motivațională scurtă pentru "
+                    "copil (de exemplu 'mult succes lui [Copil]') sau "
+                    "o urare frumoasă; "
+                    "(3) reasigură-l că antrenorul îi scrie pe WhatsApp "
+                    "în câteva minute; "
+                    "(4) salută cald cu 'la revedere' sau 'o zi "
+                    "frumoasă'. "
+                    "Folosește una dintre formulele de închidere din "
+                    "instrucțiunile tale și fii sinceră, nu robotică."
                 )
             )
+        except RuntimeError as exc:
+            # Race: session already shut down (e.g. user dropped the
+            # connection a moment before the timer fired). Not a bug.
+            if "AgentSession isn't running" in str(exc):
+                log.info("graceful close (%s) skipped: session already closed", reason)
+            else:
+                log.exception("graceful close generate_reply runtime error")
         except Exception:
-            log.exception("wrap-up generate_reply failed")
+            log.exception("graceful close generate_reply failed")
 
+        # Buffer for the TTS playback before we yank the room. Without
+        # this the closing voice gets cut off mid-sentence.
+        await asyncio.sleep(3)
+        try:
+            await ctx.room.disconnect()
+        except Exception:
+            pass
+
+    # ----- Wrap-up signal at T=95s (server-side soft warning) -----
+    async def wrap_up_signal() -> None:
+        await asyncio.sleep(WRAPUP_AT_SECONDS)
+        if state.finalized or closing_in_progress.is_set():
+            return
+        log.info("wrap-up signal at %ds — telling agent to close", WRAPUP_AT_SECONDS)
+        await graceful_close("timer")
+
+    # ----- Hard call-duration cap at T=120s -----
     async def hard_cap() -> None:
         await asyncio.sleep(MAX_CALL_SECONDS)
         log.info("hard cap reached (%ds), disconnecting", MAX_CALL_SECONDS)
@@ -329,6 +370,19 @@ async def entrypoint(ctx: JobContext) -> None:
             await ctx.room.disconnect()
         except Exception:
             pass
+
+    # ----- Parent-initiated end (data message from the /apel client) -----
+    @ctx.room.on("data_received")
+    def _on_data(payload: Any) -> None:  # noqa: ANN401
+        try:
+            raw = getattr(payload, "data", b"") or b""
+            text = raw.decode("utf-8", errors="ignore") if isinstance(raw, (bytes, bytearray)) else str(raw)
+            if "user_end_call_request" not in text:
+                return
+            log.info("user_end_call_request received from parent")
+            asyncio.create_task(graceful_close("user_request"))
+        except Exception:
+            log.exception("data_received handler failed")
 
     cap_task = asyncio.create_task(hard_cap())
     wrap_task = asyncio.create_task(wrap_up_signal())
