@@ -70,8 +70,8 @@ SYSTEM_PROMPT_BASE = (ROOT / "prompt.ro.md").read_text(encoding="utf-8")
 AGENT_NAME = os.environ.get("LIVEKIT_AGENT_NAME", "danmatei-voice-agent")
 API_BASE = os.environ.get("API_BASE", "https://danmatei.vercel.app")
 WEBHOOK_SECRET = os.environ.get("PIPECAT_WEBHOOK_SECRET", "")
-MAX_CALL_SECONDS = int(os.environ.get("MAX_CALL_SECONDS", "120"))  # 2 min hard cap
-WRAPUP_AT_SECONDS = max(MAX_CALL_SECONDS - 25, MAX_CALL_SECONDS // 2)  # 95s if cap=120
+MAX_CALL_SECONDS = int(os.environ.get("MAX_CALL_SECONDS", "180"))  # 3 min hard cap
+WRAPUP_AT_SECONDS = max(MAX_CALL_SECONDS - 30, MAX_CALL_SECONDS // 2)  # 150s if cap=180
 
 
 # ---------------------------------------------------------------------------
@@ -304,36 +304,56 @@ async def entrypoint(ctx: JobContext) -> None:
     closing_in_progress = asyncio.Event()
 
     async def graceful_close(reason: str) -> None:
-        """Have Andra deliver a polite + motivational close, then disconnect.
+        """Have Andra deliver the canonical close, then disconnect.
 
         Called from:
-          - the T=95s wrap-up timer, OR
+          - the T=150s wrap-up timer (parent has had ~2:30 of conversation
+            and we're about to hit the 3-min cap), OR
           - a `user_end_call_request` data message (parent pressed
             "Încheie apelul" — we DON'T just yank the call, we let Andra
             say goodbye first).
+
+        Both paths use the same canonical script:
+          "Mai ai vreo întrebare? Dacă nu, încheiem aici discuția noastră
+           și vă așteptăm la Baza Unirea la primul antrenament. Mult succes."
         """
         if closing_in_progress.is_set() or state.finalized:
             return
         closing_in_progress.set()
         log.info("graceful close (%s) — letting Andra finish politely", reason)
 
+        # Slightly different framing depending on which path triggered us.
+        # Timer path → still ask "Mai ai vreo întrebare?" because the parent
+        # might. User-end path → skip the question (they already said done)
+        # and go straight to the closing line.
+        if reason == "user_request":
+            extra = (
+                "Părintele tocmai a cerut să închidem apelul, deci NU mai "
+                "întreba 'mai ai vreo întrebare' — sări direct la "
+                "închiderea oficială."
+            )
+        else:
+            extra = (
+                "Pune scurt întrebarea 'Mai ai vreo întrebare?' într-o "
+                "propoziție, apoi imediat după trece la închiderea "
+                "oficială (nu aștepta răspuns lung)."
+            )
+
         try:
             await session.generate_reply(
                 instructions=(
-                    "Părintele a cerut să închidem apelul ACUM. "
-                    "EXCLUSIV ÎN LIMBA ROMÂNĂ, fără un singur cuvânt "
-                    "în engleză. În MAX 2 propoziții: "
-                    "(1) mulțumește părintelui pe nume pentru timpul "
-                    "acordat; "
-                    "(2) dă o încurajare motivațională scurtă pentru "
-                    "copil (de exemplu 'mult succes lui [Copil]') sau "
-                    "o urare frumoasă; "
-                    "(3) reasigură-l că antrenorul îi scrie pe WhatsApp "
-                    "în câteva minute; "
-                    "(4) salută cald cu 'la revedere' sau 'o zi "
-                    "frumoasă'. "
-                    "Folosește una dintre formulele de închidere din "
-                    "instrucțiunile tale și fii sinceră, nu robotică."
+                    "ÎNCHEIE APELUL ACUM. EXCLUSIV ÎN LIMBA ROMÂNĂ, "
+                    "fără niciun cuvânt în engleză. "
+                    + extra
+                    + " "
+                    "Închiderea OFICIALĂ pe care TREBUIE să o spui "
+                    "(adaptează cu numele părintelui și al copilului): "
+                    "'Mai ai vreo întrebare? Dacă nu, încheiem aici "
+                    "discuția noastră și vă așteptăm la Baza Unirea la "
+                    "primul antrenament. Mult succes!' "
+                    "MAX 2 propoziții. Ton cald, sincer, NU robotic. "
+                    "Nu inventa alte formule, folosește această "
+                    "închidere ca template."
                 )
             )
         except RuntimeError as exc:
