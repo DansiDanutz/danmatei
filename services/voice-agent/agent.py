@@ -43,10 +43,9 @@ from livekit.agents import (
     RoomInputOptions,
     WorkerOptions,
     cli,
-    inference,
     metrics,
 )
-from livekit.plugins import silero
+from livekit.plugins import deepgram, elevenlabs, openai, silero
 
 try:
     from livekit.plugins.turn_detector.multilingual import MultilingualModel  # type: ignore
@@ -248,15 +247,19 @@ async def entrypoint(ctx: JobContext) -> None:
     )
 
     # ----- Build session -----
-    stt_model = os.environ.get("LIVEKIT_STT_MODEL", "deepgram/nova-3")
+    # Direct provider plugins (Deepgram / OpenAI / ElevenLabs) — we used to
+    # route through LiveKit Cloud's inference gateway but that shared a
+    # single credit pool with every other LiveKit project and exhausted
+    # under normal testing load (issue: status_code=429 inference_quota
+    # _exceeded). Each provider now uses its own API key, so quota is
+    # independent and much higher.
     stt_lang = os.environ.get("LIVEKIT_STT_LANGUAGE", "ro")
-    llm_model = os.environ.get("LIVEKIT_LLM_MODEL", "openai/gpt-4o-mini")
-    tts_model = os.environ.get("LIVEKIT_TTS_MODEL", "elevenlabs/eleven_multilingual_v2")
+    stt_model_name = os.environ.get("LIVEKIT_STT_MODEL", "deepgram/nova-3").split("/")[-1]
+    llm_model_name = os.environ.get("LIVEKIT_LLM_MODEL", "openai/gpt-4o-mini").split("/")[-1]
+    tts_model_name = os.environ.get(
+        "LIVEKIT_TTS_MODEL", "elevenlabs/eleven_multilingual_v2"
+    ).split("/")[-1]
     tts_voice = os.environ.get("LIVEKIT_TTS_VOICE", "hpp4J3VqNfWAUOO0d1Us")  # Bella premade
-
-    tts_kwargs: dict[str, Any] = {"model": tts_model}
-    if tts_voice:
-        tts_kwargs["voice"] = tts_voice
 
     # Multilingual turn detector needs ~50MB of HuggingFace model files. If
     # the build didn't pre-download them, instantiation throws at runtime —
@@ -273,9 +276,9 @@ async def entrypoint(ctx: JobContext) -> None:
 
     session = AgentSession(
         vad=ctx.proc.userdata["vad"],
-        stt=inference.STT(model=stt_model, language=stt_lang),
-        llm=inference.LLM(model=llm_model),
-        tts=inference.TTS(**tts_kwargs),
+        stt=deepgram.STT(model=stt_model_name, language=stt_lang),
+        llm=openai.LLM(model=llm_model_name),
+        tts=elevenlabs.TTS(model=tts_model_name, voice_id=tts_voice),
         turn_detection=turn_detector,
     )
 
