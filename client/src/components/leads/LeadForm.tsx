@@ -47,7 +47,7 @@ type SubmitResult = {
 };
 
 const TRAINER_NAME: Record<string, string> = {
-  "t-sopi": "Sopi",
+  "t-sopi": "Răzvan Soporan",
   "t-kelemen": "Kelemen Andrei",
   "t-dan": "Dan Matei",
 };

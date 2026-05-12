@@ -209,7 +209,8 @@ export default function SlideTrainers() {
                       </div>
 
                       {/* Per-trainer WhatsApp pill — disabled placeholder
-                          when the number isn't configured yet (Sopi). */}
+                          when the number isn't configured yet (e.g.
+                          Răzvan Soporan until admin sets it). */}
                       {(() => {
                         const href = buildWhatsAppLink(
                           t.whatsapp,

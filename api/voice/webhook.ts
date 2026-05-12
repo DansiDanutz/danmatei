@@ -46,7 +46,7 @@ const Body = z.object({
 });
 
 const TRAINER_NAMES: Record<string, string> = {
-  "t-sopi": "Sopi",
+  "t-sopi": "Răzvan Soporan",
   "t-kelemen": "Kelemen Andrei",
   "t-dan": "Dan Matei",
 };
