@@ -150,6 +150,7 @@ export const TRAINERS: Trainer[] = [
       "Primul contact cu mingea",
       "Încredere și ritm",
     ],
+    whatsapp: "+40771199669",
   },
   {
     id: "t-dan",
