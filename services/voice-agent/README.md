@@ -1,6 +1,6 @@
-# Voice Agent — Andra (LiveKit Agents + Cloud Inference)
+# Voice Agent - Andra (LiveKit Agents + Direct Providers)
 
-Romanian voice agent that runs a 3–5 minute discovery conversation with an
+Romanian voice agent that runs a 3-5 minute discovery conversation with an
 interested parent. Triggered by **LiveKit auto-dispatch** when the parent
 joins their `lead-*` room from `/apel/:token` on the website. On disconnect,
 POSTs the transcript + summary + intent to `/api/voice/webhook`,
@@ -9,14 +9,15 @@ HMAC-signed with `PIPECAT_WEBHOOK_SECRET`.
 | Layer | Provider | Notes |
 | --- | --- | --- |
 | Framework | [LiveKit Agents](https://docs.livekit.io/agents/) | Python, async, auto-dispatch |
-| STT | Deepgram **Nova-3** (Romanian) via LiveKit Inference | ~200 ms |
-| LLM | OpenAI **gpt-4o-mini** via LiveKit Inference | ~1 s typical turn |
-| TTS | ElevenLabs `eleven_multilingual_v2` (voice: Bella, premade) via Inference | ~1 s |
+| STT | Deepgram **Nova-3** (Romanian), direct plugin | ~200 ms |
+| LLM | OpenAI **gpt-4o-mini**, direct plugin | ~1 s typical turn |
+| TTS | ElevenLabs `eleven_multilingual_v2` (voice: Bella, premade), direct plugin | ~1 s |
 | Transport | LiveKit Cloud WebRTC | parent connects from browser |
 | Hosting | Fly.io single shared-cpu-1x 1GB machine | ~$2/month |
 
-No GPU, no local models, no Ollama sidecar. Models proxied through your
-LiveKit Cloud billing — set `LIVEKIT_*` and the agent works.
+No GPU, no local models, no Ollama sidecar. The worker registers with
+LiveKit Cloud, but STT/LLM/TTS calls use your Deepgram/OpenAI/ElevenLabs
+provider keys directly.
 
 ## Architecture
 
@@ -52,6 +53,9 @@ flyctl secrets set \
   LIVEKIT_URL="wss://danmatei-y9jlaz1k.livekit.cloud" \
   LIVEKIT_API_KEY="..." \
   LIVEKIT_API_SECRET="..." \
+  DEEPGRAM_API_KEY="..." \
+  OPENAI_API_KEY="..." \
+  ELEVEN_API_KEY="..." \
   PIPECAT_WEBHOOK_SECRET="$(openssl rand -base64 32)" \
   --app danmatei-voice-agent
 
@@ -82,6 +86,9 @@ The Vercel-hosted `/api/voice/start.ts` and `/api/voice/webhook.ts` need:
 | `LIVEKIT_API_SECRET` | already set | same as Fly |
 | `LIVEKIT_AGENT_NAME` | **NEW** | `danmatei-voice-agent` |
 | `PIPECAT_WEBHOOK_SECRET` | **NEW** | **must match Fly's value exactly** |
+| `DEEPGRAM_API_KEY` | **NEW** | direct Deepgram provider key |
+| `OPENAI_API_KEY` | **NEW** | direct OpenAI provider key |
+| `ELEVEN_API_KEY` / `ELEVENLABS_API_KEY` | **NEW** | direct ElevenLabs provider key |
 
 Old vars no longer used (safe to delete on Vercel):
 - `VOICE_AGENT_SPAWN_URL`
@@ -121,6 +128,9 @@ pip install -r requirements.txt
 export LIVEKIT_URL=wss://danmatei-y9jlaz1k.livekit.cloud
 export LIVEKIT_API_KEY=...
 export LIVEKIT_API_SECRET=...
+export DEEPGRAM_API_KEY=...
+export OPENAI_API_KEY=...
+export ELEVEN_API_KEY=...
 export PIPECAT_WEBHOOK_SECRET=dev-secret
 export API_BASE=http://localhost:3030
 
@@ -137,10 +147,10 @@ the agent dispatches automatically.
 
 - `LIVEKIT_AGENT_NAME` — must match what `/api/voice/start.ts` sets in the
   participant's `roomConfig.agents`. Default `danmatei-voice-agent`.
-- `LIVEKIT_STT_MODEL` / `LIVEKIT_STT_LANGUAGE` — Inference STT (default
+- `LIVEKIT_STT_MODEL` / `LIVEKIT_STT_LANGUAGE` - STT model/language (default
   `deepgram/nova-3` / `ro`).
-- `LIVEKIT_LLM_MODEL` — Inference LLM (default `openai/gpt-4o-mini`).
-- `LIVEKIT_TTS_MODEL` / `LIVEKIT_TTS_VOICE` — Inference TTS (default
+- `LIVEKIT_LLM_MODEL` - LLM model (default `openai/gpt-4o-mini`).
+- `LIVEKIT_TTS_MODEL` / `LIVEKIT_TTS_VOICE` - TTS model/voice (default
   `elevenlabs/eleven_multilingual_v2` / `hpp4J3VqNfWAUOO0d1Us` Bella).
-- `MAX_CALL_SECONDS` — hard cap before agent disconnects. Default 360 (6 min).
-- `API_BASE` — where the webhook posts to. Default `https://danmatei.vercel.app`.
+- `MAX_CALL_SECONDS` - hard cap before agent disconnects. Default 360 (6 min).
+- `API_BASE` - where the webhook posts to. Default `https://danmatei.vercel.app`.

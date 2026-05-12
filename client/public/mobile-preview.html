@@ -2798,7 +2798,6 @@
         },
 
         pagination: { el: ".swiper-pagination", clickable: true },
-        navigation: { nextEl: "#trainerNext", prevEl: "#trainerPrev" },
         on: {
           slideChange(swiper) {
             const idx = swiper.realIndex + 1;
@@ -2813,18 +2812,19 @@
         },
       });
 
-      // Swiper loop can occasionally ignore the first navigation click right
-      // after it wraps from the last real slide back to the first duplicate.
-      // Detect a no-op and issue one explicit slideNext so keyboard/click
-      // navigation keeps moving one card per action.
-      document.getElementById("trainerNext")?.addEventListener("click", () => {
-        const before = trainerSwiper.realIndex;
-        window.setTimeout(() => {
-          if (trainerSwiper.realIndex === before && !trainerSwiper.animating) {
-            trainerSwiper.slideNext();
-          }
-        }, 450);
-      });
+      // Drive nav buttons ourselves. Swiper's built-in loop navigation can
+      // occasionally drop the first click after wrapping from the last real
+      // slide back to the first duplicate.
+      document.getElementById("trainerNext")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!trainerSwiper.animating) trainerSwiper.slideNext();
+      }, true);
+      document.getElementById("trainerPrev")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!trainerSwiper.animating) trainerSwiper.slidePrev();
+      }, true);
 
       // Pause autoplaying trainer videos when slide is not active for performance
       const updateTrainerVideos = () => {
