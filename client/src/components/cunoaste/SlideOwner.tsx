@@ -60,7 +60,12 @@ export default function SlideOwner() {
               aria-hidden="true"
               className="card-rim-glow pointer-events-none absolute -inset-[3px] rounded-[calc(1rem+3px)] opacity-90"
             />
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-brand-cyan/30 bg-[oklch(0.10_0.025_250)] shadow-[0_28px_70px_-22px_oklch(0.75_0.12_230/0.55)] xs:aspect-[4/5]">
+            {/* Container aspect matches the source video/poster (9:16 portrait,
+                720×1264) so `object-contain` ends up pixel-perfect with no
+                cropping AND no letterboxing. Previous `aspect-[4/3]` mobile /
+                `aspect-[4/5]` xs+ ratios were landscape-ish and cropped off the
+                tie + "The Boss" caption + paint splatters. */}
+            <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-brand-cyan/30 bg-[oklch(0.10_0.025_250)] shadow-[0_28px_70px_-22px_oklch(0.75_0.12_230/0.55)]">
               {/* Preloaded poster — best frame from the clip. Sits behind the
                 video at low opacity so the swap when the clip ends is
                 imperceptible (no flash, no missing-asset gap). */}
@@ -68,7 +73,7 @@ export default function SlideOwner() {
                 src={POSTER_SRC}
                 alt=""
                 aria-hidden="true"
-                className="absolute inset-0 h-full w-full object-cover object-top"
+                className="absolute inset-0 h-full w-full object-contain"
               />
               <video
                 ref={videoRef}
@@ -91,7 +96,7 @@ export default function SlideOwner() {
                     setEnded(true);
                   }
                 }}
-                className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-300 ${
+                className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
                   ended ? "opacity-0" : "opacity-100"
                 }`}
               />
