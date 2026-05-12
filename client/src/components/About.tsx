@@ -52,10 +52,10 @@ export default function About() {
               transition={{ duration: 0.6, delay: 0.15, ease: expoOut }}
             >
               <p className="font-body text-base sm:text-lg text-white/70 leading-relaxed mb-4">
-                ACS Școala de Fotbal Dan Matei a fost fondată în 2017 în Cluj-Napoca cu misiunea de a oferi copiilor și tinerilor o educație sportivă completă. Sub conducerea antrenorului Dan Matei, deținător al licenței UEFA, academia noastră a format peste 100 de sportivi.
+                A.C.S. Școala de Fotbal Dan Matei a fost fondată în 2018 în Cluj-Napoca cu misiunea de a oferi copiilor și tinerilor o educație sportivă completă. Sub conducerea antrenorului Dan Matei, deținător al licenței UEFA, academia noastră a format peste 100 de sportivi.
               </p>
               <p className="font-body text-base sm:text-lg text-white/70 leading-relaxed mb-6 sm:mb-8">
-                Antrenamentele se desfășoară la Baza Sportivă Mănăștur. Motto-ul nostru, <span className="text-brand-cyan font-semibold">"Work hard, Feel good"</span>, reflectă filosofia noastră.
+                Antrenamentele se desfășoară la <span className="text-white/90 font-medium">Baza Unirea</span> (Mănăștur) și <span className="text-white/90 font-medium">Baza Cotton</span> (Grigorescu) — două baze sportive în Cluj-Napoca. Motto-ul nostru, <span className="text-brand-cyan font-semibold">"Work hard, Feel good"</span>, reflectă filosofia noastră.
               </p>
             </motion.div>
 

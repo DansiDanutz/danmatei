@@ -365,7 +365,7 @@ export default function PublicShell({
                 Școala de Fotbal Dan Matei
               </p>
               <p className="font-body text-xs text-white/45">
-                Cluj-Napoca · Licență UEFA · Din 2017
+                Cluj-Napoca · Licență UEFA · Din 2018
               </p>
             </div>
           </div>

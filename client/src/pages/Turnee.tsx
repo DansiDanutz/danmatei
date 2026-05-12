@@ -40,7 +40,7 @@ const FALLBACK: TournamentRow[] = [
     title: "Memorialul „Dan Matei” — U10",
     starts_at: "2026-06-08T10:00:00Z",
     ends_at: "2026-06-08T17:00:00Z",
-    location: "Baza Sportivă Mănăștur",
+    location: "Baza Unirea, Mănăștur",
     notes: "Tradiția anului. 8 echipe locale invitate.",
     trainer: {
       age_min: 10,

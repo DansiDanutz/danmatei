@@ -46,7 +46,7 @@ const FALLBACK: ResultRow[] = [
     event: {
       title: "U11 vs LPS Cluj",
       starts_at: new Date(Date.now() - 86400000 * 13).toISOString(),
-      location: "Baza Sportivă Mănăștur",
+      location: "Baza Unirea, Mănăștur",
       opponent: "LPS Cluj",
     },
   },
@@ -58,7 +58,7 @@ const FALLBACK: ResultRow[] = [
     event: {
       title: "U9 vs CSȘ Cluj",
       starts_at: new Date(Date.now() - 86400000 * 20).toISOString(),
-      location: "Baza Sportivă Mănăștur",
+      location: "Baza Unirea, Mănăștur",
       opponent: "CSȘ Cluj",
     },
   },

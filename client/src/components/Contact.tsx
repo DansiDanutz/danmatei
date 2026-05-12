@@ -22,7 +22,7 @@ const DAN_MATEI_WA = "+40744311147";
 const contactInfo = [
   { icon: Phone, label: "Telefon", value: "0744 311 147", href: "tel:0744311147", action: "Sună acum" },
   { icon: Mail, label: "Email", value: "zzizzou5@yahoo.com", href: "mailto:zzizzou5@yahoo.com", action: "Trimite email" },
-  { icon: MapPin, label: "Locație", value: "Baza Sportivă Mănăștur, Cluj", href: "https://maps.google.com/?q=Baza+Sportiva+Manastur+Cluj", action: "Vezi harta", external: true },
+  { icon: MapPin, label: "Locație", value: "Baza Unirea (Mănăștur) + Baza Cotton (Grigorescu)", href: "https://maps.google.com/?q=Baza+Sportiva+Unirea+Cluj", action: "Vezi harta", external: true },
   { icon: Clock, label: "Program", value: "Luni - Vineri: 16:00 - 19:00", href: "#", action: null },
 ];
 

@@ -59,7 +59,7 @@ export default function Footer() {
               </div>
             </div>
             <p className="font-body text-sm text-white/50 leading-relaxed max-w-xs">
-              Formând viitorul fotbalului românesc prin pasiune, educație și fair-play. Din 2017, Cluj-Napoca.
+              Formând viitorul fotbalului românesc prin pasiune, educație și fair-play. Din 2018, Cluj-Napoca.
             </p>
           </div>
 
@@ -109,7 +109,7 @@ export default function Footer() {
               </li>
               <li className="flex items-start gap-2.5 font-body text-sm text-white/60">
                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>Baza Sportivă Mănăștur, Cluj-Napoca</span>
+                <span>Baza Unirea + Baza Cotton, Cluj-Napoca</span>
               </li>
             </ul>
           </div>

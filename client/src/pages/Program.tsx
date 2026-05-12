@@ -32,7 +32,7 @@ const FALLBACK: EventRow[] = (() => {
       title: "Antrenament U7–U9",
       starts_at: new Date(now + 86400000).toISOString(),
       ends_at: new Date(now + 86400000 + 60 * 60 * 1000).toISOString(),
-      location: "Baza Sportivă Mănăștur",
+      location: "Baza Unirea, Mănăștur",
       opponent: null,
     },
     {
@@ -41,7 +41,7 @@ const FALLBACK: EventRow[] = (() => {
       title: "Antrenament U10–U13",
       starts_at: new Date(now + 86400000 + 60 * 60 * 1000).toISOString(),
       ends_at: new Date(now + 86400000 + 2.5 * 60 * 60 * 1000).toISOString(),
-      location: "Baza Sportivă Mănăștur",
+      location: "Baza Unirea, Mănăștur",
       opponent: null,
     },
     {
