@@ -11,6 +11,7 @@ import { CheckCircle2, Loader2, PhoneCall, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
+import StepIndicator from "./StepIndicator";
 
 const Schema = z.object({
   parentName: z.string().trim().min(2, "Numele este obligatoriu").max(120),
@@ -97,33 +98,36 @@ export default function LeadForm() {
   if (result) {
     const trainer = TRAINER_NAME[result.trainerId] ?? "antrenorul tău";
     return (
-      <div className="rounded-3xl border border-brand-cyan/30 bg-[oklch(0.10_0.02_250)] p-6 text-center shadow-[0_24px_80px_-40px_oklch(0.78_0.13_210/0.65)] sm:p-8">
-        <div className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-brand-cyan/15 text-brand-cyan ring-1 ring-brand-cyan/35">
-          <CheckCircle2 className="size-7" />
-        </div>
-        <h2 className="font-heading text-2xl text-white mb-2 sm:text-3xl">
-          Mulțumim! Te contactăm imediat.
-        </h2>
-        <p className="text-white/70 leading-relaxed">
-          {result.whatsapp.sent
-            ? `Am trimis un link pe WhatsApp către numărul tău. Apasă-l pentru a vorbi pe loc cu ${trainer} (apel direct în browser, fără descărcări).`
-            : "Apasă butonul de mai jos pentru a porni apelul AI cu un consilier al academiei."}
-        </p>
-
-        <a
-          href={result.callLink}
-          target="_self"
-          className="inline-flex items-center gap-2 mt-6 px-6 py-3 rounded-2xl bg-brand-cyan text-[oklch(0.08_0.02_250)] font-heading uppercase tracking-[0.16em] text-sm hover:opacity-90 transition"
-        >
-          <PhoneCall className="size-4" />
-          Începe apelul
-        </a>
-
-        {!result.whatsapp.sent && result.whatsapp.reason ? (
-          <p className="text-xs text-white/40 mt-4">
-            (WhatsApp: {result.whatsapp.reason})
+      <div className="space-y-5">
+        <StepIndicator current={2} />
+        <div className="rounded-3xl border border-brand-gold/35 bg-[oklch(0.10_0.02_250)] p-6 text-center shadow-[0_24px_80px_-40px_oklch(0.85_0.13_85/0.6)] sm:p-8">
+          <div className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-brand-gold/15 text-brand-gold ring-1 ring-brand-gold/40">
+            <CheckCircle2 className="size-7" />
+          </div>
+          <h2 className="font-heading text-2xl text-white mb-2 sm:text-3xl">
+            Linkul tău este gata!
+          </h2>
+          <p className="text-white/70 leading-relaxed">
+            {result.whatsapp.sent
+              ? `Ți-am trimis linkul pe WhatsApp. Apasă-l ca să vorbești pe loc cu ${trainer} — apel direct în browser, fără descărcări.`
+              : "Apasă butonul de mai jos ca să pornești apelul cu Andra. Permite microfonul când îți cere browserul."}
           </p>
-        ) : null}
+
+          <a
+            href={result.callLink}
+            target="_self"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-gold px-6 py-4 font-heading text-sm font-semibold uppercase tracking-[0.16em] text-[oklch(0.15_0.04_50)] shadow-[0_18px_50px_-18px_oklch(0.85_0.13_85/0.65)] transition hover:opacity-90 sm:w-auto"
+          >
+            <PhoneCall className="size-4" />
+            Începe apelul →
+          </a>
+
+          {!result.whatsapp.sent && result.whatsapp.reason ? (
+            <p className="text-xs text-white/40 mt-4">
+              (WhatsApp: {result.whatsapp.reason})
+            </p>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -134,16 +138,7 @@ export default function LeadForm() {
       className="space-y-5 rounded-3xl border border-white/10 bg-[oklch(0.10_0.02_250)]/90 backdrop-blur-md p-5 shadow-[0_24px_80px_-48px_black] sm:p-8"
       noValidate
     >
-      <div className="grid gap-2 rounded-2xl border border-brand-cyan/20 bg-brand-cyan/[0.06] p-4 text-left sm:grid-cols-3">
-        {["Completezi datele", "Primești linkul", "Vorbești cu Andra"].map((step, index) => (
-          <div key={step} className="flex items-center gap-2 text-xs text-white/70">
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-brand-cyan/15 font-heading text-[10px] text-brand-cyan ring-1 ring-brand-cyan/30">
-              {index + 1}
-            </span>
-            <span>{step}</span>
-          </div>
-        ))}
-      </div>
+      <StepIndicator current={1} />
 
       <div className="grid sm:grid-cols-2 gap-4">
         <Field label="Numele tău" error={errors.parentName?.message}>
