@@ -25,6 +25,7 @@ import { ConnectionState, Track } from "livekit-client";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
+import StepIndicator from "@/components/leads/StepIndicator";
 
 type SessionData = {
   ok: true;
@@ -155,19 +156,29 @@ function CallShell({
 }) {
   return (
     <>
+      {/* Step indicator — shows the parent they're on the final step of the
+          3-step flow. Steps 1+2 done, step 3 (this screen) is the active
+          emerald one. Hidden once the call enters connecting / ended /
+          error states so it doesn't clutter the connecting UI. */}
+      {phase === "idle" && (
+        <div className="mb-6">
+          <StepIndicator current={3} />
+        </div>
+      )}
+
       <h1 className="font-heading text-4xl sm:text-5xl uppercase leading-[0.95] mb-3">
         {phase === "ended" ? (
           <span className="text-gradient-gold">Mulțumim!</span>
         ) : phase === "starting" || phase === "asking_mic" ? (
           <span className="text-gradient-cyan">Conectare...</span>
         ) : (
-          <span className="text-white">Pregătit?</span>
+          <span className="text-emerald-300">Gata să vorbim?</span>
         )}
       </h1>
 
       <p className="text-white/70 leading-relaxed mb-4">
         {phase === "idle" &&
-          "Apasă butonul de mai jos pentru a porni apelul cu consilierul AI al academiei. Conversația este înregistrată pentru calitatea serviciului."}
+          "Apasă butonul verde de mai jos pentru a porni apelul cu Andra. Browserul îți va cere permisiunea de microfon — apasă „Permite” ca să te poată auzi."}
         {phase === "asking_mic" && "Acceptă accesul la microfon din browser..."}
         {phase === "starting" && "Se conectează la consilierul Andra..."}
         {phase === "ended" &&
@@ -177,7 +188,7 @@ function CallShell({
       </p>
 
       {phase === "idle" && (
-        <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-brand-cyan/10 border border-brand-cyan/30 font-heading text-[11px] uppercase tracking-[0.18em] text-brand-cyan">
+        <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-400/40 font-heading text-[11px] uppercase tracking-[0.18em] text-emerald-300">
           <ClockIcon />
           Conversație de fix 3 minute
         </div>
@@ -187,9 +198,9 @@ function CallShell({
         <button
           type="button"
           onClick={onStart}
-          className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-brand-cyan text-[oklch(0.08_0.02_250)] font-heading uppercase tracking-[0.16em] text-sm hover:opacity-90 transition"
+          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-emerald-500 text-[oklch(0.15_0.05_150)] font-heading uppercase tracking-[0.16em] text-sm font-semibold shadow-[0_18px_50px_-18px_rgba(52,211,153,0.65)] hover:bg-emerald-400 transition"
         >
-          🎙️ Începe apelul
+          🎙️ {phase === "error" ? "Reia apelul" : "Începe apelul"} →
         </button>
       )}
 
