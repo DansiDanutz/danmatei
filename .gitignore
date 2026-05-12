@@ -108,6 +108,8 @@ temp/
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
 .vercel
+.claude/
+supabase/.temp/
 
 # Expo / React Native
 .expo/

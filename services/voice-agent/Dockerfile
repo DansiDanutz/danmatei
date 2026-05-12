@@ -1,5 +1,5 @@
-# LiveKit Agents voice worker — Cloud Inference (Deepgram + OpenAI +
-# ElevenLabs proxied through LiveKit Cloud). No local models needed.
+# LiveKit Agents voice worker - direct Deepgram/OpenAI/ElevenLabs providers.
+# No local models needed.
 #
 # Build:    docker build -t danmatei/voice-agent ./services/voice-agent
 # Run:      docker run --rm --env-file .env danmatei/voice-agent

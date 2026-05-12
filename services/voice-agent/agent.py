@@ -6,10 +6,10 @@ config includes `{ agents: [{ agentName: "danmatei-voice-agent" }] }`. Reads
 the parent + child context from the room's `metadata` field (set by
 /api/voice/start.ts on the Vercel side).
 
-Pipeline: Deepgram STT (Nova-3 Romanian) → OpenAI gpt-4o-mini LLM →
-ElevenLabs multilingual TTS. All three proxied through LiveKit Inference,
-so the only credentials this service needs at runtime are
-LIVEKIT_URL/KEY/SECRET. No GPU, no local models, no Ollama sidecar.
+Pipeline: Deepgram STT (Nova-3 Romanian) -> OpenAI gpt-4o-mini LLM ->
+ElevenLabs multilingual TTS. These provider plugins are called directly, so
+the service needs LIVEKIT_URL/KEY/SECRET plus provider API keys at runtime.
+No GPU, no local models, no Ollama sidecar.
 
 On call end (room disconnect or `finish_call` tool), POSTs the transcript
 + summary + intent to {API_BASE}/api/voice/webhook, HMAC-signed with
