@@ -41,7 +41,7 @@ export default function Academie() {
     <PublicShell
       pageKicker="Despre noi"
       pageTitle="Academia care formează fotbaliști — și oameni"
-      pageDescription="Suntem o academie de fotbal pentru copii din Cluj-Napoca, înființată în 2017. Lucrăm cu antrenori cu licență UEFA și grupe pe vârste, cu accent pe dezvoltare individuală și caracter."
+      pageDescription="Suntem o academie de fotbal pentru copii din Cluj-Napoca, înființată în 2018. Lucrăm cu antrenori cu licență UEFA și grupe pe vârste, cu accent pe dezvoltare individuală și caracter."
     >
       {/* Stats strip */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -114,13 +114,13 @@ export default function Academie() {
         >
           <InfoCard
             icon={<MapPin className="size-4" />}
-            title="Bază sportivă proprie"
-            body="Mănăștur, Cluj-Napoca · gazon profesional · vestiar dedicat"
+            title="Două baze sportive în Cluj"
+            body="Baza Unirea (Mănăștur) și Baza Cotton (Grigorescu) · gazon profesional · vestiar dedicat"
           />
           <InfoCard
             icon={<Award className="size-4" />}
             title="Antrenori cu licență UEFA"
-            body="5 antrenori certificați, cu experiență în fotbalul de performanță"
+            body="3 antrenori certificați (Dan Matei — UEFA B; Kelemen Andrei, Răzvan Soporan — UEFA C), cu experiență în fotbalul de performanță"
           />
           <InfoCard
             icon={<Trophy className="size-4" />}

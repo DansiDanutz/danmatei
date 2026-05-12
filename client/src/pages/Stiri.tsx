@@ -32,7 +32,7 @@ const FALLBACK_NEWS: NewsRow[] = [
     id: "demo-1",
     title: "Înscrieri deschise pentru anul școlar 2026–2027",
     body_md:
-      "Începem înscrierile pentru noul an. Avem locuri pentru U6 până la U15. Antrenamentele luni–vineri 16:00–19:00 la Baza Sportivă Mănăștur.",
+      "Începem înscrierile pentru noul an. Avem locuri pentru U6 până la U15. Antrenamentele luni–vineri 16:00–19:00 la Baza Unirea (Mănăștur) și la Baza Cotton (Grigorescu).",
     cover_path: null,
     audience: "public",
     published_at: new Date().toISOString(),
@@ -50,7 +50,7 @@ const FALLBACK_NEWS: NewsRow[] = [
     id: "demo-3",
     title: "Nou antrenor pentru grupa U9 – Bun venit, Alexandru Popa!",
     body_md:
-      "Alexandru Popa, licență UEFA B, se alătură echipei noastre tehnice pentru grupele mici. Antrenamentele continuă la Mănăștur.",
+      "Alexandru Popa, licență UEFA B, se alătură echipei noastre tehnice pentru grupele mici. Antrenamentele continuă la Baza Unirea și Baza Cotton.",
     cover_path: null,
     audience: "public",
     published_at: new Date(Date.now() - 86400000 * 30).toISOString(),

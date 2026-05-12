@@ -325,7 +325,7 @@ export default function Home() {
                       aria-hidden="true"
                       className="block size-1 rounded-full bg-brand-cyan animate-pulse"
                     />
-                    Licență UEFA · Din 2017
+                    Licență UEFA · Din 2018
                   </motion.span>
 
                   <motion.h1

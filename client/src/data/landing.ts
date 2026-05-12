@@ -105,15 +105,15 @@ export const OWNER: Owner = {
       body: "Lucrăm pe încredere, fair-play și respect. Notele de la școală contează la fel ca golul marcat sâmbătă. Antrenorii sunt mentori înainte de a fi instructori — fiecare ședință include un moment de reflecție despre comportament, ambiție și progres personal. Părinții sunt parte din proces: întâlniri trimestriale și o cultură comună în care disciplina din clasă și performanța din teren cresc împreună.",
     },
     {
-      title: "Bază sportivă proprie, lângă casă",
-      body: "Baza Sportivă Mănăștur, Cluj-Napoca. Antrenamente luni–vineri 16:00–19:00, gazon profesional și vestiar dedicat.",
+      title: "Două baze sportive în Cluj-Napoca",
+      body: "Antrenamentele se țin la Baza Unirea (Mănăștur) și la Baza Cotton (Grigorescu) — fiecare grupă cu programul ei. Luni–vineri 16:00–19:00, gazon profesional și vestiar dedicat.",
     },
   ],
   stats: [
-    { label: "Din", value: "2017" },
+    { label: "Din", value: "2018" },
     { label: "Copii formați", value: "240+" },
-    { label: "Trofee", value: "18" },
     { label: "Antrenori UEFA", value: "3" },
+    { label: "Baze sportive", value: "2" },
   ],
 };
 

@@ -12,7 +12,7 @@ const CTA_BG = "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=1
 
 const infoItems = [
   { icon: Users, title: "Categorii", description: "2006-2017" },
-  { icon: MapPin, title: "Locație", description: "Baza Sportivă Mănăștur" },
+  { icon: MapPin, title: "Locație", description: "Baza Unirea + Baza Cotton" },
   { icon: Clock, title: "Program", description: "Luni-Vineri 16-19" },
 ];
 
