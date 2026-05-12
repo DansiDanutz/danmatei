@@ -26,6 +26,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import StepIndicator from "@/components/leads/StepIndicator";
+import MicTest from "@/components/MicTest";
 
 type SessionData = {
   ok: true;
@@ -186,6 +187,8 @@ function CallShell({
         {phase === "error" &&
           (error ?? "Ceva nu a funcționat. Te rugăm să încerci din nou.")}
       </p>
+
+      {phase === "idle" && <MicTest />}
 
       {phase === "idle" && (
         <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-400/40 font-heading text-[11px] uppercase tracking-[0.18em] text-emerald-300">
