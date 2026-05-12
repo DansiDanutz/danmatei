@@ -179,7 +179,7 @@ function CallShell({
       {phase === "idle" && (
         <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-brand-cyan/10 border border-brand-cyan/30 font-heading text-[11px] uppercase tracking-[0.18em] text-brand-cyan">
           <ClockIcon />
-          Conversație de fix 2 minute
+          Conversație de fix 3 minute
         </div>
       )}
 
@@ -238,10 +238,10 @@ function CallStage({
   // the parent's side instead of leaving them on a stale "Vorbim acum" UI.
   const [agentSeen, setAgentSeen] = useState(false);
 
-  // Mirrors the agent's MAX_CALL_SECONDS env var (currently 120s) — the
-  // worker hard-caps server-side regardless, so this is purely for the UI
-  // countdown. If the two ever drift, the server wins.
-  const CALL_DURATION_S = 120;
+  // Mirrors the agent's MAX_CALL_SECONDS env var (currently 180s = 3 min)
+  // — the worker hard-caps server-side regardless, so this is purely for
+  // the UI countdown. If the two ever drift, the server wins.
+  const CALL_DURATION_S = 180;
 
   // End-call handler: politely ask Andra to close instead of yanking the
   // call. We send a `user_end_call_request` data message; the agent
