@@ -15,6 +15,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  Bell,
+  BellOff,
   Calendar,
   Check,
   CheckCheck,
@@ -27,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { useBrowserNotification } from "@/lib/use-browser-notification";
 import { useLeadRealtime } from "@/lib/use-lead-realtime";
 
 type LeadCallSummary = {
@@ -119,6 +122,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const browserNotif = useBrowserNotification();
 
   const fetchLeads = useCallback(async () => {
     const token = session?.access_token;
@@ -166,12 +170,25 @@ export default function InboxAITab({ trainerSlug }: Props) {
       summary?: string;
     };
     const leadId = payload?.leadId ?? null;
-    toast.success("Lead nou", {
-      description: payload?.parentName
-        ? `${payload.parentName} · copil ${payload.childName ?? "?"} (${payload.childAge ?? "?"} ani)`
-        : "Un nou apel a fost transcris.",
-      duration: 8000,
+    const description = payload?.parentName
+      ? `${payload.parentName} · copil ${payload.childName ?? "?"} (${payload.childAge ?? "?"} ani)`
+      : "Un nou apel a fost transcris.";
+
+    toast.success("Lead nou", { description, duration: 8000 });
+
+    // Fire a native browser Notification too, so the trainer still sees the
+    // lead when they have the inbox tab open in another window/desktop.
+    // The hook auto-suppresses if the tab is visible — no double-ping.
+    browserNotif.notify({
+      title: "Lead nou — Academia Dan Matei",
+      body: description,
+      tag: leadId ?? undefined,
+      onClick: () => {
+        // Highlight the lead in the list when the user clicks the OS toast.
+        if (leadId) setHighlightId(leadId);
+      },
     });
+
     setHighlightId(leadId);
     if (leadId) setTimeout(() => setHighlightId((cur) => (cur === leadId ? null : cur)), 6000);
     void fetchLeads();
@@ -276,7 +293,52 @@ export default function InboxAITab({ trainerSlug }: Props) {
             ca destinatar al transcrierilor pentru grupa ta.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* Browser-notification opt-in. Only shown when the API is
+              supported and we haven't already been granted/denied. */}
+          {browserNotif.supported && browserNotif.permission === "default" && (
+            <button
+              type="button"
+              onClick={() => {
+                void browserNotif.request().then((next) => {
+                  if (next === "granted") {
+                    toast.success("Notificările sunt active", {
+                      description:
+                        "Vei primi o notificare pe desktop când vine un lead nou și nu ești pe această filă.",
+                    });
+                  } else if (next === "denied") {
+                    toast.error("Notificările au fost blocate", {
+                      description:
+                        "Le poți activa din setările browserului (lacăt în bara de adresă).",
+                    });
+                  }
+                });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/10 border border-brand-cyan/35 px-3 py-1 font-heading text-[11px] uppercase tracking-[0.18em] text-brand-cyan hover:bg-brand-cyan/20 transition"
+              title="Activează notificările desktop pentru lead-uri noi"
+            >
+              <Bell className="size-3.5" />
+              Activează notificările
+            </button>
+          )}
+          {browserNotif.permission === "granted" && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/12 px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.20em] text-white/70"
+              title="Notificările desktop sunt active"
+            >
+              <Bell className="size-3" />
+              Notificări ON
+            </span>
+          )}
+          {browserNotif.permission === "denied" && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] border border-white/10 px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.20em] text-white/45"
+              title="Notificările sunt blocate — activează-le din setările browserului"
+            >
+              <BellOff className="size-3" />
+              Blocate
+            </span>
+          )}
           {rtStatus === "live" && (
             <span
               className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.20em] text-emerald-300"
