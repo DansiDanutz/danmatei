@@ -9,6 +9,7 @@ import { Link, useLocation } from "wouter";
 import { Home as HomeIcon, LogOut } from "lucide-react";
 import { useAuth, type UserRole } from "@/lib/auth";
 import NotificationBell from "@/components/notifications/NotificationBell";
+import InstallAppButton from "@/components/InstallAppButton";
 
 const ROLE_LABEL: Record<UserRole, string> = {
   owner: "Proprietar",
@@ -89,6 +90,8 @@ export default function MemberShell({ children, navLinks }: Props) {
                 </span>
               </div>
             )}
+
+            <InstallAppButton />
 
             {profile && <NotificationBell />}
 

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { expoOut } from "@/lib/motion";
+import InstallAppButton from "@/components/InstallAppButton";
 
 export interface PublicShellProps {
   children: ReactNode;
@@ -234,6 +235,7 @@ export default function PublicShell({
           </nav>
 
           <div className="flex items-center gap-2">
+            <InstallAppButton />
             {!onProgramare && (
               <Link
                 href="/programare"
