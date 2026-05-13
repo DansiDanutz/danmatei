@@ -1,0 +1,35 @@
+{
+  "name": "Dan Matei — Școala de Fotbal",
+  "short_name": "Dan Matei",
+  "description": "Aplicația oficială a Școlii de Fotbal Dan Matei: programări, grupe, turnee, notificări.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08091a",
+  "theme_color": "#08091a",
+  "lang": "ro",
+  "dir": "ltr",
+  "categories": ["sports", "education", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
