@@ -120,6 +120,25 @@ export default async function handler(req: Req, res: Res) {
     return res.status(404).json({ error: "lead_not_found" });
   }
 
+  // Look up OTHER leads with the same phone number that have already
+  // completed at least one AI call (status routed or transcribed). If
+  // there is any, this parent has spoken to Andra before and we want
+  // her to skip the "are you new?" branch on the next call. We use the
+  // count only — no PII leaks into the agent metadata beyond what's
+  // already there. Best-effort: if the query fails, we just treat them
+  // as a new parent.
+  let previousCallsCount = 0;
+  if (lead.parent_phone_e164) {
+    const { count } = await supabase
+      .from("leads")
+      .select("id", { head: true, count: "exact" })
+      .eq("parent_phone_e164", lead.parent_phone_e164)
+      .neq("id", lead.id)
+      .in("status", ["routed", "transcribed"]);
+    previousCallsCount = count ?? 0;
+  }
+  const isExistingParent = previousCallsCount > 0;
+
   const room = `lead-${verified.leadId.slice(0, 8)}-${Date.now().toString(36)}`;
 
   // Lead context that the agent reads from room.metadata on connect.
@@ -128,6 +147,8 @@ export default async function handler(req: Req, res: Res) {
     parentName: lead.parent_name,
     childName: lead.child_name,
     childAge: lead.child_age,
+    isExistingParent,
+    previousCallsCount,
   });
 
   // Mint the parent's token with LiveKit auto-dispatch wired up: when the
