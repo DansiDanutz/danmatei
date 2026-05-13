@@ -7,7 +7,7 @@
  * Public pages all share this shell so the brand chrome is consistent
  * and the menu's active state propagates wherever the user lands.
  */
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -61,6 +61,44 @@ export default function PublicShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [location] = useLocation();
   const onProgramare = location === "/programare";
+
+  // Desktop nav reveal-on-click: first click on an icon shows its label as a
+  // pill for 3s (other icons hide). Second click within that window navigates.
+  // No click → revert to icons.
+  const [expandedHref, setExpandedHref] = useState<string | null>(null);
+  const expandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const REVEAL_MS = 3000;
+
+  const clearExpandTimer = () => {
+    if (expandTimerRef.current) {
+      clearTimeout(expandTimerRef.current);
+      expandTimerRef.current = null;
+    }
+  };
+
+  const handleNavIconClick = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (expandedHref === href) {
+      // Second click on the revealed pill → allow navigation, clear state.
+      clearExpandTimer();
+      setExpandedHref(null);
+      return;
+    }
+    event.preventDefault();
+    setExpandedHref(href);
+    clearExpandTimer();
+    expandTimerRef.current = setTimeout(() => {
+      setExpandedHref(null);
+      expandTimerRef.current = null;
+    }, REVEAL_MS);
+  };
+
+  // Reset reveal when route changes or component unmounts so the pill never
+  // outlives the page that opened it.
+  useEffect(() => {
+    setExpandedHref(null);
+    clearExpandTimer();
+  }, [location]);
+  useEffect(() => () => clearExpandTimer(), []);
 
   useEffect(() => {
     let ticking = false;
@@ -125,32 +163,74 @@ export default function PublicShell({
             </div>
           </Link>
 
-          {/* Desktop nav */}
-          <nav className="hidden items-center gap-1 lg:flex">
-            {NAV_ITEMS.map((item) => {
-              const active = location === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`relative inline-flex items-center gap-1.5 rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] transition-all ${
-                    active
-                      ? "text-brand-cyan bg-brand-cyan/10 border border-brand-cyan/20"
-                      : "text-white/70 hover:text-white hover:bg-white/5"
-                  }`}
+          {/* Desktop nav — icons by default. Click reveals a labeled pill for
+              REVEAL_MS while hiding the other icons; clicking the pill within
+              that window navigates, otherwise the icons return. */}
+          <nav
+            className="relative hidden h-11 min-w-[360px] items-center justify-center gap-1 lg:flex"
+            aria-label="Navigare principală"
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              {expandedHref ? (
+                (() => {
+                  const item = NAV_ITEMS.find((entry) => entry.href === expandedHref);
+                  if (!item) return null;
+                  const active = location === item.href;
+                  return (
+                    <motion.div
+                      key={`pill-${item.href}`}
+                      initial={{ opacity: 0, scale: 0.92 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.92 }}
+                      transition={{ duration: 0.18, ease: expoOut }}
+                    >
+                      <Link
+                        href={item.href}
+                        onClick={(e) => handleNavIconClick(e, item.href)}
+                        className={`inline-flex items-center gap-2 rounded-full px-4 py-2 font-heading text-[11px] uppercase tracking-[0.16em] transition-colors ${
+                          active
+                            ? "border border-brand-cyan/40 bg-brand-cyan/15 text-brand-cyan"
+                            : "border border-brand-cyan/30 bg-brand-cyan/10 text-brand-cyan hover:bg-brand-cyan/20"
+                        }`}
+                        aria-label={`${item.label} — click pentru a deschide`}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </Link>
+                    </motion.div>
+                  );
+                })()
+              ) : (
+                <motion.div
+                  key="icons"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex items-center gap-1"
                 >
-                  {item.icon}
-                  {item.label}
-                  {active && (
-                    <motion.span
-                      layoutId="nav-underline"
-                      className="absolute inset-0 -z-10 rounded-full"
-                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                    />
-                  )}
-                </Link>
-              );
-            })}
+                  {NAV_ITEMS.map((item) => {
+                    const active = location === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={(e) => handleNavIconClick(e, item.href)}
+                        aria-label={item.label}
+                        title={item.label}
+                        className={`grid size-10 place-items-center rounded-full transition-colors ${
+                          active
+                            ? "border border-brand-cyan/40 bg-brand-cyan/15 text-brand-cyan"
+                            : "border border-transparent text-white/75 hover:border-brand-cyan/20 hover:bg-white/5 hover:text-brand-cyan"
+                        }`}
+                      >
+                        {item.icon}
+                      </Link>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </nav>
 
           <div className="flex items-center gap-2">
