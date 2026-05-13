@@ -2,15 +2,26 @@
  * InstallAppButton — red CTA shown to every logged-in user that turns the
  * site into a phone app via the PWA install prompt.
  *
- * Behavior:
- * - Chromium / Edge / Android Chrome: captures the `beforeinstallprompt`
- *   event and calls `prompt()` on click. After install, the OS adds an
- *   icon to the home-screen and the saved Supabase session (localStorage)
- *   makes the user already logged in on next launch.
- * - iOS Safari: the API isn't supported, so we open a Romanian
+ * Detect-already-installed strategy (three signals, any of them hides the
+ * button — none of them lies):
+ *   1. `display-mode: standalone` (or iOS `navigator.standalone`). Covers
+ *      "user opened the app from the installed icon".
+ *   2. A `localStorage` flag we set on the `appinstalled` event. Covers
+ *      "user installed at some point on this browser, now visits the site
+ *      via a regular tab". The flag is cleared when `beforeinstallprompt`
+ *      fires again — that's the browser telling us the PWA is *not*
+ *      installed (e.g. user uninstalled it).
+ *   3. `navigator.getInstalledRelatedApps()` on Chromium-based browsers.
+ *      Authoritative answer to "is the PWA installed on this device?".
+ *      Requires manifest `related_applications` self-reference (added).
+ *
+ * Click behavior:
+ * - Chromium / Edge / Android Chrome: captures `beforeinstallprompt` and
+ *   calls `prompt()`. After install the OS adds an icon to the
+ *   home-screen and the saved Supabase session (localStorage) means the
+ *   user is already logged in on next launch.
+ * - iOS Safari (no programmatic install): opens a Romanian
  *   "Adaugă pe ecran" tutorial pointing at Safari's Share menu.
- * - Already-installed users (running in standalone display-mode) see
- *   nothing — the button hides itself.
  */
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -22,12 +33,35 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
+type NavigatorWithRelatedApps = Navigator & {
+  getInstalledRelatedApps?: () => Promise<Array<{ platform?: string; url?: string; id?: string }>>;
+};
+
+const INSTALL_FLAG_KEY = "dm-pwa-installed";
+
 function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
   if (window.matchMedia?.("(display-mode: standalone)").matches) return true;
   // iOS Safari exposes a non-standard flag when running from home-screen.
   const nav = window.navigator as Navigator & { standalone?: boolean };
   return nav.standalone === true;
+}
+
+function readInstallFlag(): boolean {
+  try {
+    return window.localStorage.getItem(INSTALL_FLAG_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeInstallFlag(value: boolean): void {
+  try {
+    if (value) window.localStorage.setItem(INSTALL_FLAG_KEY, "1");
+    else window.localStorage.removeItem(INSTALL_FLAG_KEY);
+  } catch {
+    /* private mode / storage disabled — silently ignore */
+  }
 }
 
 function isIOS(): boolean {
@@ -39,17 +73,44 @@ function isIOS(): boolean {
 export default function InstallAppButton() {
   const { profile } = useAuth();
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState<boolean>(() => isStandalone());
+  const [installed, setInstalled] = useState<boolean>(() => isStandalone() || readInstallFlag());
   const [showGuide, setShowGuide] = useState(false);
 
+  // One-shot probe against `navigator.getInstalledRelatedApps()` so a user
+  // who installed on another browser session still sees the button hide
+  // when they come back to a regular tab.
   useEffect(() => {
     if (installed) return;
+    const nav = navigator as NavigatorWithRelatedApps;
+    if (typeof nav.getInstalledRelatedApps !== "function") return;
+    let cancelled = false;
+    nav.getInstalledRelatedApps()
+      .then((apps) => {
+        if (cancelled) return;
+        if (apps.length > 0) {
+          writeInstallFlag(true);
+          setInstalled(true);
+        }
+      })
+      .catch(() => { /* unsupported / not allowed — ignore */ });
+    return () => {
+      cancelled = true;
+    };
+  }, [installed]);
 
+  useEffect(() => {
     const onBeforeInstall = (event: Event) => {
       event.preventDefault();
       setInstallEvent(event as BeforeInstallPromptEvent);
+      // The browser would only fire this if the PWA is NOT currently
+      // installed — clear any stale flag from a previous uninstall.
+      if (readInstallFlag()) {
+        writeInstallFlag(false);
+        setInstalled(false);
+      }
     };
     const onAppInstalled = () => {
+      writeInstallFlag(true);
       setInstalled(true);
       setInstallEvent(null);
       setShowGuide(false);
@@ -61,7 +122,7 @@ export default function InstallAppButton() {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
       window.removeEventListener("appinstalled", onAppInstalled);
     };
-  }, [installed]);
+  }, []);
 
   // Spec: only visible to authenticated users. If auth isn't loaded yet or
   // the user is anonymous, render nothing.
@@ -74,6 +135,7 @@ export default function InstallAppButton() {
         await installEvent.prompt();
         const choice = await installEvent.userChoice;
         if (choice.outcome === "accepted") {
+          writeInstallFlag(true);
           setInstalled(true);
           setInstallEvent(null);
         }
