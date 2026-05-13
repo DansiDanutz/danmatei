@@ -208,9 +208,12 @@ export default function Home() {
         </svg>
       </div>
 
-      {/* Primary navigation — six surfaces of the academy. Sits at the
-          very top of the viewport. Mobile shows a horizontal scroll row
-          with snap so all six remain reachable; tablet+ centres the row. */}
+      {/* Primary navigation — icon-only pill row. Seven surfaces fit on
+          a single line on every viewport (was previously a 2-row label
+          grid on mobile). Each item keeps `aria-label` and a `title` so
+          screen readers + hover tooltips still convey what the icon
+          means. Label text was dropping below the fold on phones, so
+          icons-only keeps the entrance feeling clean. */}
       <motion.nav
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -218,26 +221,23 @@ export default function Home() {
         aria-label="Meniu principal"
         className="relative z-20 px-4 pt-4 sm:px-8 sm:pt-6"
       >
-        <ul className="mx-auto grid max-w-md grid-cols-4 gap-1.5 rounded-2xl border border-white/8 bg-[oklch(0.10_0.02_250)]/70 p-1.5 backdrop-blur-md sm:flex sm:max-w-3xl sm:justify-center sm:gap-1">
+        <ul className="mx-auto flex w-fit max-w-full items-center justify-center gap-1 rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)]/70 p-1.5 backdrop-blur-md sm:gap-1.5">
           {MENU_ITEMS.map(item => {
             const Icon = item.icon;
             const isExternal = /^https?:\/\//.test(item.href);
             const baseClass =
-              "group/menu inline-flex min-w-0 items-center justify-center gap-1 rounded-xl px-1.5 py-2 font-heading text-[9px] font-semibold uppercase tracking-[0.04em] transition-all sm:shrink-0 sm:gap-1.5 sm:rounded-full sm:px-4 sm:text-[12px] sm:tracking-[0.16em]";
+              "group/menu inline-flex shrink-0 items-center justify-center rounded-full size-10 sm:size-11 transition-colors";
             const variantClass = item.primary
               ? "border border-brand-cyan/60 bg-brand-cyan/20 text-brand-cyan hover:border-brand-cyan hover:bg-brand-cyan/30 hover:text-white"
               : "border border-transparent text-white/70 hover:border-brand-cyan/40 hover:bg-brand-cyan/10 hover:text-white";
             const content = (
-              <>
-                <Icon
-                  className={`size-3.5 transition-colors ${
-                    item.primary
-                      ? "text-brand-cyan"
-                      : "text-brand-cyan/80 group-hover/menu:text-brand-cyan"
-                  }`}
-                />
-                {item.label}
-              </>
+              <Icon
+                className={`size-4 sm:size-[18px] transition-colors ${
+                  item.primary
+                    ? "text-brand-cyan"
+                    : "text-brand-cyan/80 group-hover/menu:text-brand-cyan"
+                }`}
+              />
             );
             return (
               <li key={item.href} className="min-w-0">
@@ -247,6 +247,7 @@ export default function Home() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={item.label}
+                    title={item.label}
                     className={`${baseClass} ${variantClass}`}
                   >
                     {content}
@@ -255,6 +256,7 @@ export default function Home() {
                   <Link
                     href={item.href}
                     aria-label={item.label}
+                    title={item.label}
                     className={`${baseClass} ${variantClass}`}
                   >
                     {content}
