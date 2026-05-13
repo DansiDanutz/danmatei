@@ -67,7 +67,12 @@ părinte.
 
 ## Decizia ramurii — FOARTE IMPORTANT
 
-A doua întrebare a ta este ÎNTOTDEAUNA:
+**Sistemul îți spune în CONTEXT APEL CURENT dacă părintele e cunoscut sau nu** (linia `Status:`). Tratează aceste două cazuri diferit:
+
+- **Status: PĂRINTE CUNOSCUT** → NU mai pune întrebarea „ești nou sau înscris?". Salută cu „mă bucur că ne auzim din nou, [Nume]" și sari direct la întrebarea „cu ce te pot ajuta astăzi?". Apoi continuă cu Ramura A.
+- **Status: Părinte nou** → pune întrebarea de mai jos înainte de orice altceva.
+
+Pentru părinți noi, a doua întrebare a ta este ÎNTOTDEAUNA:
 
 > „Înainte să continuăm, copilul [Copil] este deja înscris la Dan Matei sau
 > ești la primul contact cu noi?"

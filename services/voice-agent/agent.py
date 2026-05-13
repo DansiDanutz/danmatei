@@ -102,11 +102,25 @@ async def post_webhook(payload: dict[str, Any]) -> None:
 
 
 class CallState:
-    def __init__(self, lead_id: str, parent_name: str, child_name: str, child_age: int | None) -> None:
+    def __init__(
+        self,
+        lead_id: str,
+        parent_name: str,
+        child_name: str,
+        child_age: int | None,
+        is_existing_parent: bool = False,
+        previous_calls_count: int = 0,
+    ) -> None:
         self.lead_id = lead_id
         self.parent_name = parent_name
         self.child_name = child_name
         self.child_age = child_age
+        # True when Vercel's /api/voice/start found other leads with this
+        # same phone number that already completed an AI call. We use this
+        # to skip the "are you new or already enrolled?" branch — for repeat
+        # callers we greet them as known and dive into the current need.
+        self.is_existing_parent = is_existing_parent
+        self.previous_calls_count = previous_calls_count
         self.transcript: list[dict[str, Any]] = []
         self.started_at = time.time()
         self.intent: str | None = None
@@ -134,6 +148,32 @@ class CallState:
 
 
 def _personalized_instructions(state: CallState) -> str:
+    if state.is_existing_parent:
+        # We already know this parent — Vercel's start endpoint found their
+        # phone number on a previously-routed lead. Skip the "new vs
+        # enrolled?" branch entirely and greet them as known.
+        history_hint = (
+            f"- Status: PĂRINTE CUNOSCUT — a vorbit cu Andra anterior "
+            f"({state.previous_calls_count} apel"
+            f"{'uri' if state.previous_calls_count != 1 else ''} înregistrat"
+            f"{'e' if state.previous_calls_count != 1 else ''} pe acest "
+            f"număr de telefon).\n"
+        )
+        opening = (
+            "Salută părintele pe nume cu o formulă caldă pentru cineva "
+            "cunoscut (ex. 'Mă bucur că ne auzim din nou, [Nume]!'), "
+            "menționează scurt înregistrarea, apoi întreabă DIRECT cu ce "
+            "îl putem ajuta astăzi (NU mai pune întrebarea „ești nou sau "
+            "deja înscris?\" — știm deja că e cunoscut)."
+        )
+    else:
+        history_hint = "- Status: Părinte nou — primul apel cu noi de pe acest număr.\n"
+        opening = (
+            "Salută părintele pe nume și menționează numele copilului în "
+            "prima ta propoziție. Anunță scurt înregistrarea, apoi pune "
+            "întrebarea de ramură („copilul este deja înscris la Dan "
+            "Matei sau ești la primul contact cu noi?\")."
+        )
     return (
         f"{SYSTEM_PROMPT_BASE}\n\n"
         "---\n\n"
@@ -141,9 +181,9 @@ def _personalized_instructions(state: CallState) -> str:
         f"- Părinte: {state.parent_name or '[necunoscut]'}\n"
         f"- Copil: {state.child_name or '[necunoscut]'}"
         f"{f', {state.child_age} ani' if state.child_age else ''}\n"
-        f"- Data: {datetime.now(timezone.utc).strftime('%d %B %Y')}\n\n"
-        "Salută părintele pe nume și menționează numele copilului în prima ta "
-        "propoziție. Anunță scurt înregistrarea, apoi întreabă ce vor să afle."
+        f"- Data: {datetime.now(timezone.utc).strftime('%d %B %Y')}\n"
+        f"{history_hint}\n"
+        f"{opening}"
     )
 
 
@@ -240,10 +280,13 @@ async def entrypoint(ctx: JobContext) -> None:
         parent_name=str(meta.get("parentName") or meta.get("parent_name") or ""),
         child_name=str(meta.get("childName") or meta.get("child_name") or ""),
         child_age=int(meta["childAge"]) if meta.get("childAge") else None,
+        is_existing_parent=bool(meta.get("isExistingParent", False)),
+        previous_calls_count=int(meta.get("previousCallsCount") or 0),
     )
     log.info(
-        "entrypoint room=%s lead=%s parent=%s child=%s/%s",
-        ctx.room.name, state.lead_id, state.parent_name, state.child_name, state.child_age,
+        "entrypoint room=%s lead=%s parent=%s child=%s/%s existing=%s prior=%d",
+        ctx.room.name, state.lead_id, state.parent_name, state.child_name,
+        state.child_age, state.is_existing_parent, state.previous_calls_count,
     )
 
     # ----- Build session -----
