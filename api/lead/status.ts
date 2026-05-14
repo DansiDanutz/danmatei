@@ -1,27 +1,40 @@
 /**
  * POST /api/lead/status
  *
- * Trainer marks a lead as contacted / closed (or back to routed for
- * "needs attention").
+ * Trainer mutates one or many leads at once:
+ *   - status: routed / contacted / closed
+ *   - snoozedUntil: null (un-snooze) or ISO timestamp (snooze for N hours)
  *
- * Body: { id: string, status: "routed" | "contacted" | "closed" }
+ * Body shapes (id form preserved for backwards compatibility):
+ *   { id: uuid, status?, snoozedUntil?, note? }
+ *   { ids: uuid[], status?, snoozedUntil?, note? }
  *
- * The endpoint uses the service-role client to write, but enforces
- * authorization itself: the caller must present a Bearer JWT and
- * must be the `assigned_trainer_id` for the lead OR be in
- * `cc_trainer_ids` OR be an owner / super_admin.
+ * At least one of `status` and `snoozedUntil` must be present. `note` is
+ * single-lead only — appending it to multiple unrelated calls would be
+ * confusing.
  *
- * The trainer slug is derived from the user's `fotbal.trainers` row
- * (or `t-dan` for owner). Mirrors the routing rules in api/lead/create.ts.
+ * Authorization is enforced per lead with the same rule as the original
+ * single-lead endpoint: caller must be the assigned trainer slug, in
+ * cc_trainer_ids, or owner/super_admin. Mixed batches return per-id results
+ * so the client can show partial success without a 4xx blocking the rest.
  */
 import { z } from "zod";
 import { serviceClient } from "../_lib/supabase.js";
 
-const Body = z.object({
-  id: z.string().uuid(),
-  status: z.enum(["routed", "contacted", "closed"]),
-  note: z.string().trim().max(2000).optional(),
-});
+const Body = z
+  .object({
+    id: z.string().uuid().optional(),
+    ids: z.array(z.string().uuid()).min(1).max(100).optional(),
+    status: z.enum(["routed", "contacted", "closed"]).optional(),
+    snoozedUntil: z.string().datetime().nullable().optional(),
+    note: z.string().trim().max(2000).optional(),
+  })
+  .refine(d => d.id || (d.ids && d.ids.length > 0), {
+    message: "Provide id or ids",
+  })
+  .refine(d => d.status !== undefined || d.snoozedUntil !== undefined, {
+    message: "Provide status or snoozedUntil",
+  });
 
 type Req = {
   method?: string;
@@ -69,7 +82,16 @@ export default async function handler(req: Req, res: Res) {
       issues: parsed.error.issues,
     });
   }
-  const { id, status, note } = parsed.data;
+  const { id, ids, status, snoozedUntil, note } = parsed.data;
+  const targetIds = ids ?? (id ? [id] : []);
+  const isBulk = targetIds.length > 1;
+
+  if (isBulk && note) {
+    return res.status(400).json({
+      error: "note_single_only",
+      message: "Notes can only be attached to a single lead at a time.",
+    });
+  }
 
   let supabase;
   try {
@@ -107,36 +129,50 @@ export default async function handler(req: Req, res: Res) {
   }
   if (prof.role === "owner" || prof.role === "super_admin") trainerSlug = "t-dan";
 
-  // Fetch the lead and check authorization
-  const { data: lead, error: leadErr } = await supabase
+  // Fetch all targeted leads in one query and authorize per-row.
+  const { data: leads, error: leadErr } = await supabase
     .from("leads")
     .select("id, assigned_trainer_id, cc_trainer_ids")
-    .eq("id", id)
-    .maybeSingle();
-  if (leadErr || !lead) {
-    return res.status(404).json({ error: "lead_not_found" });
+    .in("id", targetIds);
+  if (leadErr) {
+    return res.status(500).json({ error: "fetch_failed", detail: leadErr.message });
   }
 
-  const isAssigned =
-    trainerSlug != null &&
-    (lead.assigned_trainer_id === trainerSlug ||
-      (lead.cc_trainer_ids ?? []).includes(trainerSlug));
   const isAdmin = prof.role === "owner" || prof.role === "super_admin";
-  if (!isAssigned && !isAdmin) {
-    return res.status(403).json({ error: "forbidden" });
+  const allowed: string[] = [];
+  const denied: string[] = [];
+  for (const lead of leads ?? []) {
+    const ok =
+      isAdmin ||
+      (trainerSlug != null &&
+        (lead.assigned_trainer_id === trainerSlug ||
+          (lead.cc_trainer_ids ?? []).includes(trainerSlug)));
+    if (ok) allowed.push(lead.id as string);
+    else denied.push(lead.id as string);
+  }
+
+  // Single-id legacy callers expect 403/404 — preserve that behavior.
+  if (!isBulk) {
+    if ((leads ?? []).length === 0) {
+      return res.status(404).json({ error: "lead_not_found" });
+    }
+    if (allowed.length === 0) {
+      return res.status(403).json({ error: "forbidden" });
+    }
   }
 
   const update: Record<string, unknown> = {
-    status,
     updated_at: new Date().toISOString(),
   };
-  // If a note was sent, append it to the latest lead_call summary so the
-  // trainer's follow-up shows up alongside the AI summary.
-  if (note) {
+  if (status !== undefined) update.status = status;
+  if (snoozedUntil !== undefined) update.snoozed_until = snoozedUntil;
+
+  // Optional note: only allowed in the single-lead path.
+  if (note && !isBulk && allowed[0]) {
     const { data: latestCall } = await supabase
       .from("lead_calls")
       .select("id, summary")
-      .eq("lead_id", id)
+      .eq("lead_id", allowed[0])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -153,12 +189,25 @@ export default async function handler(req: Req, res: Res) {
     }
   }
 
-  const { error: upErr } = await supabase.from("leads").update(update).eq("id", id);
-  if (upErr) {
-    return res
-      .status(500)
-      .json({ error: "update_failed", detail: upErr.message });
+  if (allowed.length > 0) {
+    const { error: upErr } = await supabase
+      .from("leads")
+      .update(update)
+      .in("id", allowed);
+    if (upErr) {
+      return res
+        .status(500)
+        .json({ error: "update_failed", detail: upErr.message });
+    }
   }
 
-  return res.status(200).json({ ok: true, leadId: id, status });
+  return res.status(200).json({
+    ok: true,
+    updated: allowed,
+    denied,
+    status: status ?? null,
+    snoozedUntil: snoozedUntil ?? null,
+    // Back-compat for legacy single-id callers that read `leadId`/`status`.
+    leadId: !isBulk ? id : undefined,
+  });
 }
