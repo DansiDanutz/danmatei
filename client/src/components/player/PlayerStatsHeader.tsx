@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Cake,
   Camera,
   Edit3,
   Flame,
@@ -20,8 +21,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { currentAge } from "@/lib/age";
+import { currentAge, isBirthdayToday } from "@/lib/age";
 import { useAuth } from "@/lib/auth";
+import Confetti from "@/components/effects/Confetti";
 
 const PHOTO_BUCKET = "fotbal-media-private";
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024; // 8 MB
@@ -240,8 +242,21 @@ export default function PlayerStatsHeader({
   }, [child.photo_path]);
 
   const age = useMemo(() => currentAge(child.dob), [child.dob]);
+  const isBirthday = useMemo(() => isBirthdayToday(child.dob), [child.dob]);
   const skillView = skills ?? { ...DEFAULT_SKILLS, child_id: child.id, notes: null, updated_at: "" };
   const skillAvg = avg(skillView);
+
+  // Fire confetti on birthdays. Re-fire whenever the kid's birthday status
+  // changes (parent navigates between siblings, midnight rolls).
+  const [confettiToggle, setConfettiToggle] = useState(false);
+  useEffect(() => {
+    if (isBirthday) {
+      setConfettiToggle(false);
+      const t = setTimeout(() => setConfettiToggle(true), 50);
+      return () => clearTimeout(t);
+    }
+    setConfettiToggle(false);
+  }, [isBirthday, child.id]);
 
   const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -295,6 +310,21 @@ export default function PlayerStatsHeader({
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-white/8 bg-[oklch(0.10_0.02_250)]">
+      {/* Birthday celebration — banner + confetti only on the day. */}
+      {isBirthday && (
+        <>
+          <Confetti fire={confettiToggle} durationMs={4500} count={70} />
+          <div className="flex flex-wrap items-center justify-center gap-3 bg-gradient-to-r from-brand-gold/30 via-brand-gold/15 to-brand-cyan/25 px-4 py-2.5 text-center">
+            <Cake className="size-4 text-brand-gold" />
+            <span className="font-heading text-sm uppercase tracking-[0.16em] text-white">
+              La mulți ani, {child.full_name.split(" ")[0]}!
+            </span>
+            <span className="font-heading text-[11px] uppercase tracking-[0.2em] text-brand-gold">
+              {age} ani
+            </span>
+          </div>
+        </>
+      )}
       {/* Hero band — photo + name */}
       <div className="relative h-44 sm:h-52">
         {photoUrl ? (
