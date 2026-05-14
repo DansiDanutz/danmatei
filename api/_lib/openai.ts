@@ -1,26 +1,55 @@
 /**
- * OpenAI helper — minimal Chat Completions wrapper.
+ * Chat-completions helper — OpenAI-compatible, provider-agnostic.
  *
  * Direct fetch (no SDK) keeps the dependency surface tiny. Used by features
  * that want to generate short Romanian copy server-side: training recaps,
  * weekly digests, lead reply drafts.
  *
  * Configuration:
- *   OPENAI_API_KEY        — required
+ *   OPENAI_API_KEY        — required (any provider's bearer token)
+ *   OPENAI_BASE_URL       — default "https://api.openai.com/v1"
+ *                           Override to point at any OpenAI-compat provider:
+ *                             - Google Gemini:
+ *                               https://generativelanguage.googleapis.com/v1beta/openai
+ *                             - OpenRouter:
+ *                               https://openrouter.ai/api/v1
+ *                             - Z.ai (when topped up):
+ *                               https://api.z.ai/api/paas/v4
+ *                             - Cerebras:
+ *                               https://api.cerebras.ai/v1
+ *                             - Local Ollama via Tailscale:
+ *                               http://100.79.10.102:11434/v1
  *   OPENAI_MODEL          — default "gpt-4o-mini"
+ *                           Auto-corrected to "gemini-2.0-flash" when the
+ *                           base URL is Gemini and the model still has the
+ *                           gpt-* default — avoids 404s after a half-set env.
+ *
+ * Mirrors the same provider-agnostic pattern used in the voice agent
+ * (services/voice-agent/agent.py) so both sides can be pointed at the
+ * academy's free / flat-fee provider stack instead of pay-per-token OpenAI.
  *
  * Graceful degradation: if OPENAI_API_KEY is missing, `isConfigured()`
  * returns false and `generateText()` throws a typed error so callers can
- * return a clean 503 to the client. The feature can ship behind feature-
- * flag-by-env: PR deploys to Vercel before the key is pasted, and the
- * "Generează cu AI" button shows a friendly "AI not configured yet" state.
+ * return a clean 503 to the client.
  */
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
-const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+const RAW_BASE_URL = process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
+// Strip a trailing slash so `${BASE_URL}/chat/completions` always produces a
+// clean URL regardless of how the env was set.
+const BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");
+const RAW_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+// If the operator pointed at Gemini's OpenAI-compat URL but kept the
+// hardcoded gpt-* default model name, Gemini will 404. Nudge to a sensible
+// Gemini model so a half-finished env switch still works.
+const MODEL =
+  BASE_URL.includes("generativelanguage.googleapis.com") &&
+  RAW_MODEL.startsWith("gpt-")
+    ? "gemini-2.0-flash"
+    : RAW_MODEL;
 
 export class OpenAINotConfiguredError extends Error {
   constructor() {
-    super("OpenAI API key not configured on this deployment.");
+    super("OpenAI-compat API key not configured on this deployment.");
     this.name = "OpenAINotConfiguredError";
   }
 }
@@ -49,14 +78,14 @@ export async function generateText(input: GenerateInput): Promise<string> {
     throw new OpenAINotConfiguredError();
   }
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch(`${BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: OPENAI_MODEL,
+      model: MODEL,
       messages: [
         { role: "system", content: input.system },
         { role: "user", content: input.user },
@@ -68,7 +97,9 @@ export async function generateText(input: GenerateInput): Promise<string> {
 
   if (!response.ok) {
     const errBody = await response.text().catch(() => "");
-    throw new Error(`OpenAI HTTP ${response.status}: ${errBody.slice(0, 300)}`);
+    throw new Error(
+      `LLM HTTP ${response.status} from ${BASE_URL}: ${errBody.slice(0, 300)}`
+    );
   }
 
   const data = (await response.json()) as {
@@ -76,7 +107,7 @@ export async function generateText(input: GenerateInput): Promise<string> {
   };
   const text = data.choices?.[0]?.message?.content?.trim();
   if (!text) {
-    throw new Error("OpenAI returned empty content");
+    throw new Error("LLM returned empty content");
   }
   return text;
 }
