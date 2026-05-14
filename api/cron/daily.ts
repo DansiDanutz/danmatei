@@ -198,11 +198,147 @@ export default async function handler(req: Req, res: Res) {
     pushRemoved += summary.removed;
   }
 
+  // ─── Tomorrow's trainings — RSVP push to parents who haven't responded ──
+  const checkSummary = await sendTomorrowRsvpChecks(supabase);
+
   return res.status(200).json({
     ok: true,
     ranAt,
     birthdays: todaysBirthdays.length,
     notified: notificationRows.length,
     push: { sent: pushSent, skipped: pushSkipped, removed: pushRemoved },
+    rsvpChecks: checkSummary,
   });
+}
+
+/**
+ * Helper for the second half of the daily cron — finds every training in
+ * the next 36 hours, checks which kids in that trainer's group don't have
+ * an attendance row yet, and sends one push per parent ("Antrenament joi
+ * 18:00 — vine X?"). Idempotent: skips parents who already got an
+ * attendance_check notification for this event in the last 48h.
+ */
+async function sendTomorrowRsvpChecks(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+): Promise<{
+  events: number;
+  pushed: number;
+  skippedExisting: number;
+  pushSent: number;
+  pushRemoved: number;
+}> {
+  const summary = {
+    events: 0,
+    pushed: 0,
+    skippedExisting: 0,
+    pushSent: 0,
+    pushRemoved: 0,
+  };
+
+  const startIso = new Date().toISOString();
+  const endIso = new Date(Date.now() + 36 * 3600_000).toISOString();
+  const dedupeWindowIso = new Date(Date.now() - 48 * 3600_000).toISOString();
+
+  type EventRow = {
+    id: string;
+    title: string;
+    starts_at: string;
+    location: string | null;
+    trainer_id: string | null;
+  };
+
+  const { data: events } = await supabase
+    .from("schedule_events")
+    .select("id, title, starts_at, location, trainer_id")
+    .eq("kind", "training")
+    .gte("starts_at", startIso)
+    .lte("starts_at", endIso);
+
+  for (const ev of (events as EventRow[] | null) ?? []) {
+    if (!ev.trainer_id) continue;
+    summary.events += 1;
+
+    // Active children for this trainer + their parents
+    const { data: kids } = await supabase
+      .from("children")
+      .select("id, full_name, parent_id")
+      .eq("trainer_id", ev.trainer_id)
+      .eq("status", "active")
+      .not("parent_id", "is", null);
+
+    type Kid = { id: string; full_name: string; parent_id: string };
+    const kidList = (kids ?? []) as Kid[];
+    if (kidList.length === 0) continue;
+
+    // Skip kids who already have any attendance row (parent or trainer
+    // already weighed in)
+    const { data: existingAtt } = await supabase
+      .from("attendance")
+      .select("child_id")
+      .eq("event_id", ev.id)
+      .in(
+        "child_id",
+        kidList.map(k => k.id)
+      );
+    const decidedKids = new Set(
+      ((existingAtt ?? []) as { child_id: string }[]).map(r => r.child_id)
+    );
+
+    // Skip parents who already received an attendance_check for this event
+    const link = (childId: string) =>
+      `/copil/${childId}?confirm=${ev.id}`;
+    const { data: priorChecks } = await supabase
+      .from("notifications")
+      .select("recipient_id, link")
+      .eq("kind", "attendance_check")
+      .gte("created_at", dedupeWindowIso);
+    const priorTargets = new Set(
+      ((priorChecks ?? []) as { recipient_id: string; link: string | null }[])
+        .filter(n => (n.link ?? "").includes(`confirm=${ev.id}`))
+        .map(n => n.recipient_id)
+    );
+
+    const dateRO = new Date(ev.starts_at).toLocaleString("ro-RO", {
+      weekday: "long",
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Europe/Bucharest",
+    });
+
+    for (const k of kidList) {
+      if (decidedKids.has(k.id)) continue;
+      if (priorTargets.has(k.parent_id)) {
+        summary.skippedExisting += 1;
+        continue;
+      }
+
+      const firstName = k.full_name.split(/\s+/)[0] ?? k.full_name;
+      const title = `Antrenament: ${dateRO}`;
+      const body = `Vine ${firstName}? Confirmă cu un tap.`;
+
+      const { error: nErr } = await supabase.from("notifications").insert({
+        recipient_id: k.parent_id,
+        kind: "attendance_check",
+        title,
+        body,
+        link: link(k.id),
+      });
+      if (nErr) continue;
+      summary.pushed += 1;
+
+      const ps = await sendPushToUsers([k.parent_id], {
+        title,
+        body,
+        tag: `attendance-${ev.id}-${k.id}`,
+        url: link(k.id),
+      });
+      summary.pushSent += ps.sent;
+      summary.pushRemoved += ps.removed;
+    }
+  }
+
+  return summary;
 }
