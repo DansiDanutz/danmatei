@@ -7,8 +7,9 @@
  * match line, skill tree, and (for trainer/owner) an "Editează abilități"
  * editor.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Camera,
   Edit3,
   Flame,
   Loader2,
@@ -17,12 +18,17 @@ import {
   Trophy,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { currentAge } from "@/lib/age";
 import { useAuth } from "@/lib/auth";
 
+const PHOTO_BUCKET = "fotbal-media-private";
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024; // 8 MB
+
 type Child = {
   id: string;
+  parent_id: string;
   full_name: string;
   dob: string;
   photo_path: string | null;
@@ -161,10 +167,22 @@ function SkillRow({
   );
 }
 
-export default function PlayerStatsHeader({ child }: { child: Child }) {
+export default function PlayerStatsHeader({
+  child,
+  onPhotoChanged,
+}: {
+  child: Child;
+  /** Called with the new storage path after a successful upload so the parent
+   *  page can update its local Child state and avoid a full refetch. */
+  onPhotoChanged?: (newPhotoPath: string) => void;
+}) {
   const { profile } = useAuth();
-  const canEdit =
+  const canEditSkills =
     profile?.role === "trainer" ||
+    profile?.role === "owner" ||
+    profile?.role === "super_admin";
+  const canEditPhoto =
+    profile?.id === child.parent_id ||
     profile?.role === "owner" ||
     profile?.role === "super_admin";
 
@@ -173,6 +191,8 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
   const [loading, setLoading] = useState(true);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const refetch = useCallback(async () => {
     setLoading(true);
@@ -209,7 +229,7 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
       return;
     }
     supabase.storage
-      .from("media")
+      .from(PHOTO_BUCKET)
       .createSignedUrl(child.photo_path, 60 * 60 * 4)
       .then(({ data }) => {
         if (!cancelled) setPhotoUrl(data?.signedUrl ?? null);
@@ -222,6 +242,56 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
   const age = useMemo(() => currentAge(child.dob), [child.dob]);
   const skillView = skills ?? { ...DEFAULT_SKILLS, child_id: child.id, notes: null, updated_at: "" };
   const skillAvg = avg(skillView);
+
+  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !profile?.id) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Doar imagini, te rugăm.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast.error("Fișierul e prea mare. Maxim 8 MB.");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    // Storage RLS requires the path to start with auth.uid().
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const path = `${profile.id}/${child.id}/profile-${Date.now()}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from(PHOTO_BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (upErr) {
+      setUploadingPhoto(false);
+      toast.error(`Nu am putut urca poza: ${upErr.message}`);
+      return;
+    }
+
+    const { error: updErr } = await supabase
+      .from("children")
+      .update({ photo_path: path })
+      .eq("id", child.id);
+    if (updErr) {
+      setUploadingPhoto(false);
+      // Best-effort cleanup: remove the orphan upload.
+      void supabase.storage.from(PHOTO_BUCKET).remove([path]);
+      toast.error(`Nu am putut salva poza: ${updErr.message}`);
+      return;
+    }
+
+    // Refresh the signed URL immediately so the new photo shows without reload.
+    const { data: signed } = await supabase.storage
+      .from(PHOTO_BUCKET)
+      .createSignedUrl(path, 60 * 60 * 4);
+    setPhotoUrl(signed?.signedUrl ?? null);
+    setUploadingPhoto(false);
+    onPhotoChanged?.(path);
+    toast.success("Poza a fost actualizată.");
+  };
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-white/8 bg-[oklch(0.10_0.02_250)]">
@@ -241,6 +311,32 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
           <span className="absolute top-3 right-3 px-3 py-1.5 rounded-full bg-black/55 border border-brand-gold/40 backdrop-blur-md font-heading text-[10px] uppercase tracking-[0.22em] text-brand-gold">
             {child.age_group_label}
           </span>
+        )}
+        {canEditPhoto && (
+          <>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              aria-label={photoUrl ? "Schimbă poza" : "Adaugă poza copilului"}
+              className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/40 bg-black/55 px-3 py-1.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan backdrop-blur-md transition-colors hover:border-brand-cyan/70 hover:bg-brand-cyan/15 disabled:opacity-60"
+            >
+              {uploadingPhoto ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Camera className="size-3.5" />
+              )}
+              {photoUrl ? "Schimbă poza" : "Adaugă poza"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={onPickPhoto}
+              disabled={uploadingPhoto}
+              className="sr-only"
+            />
+          </>
         )}
         <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-3">
           <div className="min-w-0">
@@ -301,7 +397,7 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
           <h2 className="font-heading text-sm uppercase tracking-[0.18em] text-white">
             Profilul de joc
           </h2>
-          {canEdit && !editing && (
+          {canEditSkills && !editing && (
             <button
               type="button"
               onClick={() => setEditing(true)}

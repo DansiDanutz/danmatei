@@ -279,7 +279,12 @@ export default function CopilProfil() {
   return (
     <MemberShell>
       {/* Premium player header — stats + skill tree */}
-      <PlayerStatsHeader child={child} />
+      <PlayerStatsHeader
+        child={child}
+        onPhotoChanged={newPath =>
+          setChild(prev => (prev ? { ...prev, photo_path: newPath } : prev))
+        }
+      />
 
       {/* Original header card (info + status + edit) */}
       <section className="mt-5 rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5 sm:p-7">
