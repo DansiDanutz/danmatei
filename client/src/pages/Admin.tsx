@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  AlertTriangle,
   Bell,
   Calendar,
   Loader2,
@@ -35,6 +36,7 @@ import GroupsTab from "@/components/admin/GroupsTab";
 import NewsManager from "@/components/admin/NewsManager";
 import ScheduleOversight from "@/components/admin/ScheduleOversight";
 import NotificationManager from "@/components/admin/NotificationManager";
+import AtRiskTab from "@/components/admin/AtRiskTab";
 
 type TrainerRow = {
   id: string;
@@ -99,6 +101,9 @@ export default function Admin() {
           <Trigger value="membri" icon={<Users className="size-3.5" />}>
             Membri
           </Trigger>
+          <Trigger value="risc" icon={<AlertTriangle className="size-3.5" />}>
+            Risc
+          </Trigger>
           <Trigger value="stiri" icon={<Tag className="size-3.5" />}>
             Știri
           </Trigger>
@@ -126,6 +131,11 @@ export default function Admin() {
         <TabsContent value="membri" className="mt-5">
           <LazyTab active={tab === "membri"}>
             <MembersTab />
+          </LazyTab>
+        </TabsContent>
+        <TabsContent value="risc" className="mt-5">
+          <LazyTab active={tab === "risc"}>
+            <AtRiskTab />
           </LazyTab>
         </TabsContent>
         <TabsContent value="stiri" className="mt-5">
