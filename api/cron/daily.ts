@@ -252,6 +252,7 @@ async function sendTomorrowRsvpChecks(
     .from("schedule_events")
     .select("id, title, starts_at, location, trainer_id")
     .eq("kind", "training")
+    .is("cancelled_at", null)
     .gte("starts_at", startIso)
     .lte("starts_at", endIso);
 

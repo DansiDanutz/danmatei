@@ -69,6 +69,8 @@ type ScheduleRow = {
   notes: string | null;
   recap_md: string | null;
   recap_published_at: string | null;
+  cancelled_at: string | null;
+  cancelled_reason: string | null;
 };
 
 type NewsRow = {
@@ -185,7 +187,7 @@ export default function CopilProfil() {
           ? supabase
               .from("schedule_events")
               .select(
-                "id, kind, title, starts_at, ends_at, location, opponent, notes, recap_md, recap_published_at"
+                "id, kind, title, starts_at, ends_at, location, opponent, notes, recap_md, recap_published_at, cancelled_at, cancelled_reason"
               )
               .eq("trainer_id", childData.trainer_id)
               .order("starts_at", { ascending: true })
@@ -829,6 +831,20 @@ const ScheduleRowCard = ({
       })}
       {row.location && ` · ${row.location}`}
     </p>
+
+    {row.cancelled_at && (
+      <div className="mt-3 rounded-xl border border-rose-300/40 bg-rose-300/[0.08] px-3.5 py-2.5">
+        <div className="font-heading text-[10.5px] uppercase tracking-[0.2em] text-rose-300">
+          Anulat de antrenor
+        </div>
+        {row.cancelled_reason && (
+          <p className="mt-0.5 font-body text-sm text-rose-200/85">
+            {row.cancelled_reason}
+          </p>
+        )}
+      </div>
+    )}
+
     {row.notes && (
       <p className="mt-2 font-body text-sm text-white/70">{row.notes}</p>
     )}
@@ -857,8 +873,10 @@ const ScheduleRowCard = ({
     {/* Parent RSVP — only shown when:
      *   - the row was passed an onConfirm handler (i.e. viewer is parent)
      *   - the event is a future training (matches/tournaments need no RSVP)
-     *   - within 5 days so the form doesn't clutter long-tail upcoming. */}
+     *   - within 5 days so the form doesn't clutter long-tail upcoming
+     *   - not cancelled. */}
     {onConfirm &&
+      !row.cancelled_at &&
       row.kind === "training" &&
       new Date(row.starts_at).getTime() > Date.now() &&
       new Date(row.starts_at).getTime() - Date.now() <

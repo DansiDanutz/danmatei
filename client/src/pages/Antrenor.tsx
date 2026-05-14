@@ -35,6 +35,7 @@ import MatchesTab from "@/components/trainer/MatchesTab";
 import AttendanceTab from "@/components/trainer/AttendanceTab";
 import TrainingRecapDialog from "@/components/trainer/TrainingRecapDialog";
 import { Link } from "wouter";
+import { toast } from "sonner";
 import MemberShell from "@/components/MemberShell";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -88,6 +89,8 @@ type ScheduleRow = {
   notes: string | null;
   recap_md: string | null;
   recap_published_at: string | null;
+  cancelled_at: string | null;
+  cancelled_reason: string | null;
 };
 
 type MessageRow = {
@@ -147,7 +150,7 @@ export default function Antrenor() {
         supabase
           .from("schedule_events")
           .select(
-            "id, kind, title, starts_at, location, opponent, notes, recap_md, recap_published_at"
+            "id, kind, title, starts_at, location, opponent, notes, recap_md, recap_published_at, cancelled_at, cancelled_reason"
           )
           .eq("trainer_id", trainerRow.id)
           .order("starts_at", { ascending: false })
@@ -375,6 +378,31 @@ export default function Antrenor() {
                         <p className="mt-2 font-body text-sm text-white/70">
                           {e.notes}
                         </p>
+                      )}
+
+                      {/* Cancellation banner — visible to trainer when set */}
+                      {e.cancelled_at && (
+                        <div className="mt-3 rounded-xl border border-rose-300/35 bg-rose-300/[0.08] px-3 py-2">
+                          <div className="font-heading text-[10.5px] uppercase tracking-[0.18em] text-rose-300">
+                            Anulat
+                          </div>
+                          {e.cancelled_reason && (
+                            <p className="mt-0.5 font-body text-sm text-rose-200/85">
+                              {e.cancelled_reason}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Cancel / Reactivate — only on future events */}
+                      {new Date(e.starts_at) > new Date() && (
+                        <div className="mt-3 flex justify-end">
+                          <CancelEventButton
+                            eventId={e.id}
+                            cancelled={!!e.cancelled_at}
+                            onChanged={() => refresh()}
+                          />
+                        </div>
                       )}
 
                       {/* Recap controls — only for past training events.
@@ -648,6 +676,133 @@ const scheduleSchema = z.object({
 });
 type ScheduleValues = z.infer<typeof scheduleSchema>;
 
+// ─── Cancel / Reactivate event ──────────────────────────────────────────────
+
+function CancelEventButton({
+  eventId,
+  cancelled,
+  onChanged,
+}: {
+  eventId: string;
+  cancelled: boolean;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const cancel = async () => {
+    const reason = window.prompt(
+      "Motivul anulării (opțional — apare în notificarea părinților):",
+      ""
+    );
+    if (reason === null) return; // user cancelled the prompt
+    setBusy(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        toast.error("Sesiune expirată — autentifică-te din nou.");
+        return;
+      }
+      const r = await fetch("/api/schedule/cancel", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ eventId, reason }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean;
+        notified?: number;
+        error?: string;
+      };
+      if (!r.ok || !j.ok) {
+        toast.error("Nu am putut anula", {
+          description: j.error ?? `HTTP ${r.status}`,
+        });
+        return;
+      }
+      const sent = j.notified ?? 0;
+      toast.success(
+        sent > 0
+          ? `Anulat — notificat ${sent} ${sent === 1 ? "părinte" : "părinți"}`
+          : "Anulat"
+      );
+      onChanged();
+    } catch (err) {
+      toast.error("Eroare de rețea", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reactivate = async () => {
+    setBusy(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        toast.error("Sesiune expirată — autentifică-te din nou.");
+        return;
+      }
+      const r = await fetch("/api/schedule/cancel", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ eventId, uncancel: true }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!r.ok || !j.ok) {
+        toast.error("Nu am putut reactiva", {
+          description: j.error ?? `HTTP ${r.status}`,
+        });
+        return;
+      }
+      toast.success("Reactivat — părinții NU au fost re-notificați.");
+      onChanged();
+    } catch (err) {
+      toast.error("Eroare de rețea", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (cancelled) {
+    return (
+      <button
+        type="button"
+        onClick={reactivate}
+        disabled={busy}
+        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/35 bg-emerald-300/[0.08] px-3 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.16em] text-emerald-300 transition-colors hover:bg-emerald-300/15 disabled:opacity-60"
+      >
+        {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+        Reactivează
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={cancel}
+      disabled={busy}
+      className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/35 bg-rose-300/[0.05] px-3 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.16em] text-rose-200/85 transition-colors hover:bg-rose-300/15 hover:text-rose-200 disabled:opacity-60"
+    >
+      {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+      Anulează
+    </button>
+  );
+}
+
 function ScheduleForm({
   trainerId,
   onCreated,
@@ -817,14 +972,34 @@ function MessageForm({
 
   const onSubmit = handleSubmit(async v => {
     setServerError(null);
-    const { error } = await supabase.from("messages").insert({
-      trainer_id: trainerId,
-      audience: v.audience,
-      child_id: v.audience === "child" ? v.childId : null,
-      body_md: v.body,
+    // Route through /api/messages/send so the in-app insert (via DB trigger)
+    // and the Web Push fan-out happen together. Falls back to a clear
+    // server error message on failure.
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess.session?.access_token;
+    if (!token) {
+      setServerError("Sesiune expirată — autentifică-te din nou.");
+      return;
+    }
+    const r = await fetch("/api/messages/send", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        trainerId,
+        audience: v.audience,
+        childId: v.audience === "child" ? v.childId : null,
+        body: v.body,
+      }),
     });
-    if (error) {
-      setServerError(error.message);
+    const j = (await r.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+    };
+    if (!r.ok || !j.ok) {
+      setServerError(j.error ?? `HTTP ${r.status}`);
       return;
     }
     reset({ audience: v.audience, body: "", childId: v.childId });
