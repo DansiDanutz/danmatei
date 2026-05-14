@@ -16,12 +16,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Activity,
   CalendarDays,
+  ChevronRight,
   ImagePlus,
   Loader2,
   MessageSquare,
   Newspaper,
   Trophy,
   UserRound,
+  Users,
 } from "lucide-react";
 import MemberShell from "@/components/MemberShell";
 import PlayerStatsHeader from "@/components/player/PlayerStatsHeader";
@@ -126,6 +128,9 @@ export default function CopilProfil() {
   const [media, setMedia] = useState<MediaRow[]>([]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [participations, setParticipations] = useState<ParticipationRow[]>([]);
+  const [siblings, setSiblings] = useState<
+    { id: string; full_name: string }[]
+  >([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -218,6 +223,31 @@ export default function CopilProfil() {
     };
   }, [childId]);
 
+  // Fetch siblings only for the parent — used to render the kid-switcher above
+  // the player header when the parent has 2+ kids. RLS restricts the query to
+  // the current parent's own children, so this is cheap and safe.
+  useEffect(() => {
+    if (!child || !profile || profile.id !== child.parent_id) {
+      setSiblings([]);
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from("children")
+      .select("id, full_name")
+      .eq("parent_id", profile.id)
+      .order("created_at", { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setSiblings(
+          (data ?? []) as { id: string; full_name: string }[]
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [child, profile]);
+
   const age = useMemo(() => (child ? currentAge(child.dob) : null), [child]);
 
   const upcoming = useMemo(
@@ -278,6 +308,44 @@ export default function CopilProfil() {
 
   return (
     <MemberShell>
+      {/* Sibling switcher — visible only to parents with 2+ kids. Lets a
+       *  multi-child family hop between profiles without going back to /copii. */}
+      {isParent && siblings.length > 1 && (
+        <nav
+          aria-label="Copiii tăi"
+          className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/55 p-2.5"
+        >
+          <span className="inline-flex items-center gap-1.5 px-2 font-heading text-[10px] uppercase tracking-[0.2em] text-white/55">
+            <Users className="size-3.5 text-brand-cyan/80" />
+            Copiii tăi
+          </span>
+          {siblings.map(s => {
+            const isCurrent = s.id === child.id;
+            return (
+              <Link
+                key={s.id}
+                href={`/copil/${s.id}`}
+                aria-current={isCurrent ? "page" : undefined}
+                className={
+                  isCurrent
+                    ? "inline-flex items-center gap-1 rounded-full border border-brand-cyan/45 bg-brand-cyan/15 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan"
+                    : "inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/[0.03] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-white/75 transition-colors hover:border-brand-cyan/40 hover:text-white"
+                }
+              >
+                {s.full_name.split(" ")[0]}
+                {!isCurrent && <ChevronRight className="size-3" />}
+              </Link>
+            );
+          })}
+          <Link
+            href="/inregistrare/copil"
+            className="ml-auto inline-flex items-center gap-1 rounded-full border border-dashed border-white/12 bg-white/[0.02] px-3 py-1.5 font-heading text-[10px] uppercase tracking-[0.16em] text-white/55 transition-colors hover:border-brand-cyan/40 hover:text-brand-cyan"
+          >
+            + Adaugă copil
+          </Link>
+        </nav>
+      )}
+
       {/* Premium player header — stats + skill tree */}
       <PlayerStatsHeader
         child={child}
