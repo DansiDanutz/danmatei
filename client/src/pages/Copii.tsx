@@ -24,6 +24,7 @@ interface ChildRow {
   gender: string | null;
   age_group_label: string | null;
   status: "active" | "paused" | "left";
+  photo_path: string | null;
 }
 
 const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
@@ -55,7 +56,7 @@ export default function Copii() {
     void (async () => {
       const { data } = await supabase
         .from("children")
-        .select("id, full_name, dob, gender, age_group_label, status")
+        .select("id, full_name, dob, gender, age_group_label, status, photo_path")
         .order("created_at", { ascending: false });
       if (cancelled) return;
       clearTimeout(timeoutId);
@@ -217,11 +218,6 @@ export default function Copii() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {rows.map((c, i) => {
-          const initials = c.full_name
-            .split(" ")
-            .map(p => p[0])
-            .slice(0, 2)
-            .join("");
           return (
             <motion.article
               key={c.id}
@@ -231,9 +227,7 @@ export default function Copii() {
               className="group relative flex flex-col gap-3 rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/55 p-5 transition-colors hover:border-brand-cyan/40"
             >
               <div className="flex items-center gap-3">
-                <span className="grid size-12 place-items-center rounded-full border border-brand-cyan/30 bg-brand-cyan/10 font-heading text-base font-bold text-brand-cyan">
-                  {initials}
-                </span>
+                <ChildAvatar photoPath={c.photo_path} fullName={c.full_name} />
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate font-heading text-base font-semibold uppercase tracking-[0.04em] text-white">
                     {c.full_name}
@@ -263,5 +257,55 @@ export default function Copii() {
         })}
       </div>
     </PublicShell>
+  );
+}
+
+// Resolves a private storage path into a short-lived signed URL. Falls back to
+// initials when the child has no photo set yet.
+function ChildAvatar({
+  photoPath,
+  fullName,
+}: {
+  photoPath: string | null;
+  fullName: string;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!photoPath) {
+      setUrl(null);
+      return;
+    }
+    void supabase.storage
+      .from("fotbal-media-private")
+      .createSignedUrl(photoPath, 60 * 60)
+      .then(({ data }) => {
+        if (!cancelled) setUrl(data?.signedUrl ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [photoPath]);
+
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={fullName}
+        className="size-12 shrink-0 rounded-full border border-brand-cyan/30 object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  const initials = fullName
+    .split(" ")
+    .map(p => p[0])
+    .slice(0, 2)
+    .join("");
+  return (
+    <span className="grid size-12 shrink-0 place-items-center rounded-full border border-brand-cyan/30 bg-brand-cyan/10 font-heading text-base font-bold text-brand-cyan">
+      {initials}
+    </span>
   );
 }
