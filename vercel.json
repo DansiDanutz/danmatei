@@ -7,6 +7,12 @@
       "runtime": "@vercel/node@5.1.10"
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/daily",
+      "schedule": "0 5 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/index.html",
