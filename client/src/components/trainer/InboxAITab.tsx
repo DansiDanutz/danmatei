@@ -16,10 +16,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Calendar,
+  Check,
+  CheckCheck,
   Loader2,
   MessageCircle,
   Phone,
   PlayCircle,
+  RotateCcw,
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -85,12 +88,37 @@ function formatDuration(s: number | null | undefined): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
+type StatusFilter = "all" | "new" | "contacted" | "closed";
+
+const FILTER_LABELS: Record<StatusFilter, string> = {
+  all: "Toate",
+  new: "Noi",
+  contacted: "Contactate",
+  closed: "Închise",
+};
+
+const ACTIVE_STATUSES: ReadonlyArray<string> = [
+  "new",
+  "wa_sent",
+  "calling",
+  "transcribed",
+  "routed",
+];
+
+function bucketOf(status: string): "new" | "contacted" | "closed" {
+  if (status === "contacted") return "contacted";
+  if (status === "closed") return "closed";
+  return "new";
+}
+
 export default function InboxAITab({ trainerSlug }: Props) {
   const { session } = useAuth();
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<StatusFilter>("all");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const fetchLeads = useCallback(async () => {
     const token = session?.access_token;
@@ -153,6 +181,76 @@ export default function InboxAITab({ trainerSlug }: Props) {
     () => (leads ?? []).filter((l) => l.status !== "closed" && l.status !== "contacted").length,
     [leads],
   );
+
+  const counts = useMemo(() => {
+    const c = { all: 0, new: 0, contacted: 0, closed: 0 };
+    for (const l of leads ?? []) {
+      c.all += 1;
+      c[bucketOf(l.status)] += 1;
+    }
+    return c;
+  }, [leads]);
+
+  const visibleLeads = useMemo(() => {
+    const all = leads ?? [];
+    if (filter === "all") return all;
+    return all.filter((l) => bucketOf(l.status) === filter);
+  }, [leads, filter]);
+
+  const updateStatus = useCallback(
+    async (leadId: string, next: "routed" | "contacted" | "closed") => {
+      const token = session?.access_token;
+      if (!token) {
+        toast.error("Sesiune expirată — autentifică-te din nou.");
+        return;
+      }
+      setUpdatingId(leadId);
+      // Optimistic update
+      setLeads((prev) =>
+        prev ? prev.map((l) => (l.id === leadId ? { ...l, status: next } : l)) : prev,
+      );
+      try {
+        const r = await fetch("/api/lead/status", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ id: leadId, status: next }),
+        });
+        const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!r.ok || !j.ok) {
+          toast.error("Nu am putut actualiza", {
+            description: j.error ?? `HTTP ${r.status}`,
+          });
+          // Revert on failure
+          await fetchLeads();
+        } else {
+          const friendly =
+            next === "contacted"
+              ? "Marcat ca răspuns"
+              : next === "closed"
+                ? "Lead închis"
+                : "Repus în lucru";
+          toast.success(friendly);
+        }
+      } catch (err) {
+        toast.error("Eroare de rețea", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+        await fetchLeads();
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [session?.access_token, fetchLeads],
+  );
+
+  const waLinkFor = (lead: Lead): string => {
+    const phone = lead.parent_phone_e164.replace(/^\+/, "");
+    const opener = `Bună, ${lead.parent_name}! 👋 Sunt antrenorul ${lead.child_name} (${lead.child_age} ani) de la Academia Dan Matei. Am ascultat apelul tău și aș vrea să stabilim primul antrenament.`;
+    return `https://wa.me/${phone}?text=${encodeURIComponent(opener)}`;
+  };
 
   if (leads === null) {
     return (
@@ -229,9 +327,50 @@ export default function InboxAITab({ trainerSlug }: Props) {
         </div>
       )}
 
+      {/* Filter pills */}
+      {leads.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/8 p-1 self-start">
+          {(["all", "new", "contacted", "closed"] as StatusFilter[]).map((k) => {
+            const active = filter === k;
+            const count = counts[k];
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setFilter(k)}
+                aria-pressed={active}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-heading text-[11px] uppercase tracking-[0.16em] transition ${
+                  active
+                    ? "bg-brand-cyan text-[oklch(0.08_0.02_250)]"
+                    : "text-white/70 hover:bg-white/[0.06] hover:text-white"
+                }`}
+              >
+                {FILTER_LABELS[k]}
+                <span
+                  className={`min-w-[1.5em] text-center rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                    active
+                      ? "bg-[oklch(0.08_0.02_250)]/15 text-[oklch(0.08_0.02_250)]"
+                      : "bg-white/[0.06] text-white/60"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <ul className="space-y-3">
-        {leads.map((lead) => {
+        {visibleLeads.length === 0 && leads.length > 0 && (
+          <li className="rounded-2xl border border-white/8 bg-white/[0.02] p-6 text-center text-sm text-white/55">
+            Niciun lead în această categorie.
+          </li>
+        )}
+        {visibleLeads.map((lead) => {
           const open = openIds.has(lead.id);
+          const bucket = bucketOf(lead.status);
+          const isUpdating = updatingId === lead.id;
           const intentMeta = lead.latestCall?.intent
             ? INTENT_LABEL[lead.latestCall.intent] ?? { label: lead.latestCall.intent, tone: "muted" as const }
             : null;
@@ -320,6 +459,19 @@ export default function InboxAITab({ trainerSlug }: Props) {
                 </section>
               )}
 
+              {/* Inline audio player for the recording */}
+              {lead.latestCall?.recording_url && (
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2">
+                  <PlayCircle className="size-4 text-brand-cyan shrink-0" />
+                  <audio
+                    controls
+                    preload="none"
+                    src={lead.latestCall.recording_url}
+                    className="h-8 w-full"
+                  />
+                </div>
+              )}
+
               <footer className="mt-3 flex flex-wrap items-center gap-2">
                 <a
                   href={`tel:${lead.parent_phone_e164}`}
@@ -329,7 +481,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
                   Sună
                 </a>
                 <a
-                  href={`https://wa.me/${lead.parent_phone_e164.replace(/^\+/, "")}`}
+                  href={waLinkFor(lead)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.05] border border-white/12 text-white/85 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] hover:bg-white/[0.10]"
@@ -344,16 +496,51 @@ export default function InboxAITab({ trainerSlug }: Props) {
                   <Calendar className="size-3.5" />
                   Programează
                 </button>
-                {lead.latestCall?.recording_url && (
-                  <a
-                    href={lead.latestCall.recording_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 ml-auto text-xs text-brand-cyan hover:underline"
+
+                {/* Status workflow buttons */}
+                {bucket === "new" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => updateStatus(lead.id, "contacted")}
+                      disabled={isUpdating}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-gold/15 border border-brand-gold/35 text-brand-gold px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] hover:bg-brand-gold/25 disabled:opacity-50"
+                    >
+                      {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                      Răspuns dat
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateStatus(lead.id, "closed")}
+                      disabled={isUpdating}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.04] border border-white/12 text-white/65 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] hover:bg-white/[0.08] disabled:opacity-50"
+                    >
+                      <CheckCheck className="size-3.5" />
+                      Închide
+                    </button>
+                  </>
+                )}
+                {bucket === "contacted" && (
+                  <button
+                    type="button"
+                    onClick={() => updateStatus(lead.id, "closed")}
+                    disabled={isUpdating}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] hover:bg-brand-cyan/20 disabled:opacity-50"
                   >
-                    <PlayCircle className="size-4" />
-                    Ascultă apel
-                  </a>
+                    {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCheck className="size-3.5" />}
+                    Închide
+                  </button>
+                )}
+                {bucket === "closed" && (
+                  <button
+                    type="button"
+                    onClick={() => updateStatus(lead.id, "routed")}
+                    disabled={isUpdating}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.04] border border-white/12 text-white/65 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] hover:bg-white/[0.08] disabled:opacity-50"
+                  >
+                    {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
+                    Redeschide
+                  </button>
                 )}
                 <button
                   type="button"
