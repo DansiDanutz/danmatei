@@ -21,6 +21,7 @@ import {
   Inbox,
   Loader2,
   MessageSquare,
+  Sparkles,
   Swords,
   Send,
   UserCog,
@@ -32,6 +33,7 @@ import AtribuiriTab from "@/components/trainer/AtribuiriTab";
 import InboxAITab from "@/components/trainer/InboxAITab";
 import MatchesTab from "@/components/trainer/MatchesTab";
 import AttendanceTab from "@/components/trainer/AttendanceTab";
+import TrainingRecapDialog from "@/components/trainer/TrainingRecapDialog";
 import { Link } from "wouter";
 import MemberShell from "@/components/MemberShell";
 import { supabase } from "@/lib/supabase";
@@ -84,6 +86,8 @@ type ScheduleRow = {
   location: string | null;
   opponent: string | null;
   notes: string | null;
+  recap_md: string | null;
+  recap_published_at: string | null;
 };
 
 type MessageRow = {
@@ -102,6 +106,7 @@ export default function Antrenor() {
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recapEvent, setRecapEvent] = useState<ScheduleRow | null>(null);
   const [tab, setTab] = useState("grupa");
 
   const refresh = useMemo(
@@ -141,7 +146,9 @@ export default function Antrenor() {
           .order("full_name", { ascending: true }),
         supabase
           .from("schedule_events")
-          .select("id, kind, title, starts_at, location, opponent, notes")
+          .select(
+            "id, kind, title, starts_at, location, opponent, notes, recap_md, recap_published_at"
+          )
           .eq("trainer_id", trainerRow.id)
           .order("starts_at", { ascending: false })
           .limit(40),
@@ -209,7 +216,6 @@ export default function Antrenor() {
     );
   }
 
-  
   return (
     <MemberShell>
       {/* Header */}
@@ -249,7 +255,10 @@ export default function Antrenor() {
           <Trigger value="meciuri" icon={<Swords className="size-3.5" />}>
             Meciuri
           </Trigger>
-          <Trigger value="prezenta" icon={<ClipboardCheck className="size-3.5" />}>
+          <Trigger
+            value="prezenta"
+            icon={<ClipboardCheck className="size-3.5" />}
+          >
             Prezență
           </Trigger>
           <Trigger value="mesaje" icon={<MessageSquare className="size-3.5" />}>
@@ -318,7 +327,10 @@ export default function Antrenor() {
         <TabsContent value="program" className="mt-5">
           <LazyTab active={tab === "program"}>
             <div className="grid gap-5 lg:grid-cols-3">
-              <ScheduleForm trainerId={trainer.id} onCreated={() => refresh()} />
+              <ScheduleForm
+                trainerId={trainer.id}
+                onCreated={() => refresh()}
+              />
 
               <div className="lg:col-span-2">
                 {schedule.length === 0 && (
@@ -364,6 +376,35 @@ export default function Antrenor() {
                           {e.notes}
                         </p>
                       )}
+
+                      {/* Recap controls — only for past training events.
+                       *  Match recaps live in match_results; tournaments &
+                       *  others don't use the recap surface. */}
+                      {e.kind === "training" &&
+                        new Date(e.starts_at) <= new Date() && (
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/8 pt-3">
+                            {e.recap_published_at ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/30 bg-brand-cyan/[0.08] px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.16em] text-brand-cyan">
+                                <Sparkles className="size-3" />
+                                Recap trimis părinților
+                              </span>
+                            ) : (
+                              <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
+                                Niciun recap încă
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setRecapEvent(e)}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/20"
+                            >
+                              <Sparkles className="size-3.5" />
+                              {e.recap_published_at
+                                ? "Editează recap"
+                                : "Recap cu AI"}
+                            </button>
+                          </div>
+                        )}
                     </article>
                   ))}
                 </div>
@@ -375,17 +416,26 @@ export default function Antrenor() {
         {/* MECIURI */}
         <TabsContent value="meciuri" className="mt-5">
           <LazyTab active={tab === "meciuri"}>
-            <MatchesTab trainerId={trainer.id} children={children.map(c => ({ id: c.id, full_name: c.full_name }))} />
+            <MatchesTab
+              trainerId={trainer.id}
+              children={children.map(c => ({
+                id: c.id,
+                full_name: c.full_name,
+              }))}
+            />
           </LazyTab>
         </TabsContent>
 
         {/* PREZENTA */}
         <TabsContent value="prezenta" className="mt-5">
           <LazyTab active={tab === "prezenta"}>
-              <AttendanceTab
-                      trainerId={trainer.id}
-                      children={children.map(c => ({ id: c.id, full_name: c.full_name }))}
-                    />
+            <AttendanceTab
+              trainerId={trainer.id}
+              children={children.map(c => ({
+                id: c.id,
+                full_name: c.full_name,
+              }))}
+            />
           </LazyTab>
         </TabsContent>
 
@@ -403,32 +453,32 @@ export default function Antrenor() {
                   <Empty hint="Nu ai trimis încă mesaje." />
                 )}
                 <div className="grid gap-3">
-                {messages.map(m => (
-                  <article
-                    key={m.id}
-                    className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
-                  >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
-                        {m.audience === "group"
-                          ? "Grupa"
-                          : m.audience === "child"
-                            ? "Copil"
-                            : "Părinte"}
-                      </span>
-                      <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
-                        {new Date(m.created_at).toLocaleString("ro-RO", {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                          timeZone: "Europe/Bucharest",
-                        })}
-                      </span>
-                    </div>
-                    <p className="mt-2 whitespace-pre-line font-body text-sm leading-relaxed text-white/85">
-                      {m.body_md}
-                    </p>
-                  </article>
-                ))}
+                  {messages.map(m => (
+                    <article
+                      key={m.id}
+                      className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
+                          {m.audience === "group"
+                            ? "Grupa"
+                            : m.audience === "child"
+                              ? "Copil"
+                              : "Părinte"}
+                        </span>
+                        <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
+                          {new Date(m.created_at).toLocaleString("ro-RO", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                            timeZone: "Europe/Bucharest",
+                          })}
+                        </span>
+                      </div>
+                      <p className="mt-2 whitespace-pre-line font-body text-sm leading-relaxed text-white/85">
+                        {m.body_md}
+                      </p>
+                    </article>
+                  ))}
                 </div>
               </div>
             </div>
@@ -438,7 +488,10 @@ export default function Antrenor() {
         {/* PROFIL */}
         <TabsContent value="profil" className="mt-5">
           <LazyTab active={tab === "profil"}>
-            <TrainerProfileForm trainer={trainer} onSaved={t => setTrainer(t)} />
+            <TrainerProfileForm
+              trainer={trainer}
+              onSaved={t => setTrainer(t)}
+            />
           </LazyTab>
         </TabsContent>
 
@@ -463,13 +516,35 @@ export default function Antrenor() {
           </LazyTab>
         </TabsContent>
       </Tabs>
+
+      {recapEvent && (
+        <TrainingRecapDialog
+          open={!!recapEvent}
+          onOpenChange={open => {
+            if (!open) setRecapEvent(null);
+          }}
+          event={recapEvent}
+          onPublished={() => {
+            setRecapEvent(null);
+            void refresh();
+          }}
+        />
+      )}
     </MemberShell>
   );
 }
 
-function LazyTab({ active, children }: { active: boolean; children: ReactNode }) {
+function LazyTab({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: ReactNode;
+}) {
   const [hasMounted, setHasMounted] = useState(false);
-    useEffect(() => { if (active && !hasMounted) setHasMounted(true); }, [active, hasMounted]);
+  useEffect(() => {
+    if (active && !hasMounted) setHasMounted(true);
+  }, [active, hasMounted]);
   if (!hasMounted) return null;
   return <>{children}</>;
 }
@@ -621,12 +696,12 @@ function ScheduleForm({
         Eveniment nou
       </h2>
       <div className="flex gap-2">
-        {([
+        {[
           { k: "training" as const, label: "Antrenament" },
           { k: "match" as const, label: "Meci" },
           { k: "tournament" as const, label: "Turneu" },
           { k: "other" as const, label: "Altul" },
-        ]).map(({ k, label }) => (
+        ].map(({ k, label }) => (
           <label
             key={k}
             className={`flex-1 cursor-pointer rounded-xl border px-2 py-2 text-center font-heading text-[11px] uppercase tracking-[0.14em] transition-colors ${
@@ -765,11 +840,13 @@ function MessageForm({
         Mesaj nou
       </h2>
       <div className="flex gap-2">
-        {([
-          { key: "group", label: "Grupa" },
-          { key: "child", label: "Un copil" },
-          { key: "parent", label: "Părinte" },
-        ] as const).map((a) => (
+        {(
+          [
+            { key: "group", label: "Grupa" },
+            { key: "child", label: "Un copil" },
+            { key: "parent", label: "Părinte" },
+          ] as const
+        ).map(a => (
           <label
             key={a.key}
             className={`flex-1 cursor-pointer rounded-xl border px-3 py-2 text-center font-heading text-[11px] uppercase tracking-[0.16em] transition-colors ${
