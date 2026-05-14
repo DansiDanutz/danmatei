@@ -21,6 +21,7 @@ import {
   Loader2,
   MessageSquare,
   Newspaper,
+  Sparkles,
   Trophy,
   UserRound,
   Users,
@@ -63,6 +64,8 @@ type ScheduleRow = {
   location: string | null;
   opponent: string | null;
   notes: string | null;
+  recap_md: string | null;
+  recap_published_at: string | null;
 };
 
 type NewsRow = {
@@ -128,9 +131,9 @@ export default function CopilProfil() {
   const [media, setMedia] = useState<MediaRow[]>([]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [participations, setParticipations] = useState<ParticipationRow[]>([]);
-  const [siblings, setSiblings] = useState<
-    { id: string; full_name: string }[]
-  >([]);
+  const [siblings, setSiblings] = useState<{ id: string; full_name: string }[]>(
+    []
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -173,14 +176,16 @@ export default function CopilProfil() {
           ? supabase
               .from("schedule_events")
               .select(
-                "id, kind, title, starts_at, ends_at, location, opponent, notes"
+                "id, kind, title, starts_at, ends_at, location, opponent, notes, recap_md, recap_published_at"
               )
               .eq("trainer_id", childData.trainer_id)
               .order("starts_at", { ascending: true })
           : Promise.resolve({ data: [], error: null } as const),
         supabase
           .from("news")
-          .select("id, title, body_md, audience, group_trainer_id, published_at")
+          .select(
+            "id, title, body_md, audience, group_trainer_id, published_at"
+          )
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(30),
         supabase
@@ -202,7 +207,9 @@ export default function CopilProfil() {
                 "id, audience, body_md, created_at, trainer:trainers!messages_trainer_id_fkey(profile:profiles!trainers_profile_id_fkey(full_name))"
               )
               .eq("trainer_id", childData.trainer_id)
-              .or(`audience.eq.group,and(audience.in.(child,parent),child_id.eq.${childId})`)
+              .or(
+                `audience.eq.group,and(audience.in.(child,parent),child_id.eq.${childId})`
+              )
               .order("created_at", { ascending: false })
               .limit(50)
           : Promise.resolve({ data: [], error: null } as const),
@@ -239,9 +246,7 @@ export default function CopilProfil() {
       .order("created_at", { ascending: true })
       .then(({ data }) => {
         if (cancelled) return;
-        setSiblings(
-          (data ?? []) as { id: string; full_name: string }[]
-        );
+        setSiblings((data ?? []) as { id: string; full_name: string }[]);
       });
     return () => {
       cancelled = true;
@@ -261,7 +266,7 @@ export default function CopilProfil() {
 
   const childNews = useMemo(() => {
     if (!child) return [];
-    return news.filter((n) => {
+    return news.filter(n => {
       if (n.audience === "public") return true;
       if (n.audience === "members") return true; // user is auth'd (parent)
       if (n.audience === "group") {
@@ -425,7 +430,9 @@ export default function CopilProfil() {
               <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <Detail
                   label="Data nașterii"
-                  value={new Date(child.dob).toLocaleDateString("ro-RO", { timeZone: "Europe/Bucharest" })}
+                  value={new Date(child.dob).toLocaleDateString("ro-RO", {
+                    timeZone: "Europe/Bucharest",
+                  })}
                 />
                 <Detail
                   label="Vârstă"
@@ -697,6 +704,27 @@ const ScheduleRowCard = ({ row }: { row: ScheduleRow }) => (
     </p>
     {row.notes && (
       <p className="mt-2 font-body text-sm text-white/70">{row.notes}</p>
+    )}
+    {row.recap_md && (
+      <div className="mt-3 rounded-xl border border-brand-cyan/20 bg-brand-cyan/[0.05] p-3.5">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="inline-flex items-center gap-1.5 font-heading text-[10px] uppercase tracking-[0.2em] text-brand-cyan">
+            <Sparkles className="size-3" />
+            Recap antrenament
+          </span>
+          {row.recap_published_at && (
+            <span className="font-heading text-[10px] uppercase tracking-[0.16em] text-white/40">
+              {new Date(row.recap_published_at).toLocaleDateString("ro-RO", {
+                day: "2-digit",
+                month: "short",
+              })}
+            </span>
+          )}
+        </div>
+        <p className="whitespace-pre-line font-body text-[13.5px] leading-relaxed text-white/85">
+          {row.recap_md}
+        </p>
+      </div>
     )}
   </article>
 );
