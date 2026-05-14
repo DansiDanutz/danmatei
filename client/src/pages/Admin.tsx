@@ -24,6 +24,7 @@ import {
   Save,
   Send,
   Tag,
+  TrendingUp,
   Users,
   UserPlus,
   UsersRound,
@@ -37,6 +38,7 @@ import NewsManager from "@/components/admin/NewsManager";
 import ScheduleOversight from "@/components/admin/ScheduleOversight";
 import NotificationManager from "@/components/admin/NotificationManager";
 import AtRiskTab from "@/components/admin/AtRiskTab";
+import LeadAnalyticsTab from "@/components/admin/LeadAnalyticsTab";
 
 type TrainerRow = {
   id: string;
@@ -104,6 +106,9 @@ export default function Admin() {
           <Trigger value="risc" icon={<AlertTriangle className="size-3.5" />}>
             Risc
           </Trigger>
+          <Trigger value="funnel" icon={<TrendingUp className="size-3.5" />}>
+            Funnel
+          </Trigger>
           <Trigger value="stiri" icon={<Tag className="size-3.5" />}>
             Știri
           </Trigger>
@@ -136,6 +141,11 @@ export default function Admin() {
         <TabsContent value="risc" className="mt-5">
           <LazyTab active={tab === "risc"}>
             <AtRiskTab />
+          </LazyTab>
+        </TabsContent>
+        <TabsContent value="funnel" className="mt-5">
+          <LazyTab active={tab === "funnel"}>
+            <LeadAnalyticsTab />
           </LazyTab>
         </TabsContent>
         <TabsContent value="stiri" className="mt-5">
