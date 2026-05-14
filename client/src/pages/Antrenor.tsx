@@ -72,6 +72,7 @@ type Child = {
   dob: string;
   age_group_label: string | null;
   status: "active" | "paused" | "left";
+  photo_path: string | null;
   parent: { full_name: string; phone: string | null } | null;
 };
 
@@ -134,7 +135,7 @@ export default function Antrenor() {
         supabase
           .from("children")
           .select(
-            "id, full_name, dob, age_group_label, status, parent:profiles!children_parent_id_fkey(full_name, phone)"
+            "id, full_name, dob, age_group_label, status, photo_path, parent:profiles!children_parent_id_fkey(full_name, phone)"
           )
           .eq("trainer_id", trainerRow.id)
           .order("full_name", { ascending: true }),
@@ -279,14 +280,11 @@ export default function Antrenor() {
                   className="group relative rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-4 transition-all hover:-translate-y-0.5 hover:border-brand-cyan/40 hover:bg-[oklch(0.15_0.03_250)]/85"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="grid size-10 place-items-center rounded-full border border-brand-cyan/30 bg-gradient-to-br from-[oklch(0.55_0.13_230)] via-[oklch(0.32_0.10_230)] to-[oklch(0.18_0.06_240)] font-heading text-sm font-bold text-white">
-                      {c.full_name
-                        .split(" ")
-                        .map(p => p[0])
-                        .slice(0, 2)
-                        .join("")
-                        .toUpperCase()}
-                    </div>
+                    <RosterAvatar
+                      photoPath={c.photo_path}
+                      fullName={c.full_name}
+                    />
+
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate font-heading text-sm font-semibold uppercase tracking-[0.04em] text-white">
                         {c.full_name}
@@ -512,6 +510,56 @@ const Empty = ({ hint }: { hint: string }) => (
     {hint}
   </div>
 );
+
+// ─── Roster avatar — photo when present, initials otherwise ─────────────────
+
+function RosterAvatar({
+  photoPath,
+  fullName,
+}: {
+  photoPath: string | null;
+  fullName: string;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!photoPath) {
+      setUrl(null);
+      return;
+    }
+    void supabase.storage
+      .from("fotbal-media-private")
+      .createSignedUrl(photoPath, 60 * 60)
+      .then(({ data }) => {
+        if (!cancelled) setUrl(data?.signedUrl ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [photoPath]);
+
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={fullName}
+        className="size-10 shrink-0 rounded-full border border-brand-cyan/30 object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <div className="grid size-10 shrink-0 place-items-center rounded-full border border-brand-cyan/30 bg-gradient-to-br from-[oklch(0.55_0.13_230)] via-[oklch(0.32_0.10_230)] to-[oklch(0.18_0.06_240)] font-heading text-sm font-bold text-white">
+      {fullName
+        .split(" ")
+        .map(p => p[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()}
+    </div>
+  );
+}
 
 // ─── Schedule form ────────────────────────────────────────────────────────────
 
