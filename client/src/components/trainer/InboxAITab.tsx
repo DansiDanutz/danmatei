@@ -20,12 +20,16 @@ import {
   Calendar,
   Check,
   CheckCheck,
+  Clock,
+  EyeOff,
   Loader2,
   MessageCircle,
   Phone,
   PlayCircle,
   RotateCcw,
+  Search,
   Sparkles,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -53,6 +57,7 @@ type Lead = {
   status: string;
   assigned_trainer_id: string;
   cc_trainer_ids: string[];
+  snoozed_until: string | null;
   created_at: string;
   latestCall: LeadCallSummary | null;
 };
@@ -122,6 +127,10 @@ export default function InboxAITab({ trainerSlug }: Props) {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [showSnoozed, setShowSnoozed] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const browserNotif = useBrowserNotification();
 
   const fetchLeads = useCallback(async () => {
@@ -208,11 +217,44 @@ export default function InboxAITab({ trainerSlug }: Props) {
     return c;
   }, [leads]);
 
+  const nowIso = useMemo(() => new Date().toISOString(), [leads]);
+
+  // Active snoozes hide the lead from the inbox by default. Auto-expires
+  // when the timestamp passes — no scheduled job needed.
+  const isSnoozed = useCallback(
+    (l: Lead) => !!l.snoozed_until && l.snoozed_until > nowIso,
+    [nowIso]
+  );
+
+  const snoozedCount = useMemo(
+    () => (leads ?? []).filter(isSnoozed).length,
+    [leads, isSnoozed]
+  );
+
   const visibleLeads = useMemo(() => {
     const all = leads ?? [];
-    if (filter === "all") return all;
-    return all.filter((l) => bucketOf(l.status) === filter);
-  }, [leads, filter]);
+    let rows = showSnoozed ? all : all.filter(l => !isSnoozed(l));
+    if (filter !== "all") rows = rows.filter(l => bucketOf(l.status) === filter);
+    const q = search.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter(l => {
+        return (
+          l.parent_name.toLowerCase().includes(q) ||
+          l.child_name.toLowerCase().includes(q) ||
+          l.parent_phone_e164.toLowerCase().includes(q)
+        );
+      });
+    }
+    return rows;
+  }, [leads, filter, search, showSnoozed, isSnoozed]);
+
+  // Drop selections that are no longer visible (filter / search change).
+  useEffect(() => {
+    if (selected.size === 0) return;
+    const visibleIds = new Set(visibleLeads.map(l => l.id));
+    const next = new Set(Array.from(selected).filter(id => visibleIds.has(id)));
+    if (next.size !== selected.size) setSelected(next);
+  }, [visibleLeads, selected]);
 
   const updateStatus = useCallback(
     async (leadId: string, next: "routed" | "contacted" | "closed") => {
@@ -262,6 +304,126 @@ export default function InboxAITab({ trainerSlug }: Props) {
     },
     [session?.access_token, fetchLeads],
   );
+
+  const snoozeLead = useCallback(
+    async (leadId: string, hours: number | null) => {
+      const token = session?.access_token;
+      if (!token) return;
+      const next = hours === null ? null : new Date(Date.now() + hours * 3_600_000).toISOString();
+      setUpdatingId(leadId);
+      // Optimistic
+      setLeads(prev =>
+        prev
+          ? prev.map(l => (l.id === leadId ? { ...l, snoozed_until: next } : l))
+          : prev
+      );
+      try {
+        const r = await fetch("/api/lead/status", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ id: leadId, snoozedUntil: next }),
+        });
+        const j = (await r.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+        };
+        if (!r.ok || !j.ok) {
+          toast.error("Nu am putut amâna", {
+            description: j.error ?? `HTTP ${r.status}`,
+          });
+          await fetchLeads();
+        } else {
+          toast.success(
+            hours === null ? "Amânare anulată" : `Amânat ${hours}h`
+          );
+        }
+      } catch (err) {
+        toast.error("Eroare de rețea", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+        await fetchLeads();
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [session?.access_token, fetchLeads]
+  );
+
+  const bulkUpdate = useCallback(
+    async (next: "contacted" | "closed") => {
+      const token = session?.access_token;
+      if (!token || selected.size === 0) return;
+      const ids = Array.from(selected);
+      setBulkBusy(true);
+      // Optimistic
+      setLeads(prev =>
+        prev
+          ? prev.map(l => (selected.has(l.id) ? { ...l, status: next } : l))
+          : prev
+      );
+      try {
+        const r = await fetch("/api/lead/status", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ ids, status: next }),
+        });
+        const j = (await r.json().catch(() => ({}))) as {
+          ok?: boolean;
+          updated?: string[];
+          denied?: string[];
+          error?: string;
+        };
+        if (!r.ok || !j.ok) {
+          toast.error("Nu am putut actualiza în bloc", {
+            description: j.error ?? `HTTP ${r.status}`,
+          });
+          await fetchLeads();
+        } else {
+          const updated = j.updated?.length ?? ids.length;
+          const denied = j.denied?.length ?? 0;
+          const friendly = next === "contacted" ? "Marcate ca răspuns" : "Închise";
+          toast.success(`${updated} lead-uri · ${friendly}`, {
+            description:
+              denied > 0
+                ? `${denied} lead-uri au fost ignorate (fără permisiune).`
+                : undefined,
+          });
+          setSelected(new Set());
+        }
+      } catch (err) {
+        toast.error("Eroare de rețea", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+        await fetchLeads();
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [session?.access_token, selected, fetchLeads]
+  );
+
+  const toggleSelect = useCallback((leadId: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(leadId)) next.delete(leadId);
+      else next.add(leadId);
+      return next;
+    });
+  }, []);
+
+  const selectAllVisible = useCallback(() => {
+    setSelected(new Set(visibleLeads.map(l => l.id)));
+  }, [visibleLeads]);
+
+  const clearSelection = useCallback(() => {
+    setSelected(new Set());
+  }, []);
 
   const waLinkFor = (lead: Lead): string => {
     const phone = lead.parent_phone_e164.replace(/^\+/, "");
@@ -389,6 +551,93 @@ export default function InboxAITab({ trainerSlug }: Props) {
         </div>
       )}
 
+      {/* Search + snoozed toggle */}
+      {leads.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex flex-1 min-w-[200px] items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 transition focus-within:border-brand-cyan/40">
+            <Search className="size-3.5 text-white/45" />
+            <input
+              type="search"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Caută părinte, copil sau telefon"
+              aria-label="Caută în lead-uri"
+              className="flex-1 bg-transparent font-body text-sm text-white placeholder-white/40 outline-none"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Șterge căutarea"
+                className="text-white/45 transition-colors hover:text-white"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </label>
+          {snoozedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowSnoozed(s => !s)}
+              aria-pressed={showSnoozed}
+              className={
+                showSnoozed
+                  ? "inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/40 bg-brand-cyan/15 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.14em] text-brand-cyan"
+                  : "inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.03] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.14em] text-white/65 transition-colors hover:border-brand-cyan/30 hover:text-white"
+              }
+            >
+              <EyeOff className="size-3.5" />
+              {showSnoozed ? "Ascunde amânate" : `Arată amânate (${snoozedCount})`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Bulk action bar — visible only when 1+ leads selected */}
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-brand-cyan/35 bg-brand-cyan/[0.08] px-4 py-2.5">
+          <span className="font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan">
+            {selected.size} {selected.size === 1 ? "selectat" : "selectate"}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void bulkUpdate("contacted")}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/45 bg-brand-cyan/15 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/25 disabled:opacity-60"
+            >
+              {bulkBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+              Marchează ca răspuns
+            </button>
+            <button
+              type="button"
+              onClick={() => void bulkUpdate("closed")}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-white/80 transition-colors hover:border-rose-300/40 hover:text-rose-200 disabled:opacity-60"
+            >
+              {bulkBusy ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCheck className="size-3.5" />}
+              Închide
+            </button>
+            <button
+              type="button"
+              onClick={selectAllVisible}
+              disabled={bulkBusy || selected.size === visibleLeads.length}
+              className="font-heading text-[10.5px] uppercase tracking-[0.14em] text-white/55 hover:text-white disabled:opacity-50"
+            >
+              Tot vizibilul
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              disabled={bulkBusy}
+              className="font-heading text-[10.5px] uppercase tracking-[0.14em] text-white/55 hover:text-white disabled:opacity-50"
+            >
+              Renunță
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Filter pills */}
       {leads.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/8 p-1 self-start">
@@ -455,6 +704,13 @@ export default function InboxAITab({ trainerSlug }: Props) {
               }
             >
               <header className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={selected.has(lead.id)}
+                  onChange={() => toggleSelect(lead.id)}
+                  aria-label={`Selectează lead ${lead.parent_name}`}
+                  className="mt-3 size-4 shrink-0 cursor-pointer accent-brand-cyan"
+                />
                 <div className="size-10 rounded-full bg-brand-cyan/15 border border-brand-cyan/40 grid place-items-center font-heading text-xs text-brand-cyan">
                   {lead.parent_name
                     .split(/\s+/)
@@ -477,6 +733,18 @@ export default function InboxAITab({ trainerSlug }: Props) {
                     · {lead.child_age} ani
                     {lead.child_position ? ` · ${lead.child_position}` : ""}
                   </div>
+                  {isSnoozed(lead) && lead.snoozed_until && (
+                    <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/[0.03] px-2 py-0.5 font-heading text-[9.5px] uppercase tracking-[0.16em] text-white/55">
+                      <Clock className="size-3" />
+                      Amânat până{" "}
+                      {new Date(lead.snoozed_until).toLocaleString("ro-RO", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  )}
                 </div>
               </header>
 
@@ -602,6 +870,30 @@ export default function InboxAITab({ trainerSlug }: Props) {
                   >
                     {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
                     Redeschide
+                  </button>
+                )}
+                {/* Snooze — hides the lead from the inbox until the timestamp
+                 *  passes. Toggles to "Anulează amânare" when already snoozed. */}
+                {isSnoozed(lead) ? (
+                  <button
+                    type="button"
+                    onClick={() => snoozeLead(lead.id, null)}
+                    disabled={isUpdating}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-brand-cyan/30 bg-brand-cyan/[0.08] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/15 disabled:opacity-50"
+                  >
+                    {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <Clock className="size-3.5" />}
+                    Anulează amânare
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => snoozeLead(lead.id, 24)}
+                    disabled={isUpdating}
+                    aria-label="Amână 24 de ore"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-white/[0.04] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 transition-colors hover:border-brand-cyan/30 hover:text-white disabled:opacity-50"
+                  >
+                    {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <Clock className="size-3.5" />}
+                    Amână 24h
                   </button>
                 )}
                 <button
