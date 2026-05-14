@@ -91,6 +91,76 @@ function avg(skills: Pick<Skills, SkillKey>): number {
   return sum / SKILL_ORDER.length;
 }
 
+// Streak milestones — celebrated with a confetti burst the first time the
+// child's current_streak crosses each threshold. Per-child localStorage
+// remembers the last-seen value so we don't refire on every page visit.
+const STREAK_MILESTONES = [5, 10, 20, 50] as const;
+
+type StreakTier = {
+  /** Romanian label shown under the streak number. */
+  label: string;
+  /** Tailwind color class for the streak number. */
+  numberClass: string;
+  /** Tailwind border + bg classes for the badge pill. */
+  pillClass: string;
+};
+
+function streakTier(streak: number): StreakTier {
+  if (streak >= 50) {
+    return {
+      label: "Legendă · 50+",
+      numberClass: "text-[#e879f9]",
+      pillClass: "border-[#e879f9]/45 bg-[#e879f9]/[0.10] text-[#e879f9]",
+    };
+  }
+  if (streak >= 20) {
+    return {
+      label: "Aur · 20+",
+      numberClass: "text-brand-gold",
+      pillClass: "border-brand-gold/45 bg-brand-gold/[0.12] text-brand-gold",
+    };
+  }
+  if (streak >= 10) {
+    return {
+      label: "Argint · 10+",
+      numberClass: "text-slate-200",
+      pillClass: "border-slate-200/40 bg-slate-200/[0.10] text-slate-200",
+    };
+  }
+  if (streak >= 5) {
+    return {
+      label: "Bronz · 5+",
+      numberClass: "text-amber-300",
+      pillClass: "border-amber-300/45 bg-amber-300/[0.10] text-amber-300",
+    };
+  }
+  return {
+    label: streak > 0 ? "În creștere" : "Fără streak",
+    numberClass: "text-brand-cyan",
+    pillClass: "border-white/15 bg-white/[0.04] text-white/55",
+  };
+}
+
+/**
+ * Returns the highest milestone the kid has just crossed since `lastSeen`,
+ * or null. Examples:
+ *   lastSeen=4, current=5  → 5
+ *   lastSeen=4, current=12 → 10  (skipped 5 only if both 5 and 10 were
+ *                                 crossed between writes — rare, fire one)
+ *   lastSeen=10, current=12 → null
+ *   lastSeen=10, current=10 → null
+ */
+function justCrossedMilestone(
+  current: number,
+  lastSeen: number
+): number | null {
+  let hit: number | null = null;
+  for (const m of STREAK_MILESTONES) {
+    if (current >= m && lastSeen < m) hit = m;
+  }
+  return hit;
+}
+
 function StarBar({ value }: { value: number }) {
   const rounded = Math.round(value * 2) / 2;
   return (
@@ -246,9 +316,12 @@ export default function PlayerStatsHeader({
   const skillView = skills ?? { ...DEFAULT_SKILLS, child_id: child.id, notes: null, updated_at: "" };
   const skillAvg = avg(skillView);
 
-  // Fire confetti on birthdays. Re-fire whenever the kid's birthday status
-  // changes (parent navigates between siblings, midnight rolls).
+  // Confetti fires for two distinct reasons: birthdays (every visit on the
+  // day) and streak milestones (once when crossed, remembered in
+  // localStorage). One mount, two triggers.
   const [confettiToggle, setConfettiToggle] = useState(false);
+  const [milestoneHit, setMilestoneHit] = useState<number | null>(null);
+
   useEffect(() => {
     if (isBirthday) {
       setConfettiToggle(false);
@@ -257,6 +330,32 @@ export default function PlayerStatsHeader({
     }
     setConfettiToggle(false);
   }, [isBirthday, child.id]);
+
+  // Streak milestone detection. Runs after stats load.
+  useEffect(() => {
+    if (!stats) return;
+    if (typeof window === "undefined") return;
+    const key = `danmatei_streak_${child.id}`;
+    const raw = window.localStorage.getItem(key);
+    const lastSeen = raw ? Number(raw) : 0;
+    const hit = justCrossedMilestone(stats.current_streak, lastSeen);
+    if (hit !== null) {
+      setMilestoneHit(hit);
+      // Re-fire confetti even if birthday already lit it — toggle off then on.
+      setConfettiToggle(false);
+      const t = setTimeout(() => setConfettiToggle(true), 80);
+      // Auto-clear the milestone tag so the celebratory ring fades.
+      const clearTag = setTimeout(() => setMilestoneHit(null), 6000);
+      window.localStorage.setItem(key, String(stats.current_streak));
+      return () => {
+        clearTimeout(t);
+        clearTimeout(clearTag);
+      };
+    }
+    // Always sync localStorage to current so a streak reset doesn't get
+    // celebrated again later.
+    window.localStorage.setItem(key, String(stats.current_streak));
+  }, [stats, child.id]);
 
   const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -393,12 +492,10 @@ export default function PlayerStatsHeader({
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.06]">
-        <Stat
-          label="Streak"
-          value={stats ? `${stats.current_streak}` : "—"}
-          icon={<Flame className="size-3.5" />}
-          tone={stats && stats.current_streak >= 5 ? "gold" : "cyan"}
-          sub={stats?.current_streak ? "antrenamente la rând" : "fără antrenamente recente"}
+        {/* Streak — bespoke tier badge instead of the generic Stat layout */}
+        <StreakCard
+          streak={stats?.current_streak ?? null}
+          milestoneHit={milestoneHit}
         />
         <Stat
           label="Prezență"
@@ -499,6 +596,60 @@ function Stat({
         {value}
       </div>
       {sub && (
+        <div className="mt-1 text-[10.5px] text-white/55">{sub}</div>
+      )}
+    </div>
+  );
+}
+
+// Streak card replaces the generic Stat for the streak slot. Shows a tier
+// pill (Bronz / Argint / Aur / Legendă) and gets a temporary cyan glow ring
+// when the kid just crossed a milestone.
+function StreakCard({
+  streak,
+  milestoneHit,
+}: {
+  streak: number | null;
+  milestoneHit: number | null;
+}) {
+  const value = streak ?? 0;
+  const tier = streakTier(value);
+  const sub = streak === null
+    ? "—"
+    : streak > 0
+      ? "antrenamente la rând"
+      : "fără antrenamente recente";
+
+  return (
+    <div
+      className={`relative bg-[oklch(0.10_0.02_250)] p-3 sm:p-4 transition-shadow ${
+        milestoneHit !== null
+          ? "shadow-[inset_0_0_0_2px_oklch(0.78_0.13_210/0.55)]"
+          : ""
+      }`}
+    >
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-white/55 font-bold">
+        <Flame className="size-3.5" />
+        Streak
+      </div>
+      <div className="mt-2 flex items-baseline gap-2">
+        <div
+          className={`font-heading text-3xl leading-none tabular-nums ${tier.numberClass}`}
+        >
+          {streak === null ? "—" : streak}
+        </div>
+        <span
+          className={`rounded-full border px-1.5 py-0.5 font-heading text-[9px] uppercase tracking-[0.18em] ${tier.pillClass}`}
+        >
+          {tier.label}
+        </span>
+      </div>
+      {milestoneHit !== null && (
+        <div className="mt-1 font-heading text-[10.5px] uppercase tracking-[0.18em] text-brand-cyan">
+          ⚡ Pragul {milestoneHit} atins!
+        </div>
+      )}
+      {milestoneHit === null && (
         <div className="mt-1 text-[10.5px] text-white/55">{sub}</div>
       )}
     </div>
