@@ -9,12 +9,14 @@ import {
   Loader2,
   Newspaper,
   Save,
+  Sparkles,
   Trash2,
   Pencil,
   X,
   ImagePlus,
   Tag,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -57,6 +59,8 @@ export default function NewsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const [aiDisabled, setAiDisabled] = useState(false);
 
   const {
     register,
@@ -108,6 +112,62 @@ export default function NewsManager() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const draftWeekly = async () => {
+    setDrafting(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        toast.error("Sesiune expirată — autentifică-te din nou.");
+        return;
+      }
+      const r = await fetch("/api/news/draft-weekly", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean;
+        title?: string;
+        body_md?: string;
+        sources?: { recaps: number; matches: number; newFamilies: number };
+        error?: string;
+      };
+      if (r.status === 503 && j.error === "ai_not_configured") {
+        setAiDisabled(true);
+        toast.info("AI-ul nu e configurat", {
+          description:
+            "Adaugă OPENAI_API_KEY pe Vercel pentru a folosi draft-ul automat.",
+        });
+        return;
+      }
+      if (!r.ok || !j.ok || !j.title || !j.body_md) {
+        toast.error("Nu am putut genera articolul", {
+          description: j.error ?? `HTTP ${r.status}`,
+        });
+        return;
+      }
+      // Pre-fill the form. Trainer reviews + clicks Save like normal.
+      setValue("title", j.title, { shouldDirty: true });
+      setValue("body_md", j.body_md, { shouldDirty: true });
+      setEditingId(null); // ensure we're in "create new" mode
+      const src = j.sources;
+      toast.success("Draft generat", {
+        description: src
+          ? `Bazat pe ${src.recaps} antrenamente, ${src.matches} meciuri, ${src.newFamilies} familii noi.`
+          : "Verifică textul și apasă Salvează.",
+      });
+    } catch (err) {
+      toast.error("Eroare de rețea", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -243,6 +303,25 @@ export default function NewsManager() {
           error={errors.title?.message}
           placeholder="Titlu știre"
         />
+
+        {/* AI weekly draft — pre-fills title + body_md based on the last 7
+         *  days of training recaps, match results, and new families. Hidden
+         *  once we know AI is off (503) so owners don't keep clicking. */}
+        {!aiDisabled && !editingId && (
+          <button
+            type="button"
+            onClick={() => void draftWeekly()}
+            disabled={drafting}
+            className="inline-flex items-center gap-2 self-start rounded-full border border-brand-cyan/40 bg-brand-cyan/[0.08] px-4 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/15 disabled:opacity-60"
+          >
+            {drafting ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            Draft săptămânal cu AI
+          </button>
+        )}
 
         <div>
           <label
