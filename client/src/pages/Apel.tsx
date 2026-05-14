@@ -27,6 +27,7 @@ import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import StepIndicator from "@/components/leads/StepIndicator";
 import MicTest from "@/components/MicTest";
+import SpeakerTest from "@/components/SpeakerTest";
 
 type SessionData = {
   ok: true;
@@ -155,6 +156,12 @@ function CallShell({
   tokenPreview: string;
   onStart: () => void;
 }) {
+  // Pre-flight checklist — both must be true before the start button enables.
+  // We don't auto-block: the test components also surface failure UIs the
+  // parent can act on (browser permissions, volume, output device).
+  const [micOk, setMicOk] = useState(false);
+  const [speakerOk, setSpeakerOk] = useState(false);
+  const ready = micOk && speakerOk;
   return (
     <>
       {/* Step indicator — shows the parent they're on the final step of the
@@ -188,7 +195,12 @@ function CallShell({
           (error ?? "Ceva nu a funcționat. Te rugăm să încerci din nou.")}
       </p>
 
-      {phase === "idle" && <MicTest />}
+      {phase === "idle" && (
+        <>
+          <MicTest onResult={setMicOk} />
+          <SpeakerTest onResult={setSpeakerOk} />
+        </>
+      )}
 
       {phase === "idle" && (
         <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-400/40 font-heading text-[11px] uppercase tracking-[0.18em] text-emerald-300">
@@ -198,13 +210,35 @@ function CallShell({
       )}
 
       {(phase === "idle" || phase === "error") && (
-        <button
-          type="button"
-          onClick={onStart}
-          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-emerald-500 text-[oklch(0.15_0.05_150)] font-heading uppercase tracking-[0.16em] text-sm font-semibold shadow-[0_18px_50px_-18px_rgba(52,211,153,0.65)] hover:bg-emerald-400 transition"
-        >
-          🎙️ {phase === "error" ? "Reia apelul" : "Începe apelul"} →
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={phase === "idle" && !ready}
+            aria-disabled={phase === "idle" && !ready}
+            title={
+              phase === "idle" && !ready
+                ? "Testează microfonul și sunetul mai întâi"
+                : undefined
+            }
+            className={
+              phase === "idle" && !ready
+                ? "inline-flex w-full sm:w-auto items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-white/[0.04] border border-white/10 text-white/40 font-heading uppercase tracking-[0.16em] text-sm font-semibold cursor-not-allowed"
+                : "inline-flex w-full sm:w-auto items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-emerald-500 text-[oklch(0.15_0.05_150)] font-heading uppercase tracking-[0.16em] text-sm font-semibold shadow-[0_18px_50px_-18px_rgba(52,211,153,0.65)] hover:bg-emerald-400 transition"
+            }
+          >
+            🎙️ {phase === "error" ? "Reia apelul" : "Începe apelul"} →
+          </button>
+          {phase === "idle" && !ready && (
+            <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-white/45">
+              {!micOk && !speakerOk
+                ? "Testează microfonul și sunetul mai sus"
+                : !micOk
+                  ? "Testează microfonul mai sus"
+                  : "Testează sunetul mai sus"}
+            </p>
+          )}
+        </>
       )}
 
       {phase === "ended" && (

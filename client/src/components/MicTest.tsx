@@ -21,13 +21,22 @@ import { Mic, MicOff, CheckCircle2 } from "lucide-react";
 
 type State = "idle" | "requesting" | "active" | "denied";
 
-export default function MicTest() {
+type Props = {
+  /** Fires once when the mic test passes (real voice detected) or fails
+   *  (permission denied / no mic). Lets a parent screen ungate a "Start
+   *  call" button. */
+  onResult?: (heard: boolean) => void;
+};
+
+export default function MicTest({ onResult }: Props = {}) {
   const [state, setState] = useState<State>("idle");
   // 0..1 RMS level — drives both the bar width and the heard-you confirmation.
   const [level, setLevel] = useState(0);
   // Latches true once we've seen real voice (> threshold) for one frame —
   // gives the parent a clear "yes, we heard you" signal.
   const [heard, setHeard] = useState(false);
+  // Avoid firing onResult repeatedly while the bar wiggles.
+  const [reported, setReported] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
@@ -83,7 +92,13 @@ export default function MicTest() {
         const rms = Math.sqrt(sum / buf.length);
         const next = Math.min(1, rms * 3.2);
         setLevel(next);
-        if (next > 0.08) setHeard(true);
+        if (next > 0.08) {
+          setHeard(true);
+          if (!reported) {
+            setReported(true);
+            onResult?.(true);
+          }
+        }
         rafRef.current = requestAnimationFrame(loop);
       };
       rafRef.current = requestAnimationFrame(loop);
@@ -95,6 +110,7 @@ export default function MicTest() {
       // same — "your browser said no".
       console.warn("[mic-test] getUserMedia failed", err);
       setState("denied");
+      onResult?.(false);
     }
   };
 
