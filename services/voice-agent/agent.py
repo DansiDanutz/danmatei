@@ -314,6 +314,39 @@ async def entrypoint(ctx: JobContext) -> None:
         or ""
     )
 
+    # LLM provider routing — keep the openai-plugin (it's just an OpenAI-compat
+    # client under the hood) but allow swapping the endpoint + key + model via
+    # env so we can use any provider on the academy's flat-fee/free stack
+    # instead of pay-per-token OpenAI. Today the default points at Google
+    # Gemini's OpenAI-compat endpoint, which is free at our scale and fast
+    # enough for voice. Override via LIVEKIT_LLM_BASE_URL +
+    # LIVEKIT_LLM_API_KEY + LIVEKIT_LLM_MODEL on Fly.
+    llm_base_url = os.environ.get(
+        "LIVEKIT_LLM_BASE_URL",
+        "https://generativelanguage.googleapis.com/v1beta/openai/",
+    )
+    llm_api_key = (
+        os.environ.get("LIVEKIT_LLM_API_KEY")
+        or os.environ.get("GEMINI_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+        or ""
+    )
+    # If LIVEKIT_LLM_MODEL didn't have a provider prefix (the .split('/')[-1]
+    # above stripped it) but the user set a Gemini default via base URL,
+    # nudge to a sensible Gemini model name so a stale "gpt-4o-mini" default
+    # doesn't 404 against Gemini's endpoint.
+    if (
+        "generativelanguage.googleapis.com" in llm_base_url
+        and llm_model_name.startswith("gpt-")
+    ):
+        llm_model_name = "gemini-2.0-flash"
+    log.info(
+        "llm provider: base_url=%s model=%s key=%s",
+        llm_base_url,
+        llm_model_name,
+        "set" if llm_api_key else "MISSING",
+    )
+
     # Multilingual turn detector needs ~50MB of HuggingFace model files. If
     # the build didn't pre-download them, instantiation throws at runtime —
     # fall back to plain VAD-based detection so the call still works.
@@ -330,7 +363,11 @@ async def entrypoint(ctx: JobContext) -> None:
     session = AgentSession(
         vad=ctx.proc.userdata["vad"],
         stt=deepgram.STT(model=stt_model_name, language=stt_lang),
-        llm=openai.LLM(model=llm_model_name),
+        llm=openai.LLM(
+            model=llm_model_name,
+            base_url=llm_base_url,
+            api_key=llm_api_key,
+        ),
         tts=elevenlabs.TTS(
             model=tts_model_name,
             voice_id=tts_voice,
