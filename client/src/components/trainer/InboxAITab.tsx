@@ -131,6 +131,11 @@ export default function InboxAITab({ trainerSlug }: Props) {
   const [showSnoozed, setShowSnoozed] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  // AI reply drafts: per-lead text + busy flag + "AI not configured" sticky
+  // flag so we don't keep retrying after a 503.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [draftBusy, setDraftBusy] = useState<string | null>(null);
+  const [aiDisabled, setAiDisabled] = useState(false);
   const browserNotif = useBrowserNotification();
 
   const fetchLeads = useCallback(async () => {
@@ -424,6 +429,54 @@ export default function InboxAITab({ trainerSlug }: Props) {
   const clearSelection = useCallback(() => {
     setSelected(new Set());
   }, []);
+
+  const requestDraft = useCallback(
+    async (leadId: string) => {
+      const token = session?.access_token;
+      if (!token) {
+        toast.error("Sesiune expirată — autentifică-te din nou.");
+        return;
+      }
+      setDraftBusy(leadId);
+      try {
+        const r = await fetch("/api/lead/reply-draft", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ leadId }),
+        });
+        const j = (await r.json().catch(() => ({}))) as {
+          ok?: boolean;
+          reply?: string;
+          error?: string;
+        };
+        if (r.status === 503 && j.error === "ai_not_configured") {
+          setAiDisabled(true);
+          toast.info("AI-ul nu e configurat", {
+            description:
+              "Folosește mesajul implicit sau scrie unul propriu pe WhatsApp.",
+          });
+          return;
+        }
+        if (!r.ok || !j.ok || !j.reply) {
+          toast.error("Nu am putut genera mesajul", {
+            description: j.error ?? `HTTP ${r.status}`,
+          });
+          return;
+        }
+        setDrafts(prev => ({ ...prev, [leadId]: j.reply! }));
+      } catch (err) {
+        toast.error("Eroare de rețea", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+      } finally {
+        setDraftBusy(null);
+      }
+    },
+    [session?.access_token]
+  );
 
   const waLinkFor = (lead: Lead): string => {
     const phone = lead.parent_phone_e164.replace(/^\+/, "");
@@ -819,6 +872,23 @@ export default function InboxAITab({ trainerSlug }: Props) {
                   <MessageCircle className="size-3.5" />
                   WhatsApp
                 </a>
+                {/* AI reply draft — only meaningful when there's a call to
+                 *  ground the message in. Hidden when AI is known-disabled. */}
+                {lead.latestCall && !aiDisabled && (
+                  <button
+                    type="button"
+                    onClick={() => requestDraft(lead.id)}
+                    disabled={draftBusy === lead.id}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-brand-cyan/35 bg-brand-cyan/[0.08] text-brand-cyan px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] transition-colors hover:bg-brand-cyan/15 disabled:opacity-60"
+                  >
+                    {draftBusy === lead.id ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-3.5" />
+                    )}
+                    Sugestie AI
+                  </button>
+                )}
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.05] border border-white/12 text-white/85 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] hover:bg-white/[0.10]"
@@ -911,6 +981,67 @@ export default function InboxAITab({ trainerSlug }: Props) {
                   {open ? "Ascunde detalii" : "Detalii"}
                 </button>
               </footer>
+
+              {/* AI draft editor — appears once a draft has been generated.
+               *  Editable inline, then "Trimite WhatsApp" opens wa.me with
+               *  the trainer's final text. */}
+              {drafts[lead.id] !== undefined && (
+                <div className="mt-3 rounded-xl border border-brand-cyan/30 bg-brand-cyan/[0.05] p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 font-heading text-[10px] uppercase tracking-[0.2em] text-brand-cyan">
+                      <Sparkles className="size-3" />
+                      Mesaj propus de AI · editează și trimite
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => requestDraft(lead.id)}
+                        disabled={draftBusy === lead.id}
+                        className="inline-flex items-center gap-1 font-heading text-[10px] uppercase tracking-[0.16em] text-white/55 hover:text-white disabled:opacity-50"
+                      >
+                        {draftBusy === lead.id ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <RotateCcw className="size-3" />
+                        )}
+                        Regenerează
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDrafts(prev => {
+                            const next = { ...prev };
+                            delete next[lead.id];
+                            return next;
+                          })
+                        }
+                        className="font-heading text-[10px] uppercase tracking-[0.16em] text-white/55 hover:text-white"
+                      >
+                        Renunță
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    value={drafts[lead.id]}
+                    onChange={e =>
+                      setDrafts(prev => ({ ...prev, [lead.id]: e.target.value }))
+                    }
+                    rows={5}
+                    className="w-full rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)]/50 px-3 py-2 font-body text-sm text-white outline-none focus:border-brand-cyan/45"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <a
+                      href={`https://wa.me/${lead.parent_phone_e164.replace(/^\+/, "")}?text=${encodeURIComponent(drafts[lead.id])}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan px-4 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-[oklch(0.08_0.02_250)] transition-opacity hover:opacity-90"
+                    >
+                      <MessageCircle className="size-3.5" />
+                      Trimite pe WhatsApp
+                    </a>
+                  </div>
+                </div>
+              )}
 
               {open && (
                 <pre className="mt-3 rounded-xl bg-black/40 border border-white/8 p-3 text-[11px] text-white/65 whitespace-pre-wrap font-mono overflow-x-auto">
