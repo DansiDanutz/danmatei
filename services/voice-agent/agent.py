@@ -304,6 +304,16 @@ async def entrypoint(ctx: JobContext) -> None:
     ).split("/")[-1]
     tts_voice = os.environ.get("LIVEKIT_TTS_VOICE", "hpp4J3VqNfWAUOO0d1Us")  # Bella premade
 
+    # The livekit-plugins-elevenlabs package only auto-reads ELEVEN_API_KEY,
+    # not ELEVENLABS_API_KEY (the name we use everywhere else for consistency
+    # with the Vercel side). Pass the key explicitly so either env name works
+    # and the agent doesn't crash on dispatch when only one is set.
+    elevenlabs_key = (
+        os.environ.get("ELEVENLABS_API_KEY")
+        or os.environ.get("ELEVEN_API_KEY")
+        or ""
+    )
+
     # Multilingual turn detector needs ~50MB of HuggingFace model files. If
     # the build didn't pre-download them, instantiation throws at runtime —
     # fall back to plain VAD-based detection so the call still works.
@@ -321,7 +331,11 @@ async def entrypoint(ctx: JobContext) -> None:
         vad=ctx.proc.userdata["vad"],
         stt=deepgram.STT(model=stt_model_name, language=stt_lang),
         llm=openai.LLM(model=llm_model_name),
-        tts=elevenlabs.TTS(model=tts_model_name, voice_id=tts_voice),
+        tts=elevenlabs.TTS(
+            model=tts_model_name,
+            voice_id=tts_voice,
+            api_key=elevenlabs_key,
+        ),
         turn_detection=turn_detector,
     )
 
