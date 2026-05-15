@@ -142,7 +142,6 @@ export default function Apel() {
           <CallShell
             phase={phase}
             error={error}
-            tokenPreview={token.slice(0, 12)}
             onStart={start}
           />
         )}
@@ -154,12 +153,10 @@ export default function Apel() {
 function CallShell({
   phase,
   error,
-  tokenPreview,
   onStart,
 }: {
   phase: Phase;
   error: string | null;
-  tokenPreview: string;
   onStart: () => void;
 }) {
   // Pre-flight checklist — both must be true before the start button enables.
@@ -192,7 +189,7 @@ function CallShell({
 
       <p className="text-white/70 leading-relaxed mb-4">
         {phase === "idle" &&
-          "Apasă butonul verde de mai jos pentru a porni apelul cu Andra. Browserul îți va cere permisiunea de microfon — apasă „Permite” ca să te poată auzi."}
+          "Testează mai jos microfonul și sunetul, apoi apasă butonul pentru a vorbi cu Andra. Browserul îți va cere permisiunea de microfon — apasă „Permite”."}
         {phase === "asking_mic" && "Acceptă accesul la microfon din browser..."}
         {phase === "starting" && "Se conectează la consilierul Andra..."}
         {phase === "ended" &&
@@ -256,9 +253,6 @@ function CallShell({
         </a>
       )}
 
-      <p className="mt-8 text-[10px] uppercase tracking-[0.22em] text-white/35">
-        Token · {tokenPreview}…
-      </p>
     </>
   );
 }
