@@ -164,8 +164,11 @@ function justCrossedMilestone(
 function StarBar({ value }: { value: number }) {
   const rounded = Math.round(value * 2) / 2;
   return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`${rounded}/5`}>
-      {[1, 2, 3, 4, 5].map((i) => {
+    <span
+      className="inline-flex items-center gap-0.5"
+      aria-label={`${rounded}/5`}
+    >
+      {[1, 2, 3, 4, 5].map(i => {
         const filled = rounded >= i;
         const half = !filled && rounded + 0.5 >= i;
         return (
@@ -272,14 +275,14 @@ export default function PlayerStatsHeader({
       supabase
         .from("v_child_stats")
         .select(
-          "child_id, attendance_total, attendance_present, attendance_percent, current_streak, matches_played, goals_total, assists_total",
+          "child_id, attendance_total, attendance_present, attendance_percent, current_streak, matches_played, goals_total, assists_total"
         )
         .eq("child_id", child.id)
         .maybeSingle(),
       supabase
         .from("player_skills")
         .select(
-          "child_id, pasare, conducere, tehnica, cooperare, disciplina, notes, updated_at",
+          "child_id, pasare, conducere, tehnica, cooperare, disciplina, notes, updated_at"
         )
         .eq("child_id", child.id)
         .maybeSingle(),
@@ -313,7 +316,12 @@ export default function PlayerStatsHeader({
 
   const age = useMemo(() => currentAge(child.dob), [child.dob]);
   const isBirthday = useMemo(() => isBirthdayToday(child.dob), [child.dob]);
-  const skillView = skills ?? { ...DEFAULT_SKILLS, child_id: child.id, notes: null, updated_at: "" };
+  const skillView = skills ?? {
+    ...DEFAULT_SKILLS,
+    child_id: child.id,
+    notes: null,
+    updated_at: "",
+  };
   const skillAvg = avg(skillView);
 
   // Confetti fires for two distinct reasons: birthdays (every visit on the
@@ -473,7 +481,11 @@ export default function PlayerStatsHeader({
               {child.full_name}
             </h1>
             <div className="mt-1 text-[11px] uppercase tracking-[0.22em] text-brand-cyan font-bold">
-              {age} ani · Naștere {new Date(child.dob).toLocaleDateString("ro-RO", { year: "numeric", month: "short" })}
+              {age} ani · Naștere{" "}
+              {new Date(child.dob).toLocaleDateString("ro-RO", {
+                year: "numeric",
+                month: "short",
+              })}
             </div>
           </div>
           <div className="text-right shrink-0">
@@ -499,9 +511,21 @@ export default function PlayerStatsHeader({
         />
         <Stat
           label="Prezență"
-          value={stats?.attendance_percent != null ? `${stats.attendance_percent}%` : "—"}
-          tone={stats?.attendance_percent && stats.attendance_percent >= 80 ? "gold" : "cyan"}
-          sub={stats ? `${stats.attendance_present}/${stats.attendance_total} sesiuni` : "—"}
+          value={
+            stats?.attendance_percent != null
+              ? `${stats.attendance_percent}%`
+              : "—"
+          }
+          tone={
+            stats?.attendance_percent && stats.attendance_percent >= 80
+              ? "gold"
+              : "cyan"
+          }
+          sub={
+            stats
+              ? `${stats.attendance_present}/${stats.attendance_total} sesiuni`
+              : "—"
+          }
         />
         <Stat
           label="Goluri"
@@ -552,12 +576,13 @@ export default function PlayerStatsHeader({
           />
         ) : (
           <div className="space-y-2">
-            {SKILL_ORDER.map((k) => (
+            {SKILL_ORDER.map(k => (
               <SkillRow k={k} value={skillView[k]} editable={false} key={k} />
             ))}
             {skills?.updated_at && (
               <div className="pt-2 text-[10px] uppercase tracking-[0.18em] text-white/35 font-bold">
-                Actualizat {new Date(skills.updated_at).toLocaleDateString("ro-RO")}
+                Actualizat{" "}
+                {new Date(skills.updated_at).toLocaleDateString("ro-RO")}
               </div>
             )}
             {!skills && (
@@ -595,9 +620,7 @@ function Stat({
       <div className={`font-heading text-3xl leading-none mt-2 ${valColor}`}>
         {value}
       </div>
-      {sub && (
-        <div className="mt-1 text-[10.5px] text-white/55">{sub}</div>
-      )}
+      {sub && <div className="mt-1 text-[10.5px] text-white/55">{sub}</div>}
     </div>
   );
 }
@@ -614,11 +637,12 @@ function StreakCard({
 }) {
   const value = streak ?? 0;
   const tier = streakTier(value);
-  const sub = streak === null
-    ? "—"
-    : streak > 0
-      ? "antrenamente la rând"
-      : "fără antrenamente recente";
+  const sub =
+    streak === null
+      ? "—"
+      : streak > 0
+        ? "antrenamente la rând"
+        : "fără antrenamente recente";
 
   return (
     <div
@@ -681,17 +705,15 @@ function SkillEditor({
   const save = async () => {
     setSaving(true);
     setError(null);
-    const { error: err } = await supabase
-      .from("player_skills")
-      .upsert(
-        {
-          child_id: childId,
-          ...draft,
-          notes: notes.trim() ? notes.trim() : null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "child_id" },
-      );
+    const { error: err } = await supabase.from("player_skills").upsert(
+      {
+        child_id: childId,
+        ...draft,
+        notes: notes.trim() ? notes.trim() : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "child_id" }
+    );
     setSaving(false);
     if (err) {
       setError(err.message);
@@ -703,19 +725,19 @@ function SkillEditor({
   return (
     <div className="space-y-3">
       <div className="space-y-2">
-        {SKILL_ORDER.map((k) => (
+        {SKILL_ORDER.map(k => (
           <SkillRow
             k={k}
             value={draft[k]}
             editable
-            onChange={(next) => setDraft((d) => ({ ...d, [k]: next }))}
+            onChange={next => setDraft(d => ({ ...d, [k]: next }))}
             key={k}
           />
         ))}
       </div>
       <textarea
         value={notes}
-        onChange={(e) => setNotes(e.target.value)}
+        onChange={e => setNotes(e.target.value)}
         placeholder="Notițe pentru părinte (opțional)"
         rows={2}
         className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-sm text-white/85 placeholder-white/30 outline-none focus:border-brand-cyan/50"

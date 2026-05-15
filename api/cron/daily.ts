@@ -287,8 +287,7 @@ async function sendTomorrowRsvpChecks(
     );
 
     // Skip parents who already received an attendance_check for this event
-    const link = (childId: string) =>
-      `/copil/${childId}?confirm=${ev.id}`;
+    const link = (childId: string) => `/copil/${childId}?confirm=${ev.id}`;
     const { data: priorChecks } = await supabase
       .from("notifications")
       .select("recipient_id, link")

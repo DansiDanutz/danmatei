@@ -12,10 +12,7 @@
  *
  * Output: { ok, ranAt, parents, notified, push } — surfaces in Vercel logs.
  */
-import {
-  serviceClient,
-  getJwtFromHeader,
-} from "../_lib/supabase.js";
+import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
 import { sendPushToUsers } from "../_lib/push.js";
 
 type Req = {
@@ -45,12 +42,7 @@ function startOfThisDigestWeekIso(): string {
   return new Date(Date.now() - 7 * 86400_000).toISOString();
 }
 
-function pluralize(
-  n: number,
-  one: string,
-  few: string,
-  many: string
-): string {
+function pluralize(n: number, one: string, few: string, many: string): string {
   // Romanian numerical agreement: 1 → singular, 2-19 → "few", 20+ → "many"
   // (we treat 0 as the singular form too — body uses absolute numbers).
   if (n === 1) return `${n} ${one}`;
@@ -223,13 +215,22 @@ export default async function handler(req: Req, res: Res) {
 
       const segments: string[] = [];
       if (att && att.present > 0) {
-        segments.push(pluralize(att.present, "antrenament", "antrenamente", "de antrenamente"));
+        segments.push(
+          pluralize(
+            att.present,
+            "antrenament",
+            "antrenamente",
+            "de antrenamente"
+          )
+        );
       }
       if (part && part.goals > 0) {
         segments.push(pluralize(part.goals, "gol", "goluri", "de goluri"));
       }
       if (part && part.assists > 0) {
-        segments.push(pluralize(part.assists, "asist", "asisturi", "de asisturi"));
+        segments.push(
+          pluralize(part.assists, "asist", "asisturi", "de asisturi")
+        );
       }
       if (media > 0) {
         segments.push(pluralize(media, "poză nouă", "poze noi", "de poze noi"));

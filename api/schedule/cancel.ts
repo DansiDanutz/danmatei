@@ -14,10 +14,7 @@
  * Body: { eventId, reason? }   // reason omitted = un-cancel
  */
 import { z } from "zod";
-import {
-  serviceClient,
-  getJwtFromHeader,
-} from "../_lib/supabase.js";
+import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
 import { sendPushToUsers } from "../_lib/push.js";
 
 const Body = z.object({
@@ -109,8 +106,7 @@ export default async function handler(req: Req, res: Res) {
     return res.status(404).json({ error: "event_not_found" });
   }
   const evTrainer = event.trainers as { profile_id?: string } | null;
-  const isAssigned =
-    !!evTrainer?.profile_id && evTrainer.profile_id === userId;
+  const isAssigned = !!evTrainer?.profile_id && evTrainer.profile_id === userId;
   if (!isAdmin && !isAssigned) {
     return res.status(403).json({ error: "forbidden" });
   }
@@ -169,9 +165,7 @@ export default async function handler(req: Req, res: Res) {
       .eq("status", "active")
       .not("parent_id", "is", null);
     const recipients = Array.from(
-      new Set(
-        ((kids ?? []) as { parent_id: string }[]).map(k => k.parent_id)
-      )
+      new Set(((kids ?? []) as { parent_id: string }[]).map(k => k.parent_id))
     );
 
     if (recipients.length > 0) {

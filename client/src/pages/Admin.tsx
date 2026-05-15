@@ -616,7 +616,7 @@ function MembersTab() {
               <div className="flex items-center gap-2">
                 <select
                   value={c.status}
-                  onChange={async (e) => {
+                  onChange={async e => {
                     const newStatus = e.target.value as ChildRow["status"];
                     const { error: upErr } = await supabase
                       .from("children")
@@ -625,8 +625,8 @@ function MembersTab() {
                     if (upErr) {
                       setError(upErr.message);
                     } else {
-                      setChildren((prev) =>
-                        prev.map((ch) =>
+                      setChildren(prev =>
+                        prev.map(ch =>
                           ch.id === c.id ? { ...ch, status: newStatus } : ch
                         )
                       );
@@ -814,9 +814,17 @@ function LandingTab() {
 
 // ─── lazy tab wrapper (prevents all tabs mounting at once) ───────────────────
 
-function LazyTab({ active, children }: { active: boolean; children: ReactNode }) {
+function LazyTab({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: ReactNode;
+}) {
   const [hasMounted, setHasMounted] = useState(false);
-    useEffect(() => { if (active && !hasMounted) setHasMounted(true); }, [active, hasMounted]);
+  useEffect(() => {
+    if (active && !hasMounted) setHasMounted(true);
+  }, [active, hasMounted]);
   if (!hasMounted) return null;
   return <>{children}</>;
 }

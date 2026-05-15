@@ -47,7 +47,7 @@ export default function MicTest({ onResult }: Props = {}) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     ctxRef.current?.close().catch(() => {});
     ctxRef.current = null;
@@ -150,9 +150,14 @@ export default function MicTest({ onResult }: Props = {}) {
           <p className="mt-0.5 text-sm leading-snug text-white/75">
             {state === "idle" &&
               "Apasă butonul și spune câteva cuvinte — verifici că browserul tău te aude înainte să suni."}
-            {state === "requesting" && "Acceptă accesul la microfon din browser…"}
-            {state === "active" && !heard && "Spune ceva — bara de mai jos ar trebui să se miște."}
-            {state === "active" && heard && "Te aud — totul e în regulă, poți începe apelul."}
+            {state === "requesting" &&
+              "Acceptă accesul la microfon din browser…"}
+            {state === "active" &&
+              !heard &&
+              "Spune ceva — bara de mai jos ar trebui să se miște."}
+            {state === "active" &&
+              heard &&
+              "Te aud — totul e în regulă, poți începe apelul."}
             {state === "denied" &&
               "Browserul a refuzat accesul. Verifică iconul de microfon din bara de adresă și permite manual."}
           </p>

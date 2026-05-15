@@ -248,10 +248,12 @@ export default function CopilProfil() {
             string,
             "present" | "absent" | "late" | "excused"
           >();
-          ((attRows ?? []) as {
-            event_id: string;
-            status: "present" | "absent" | "late" | "excused";
-          }[]).forEach(r => map.set(r.event_id, r.status));
+          (
+            (attRows ?? []) as {
+              event_id: string;
+              status: "present" | "absent" | "late" | "excused";
+            }[]
+          ).forEach(r => map.set(r.event_id, r.status));
           setAttendance(map);
         }
       }
@@ -879,8 +881,7 @@ const ScheduleRowCard = ({
       !row.cancelled_at &&
       row.kind === "training" &&
       new Date(row.starts_at).getTime() > Date.now() &&
-      new Date(row.starts_at).getTime() - Date.now() <
-        5 * 24 * 3600_000 && (
+      new Date(row.starts_at).getTime() - Date.now() < 5 * 24 * 3600_000 && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5">
           <span className="font-heading text-[11px] uppercase tracking-[0.18em] text-white/65">
             {rsvpStatus === "present"
@@ -901,7 +902,11 @@ const ScheduleRowCard = ({
                   : "inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-white/75 transition-colors hover:border-emerald-300/40 hover:text-emerald-300 disabled:opacity-60"
               }
             >
-              {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+              {busy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
               Da
             </button>
             <button
@@ -915,7 +920,11 @@ const ScheduleRowCard = ({
                   : "inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-white/75 transition-colors hover:border-rose-300/40 hover:text-rose-300 disabled:opacity-60"
               }
             >
-              {busy ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
+              {busy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <X className="size-3.5" />
+              )}
               Nu
             </button>
           </div>

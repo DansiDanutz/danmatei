@@ -323,10 +323,7 @@ export default function AtRiskTab() {
                   Părinte:{" "}
                   <span className="text-white/85">{row.parent.full_name}</span>
                   {row.parent.phone && (
-                    <span className="text-white/55">
-                      {" "}
-                      · {row.parent.phone}
-                    </span>
+                    <span className="text-white/55"> · {row.parent.phone}</span>
                   )}
                 </p>
               )}

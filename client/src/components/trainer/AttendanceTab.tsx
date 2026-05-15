@@ -278,7 +278,9 @@ export default function AttendanceTab({
         });
         return next;
       });
-      toast.success(`Marcat ${STATUS_LABEL[status].toLowerCase()} pentru ${children.length} jucători`);
+      toast.success(
+        `Marcat ${STATUS_LABEL[status].toLowerCase()} pentru ${children.length} jucători`
+      );
     }
     setBulkBusy(null);
   };
@@ -481,14 +483,17 @@ export default function AttendanceTab({
                       {menuOpen && (
                         <div className="absolute right-0 top-full z-20 mt-1 flex flex-col gap-1 rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] p-1.5 shadow-xl">
                           {SECONDARY_STATUSES.map(s => {
-                            const meta = SECONDARY_META[s as "late" | "excused"];
+                            const meta =
+                              SECONDARY_META[s as "late" | "excused"];
                             const SIcon = meta.icon;
                             const active = status === s;
                             return (
                               <button
                                 key={s}
                                 type="button"
-                                onClick={() => void setSecondary(ev.id, c.id, s)}
+                                onClick={() =>
+                                  void setSecondary(ev.id, c.id, s)
+                                }
                                 className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg border px-2.5 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.14em] transition ${
                                   active ? meta.activeClass : meta.chipClass
                                 }`}

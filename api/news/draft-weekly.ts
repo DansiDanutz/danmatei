@@ -16,10 +16,7 @@
  * 503 when OpenAI isn't configured. The button hides itself after the first
  * 503 response so owners don't keep clicking.
  */
-import {
-  serviceClient,
-  getJwtFromHeader,
-} from "../_lib/supabase.js";
+import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
 import {
   generateText,
   isConfigured as openAIConfigured,
@@ -132,7 +129,13 @@ export default async function handler(req: Req, res: Res) {
     .limit(20);
 
   // Build a compact context. Limit each recap so we don't blow up tokens.
-  const recapLines = ((recaps as { title?: string; starts_at?: string; recap_md?: string | null }[]) ?? [])
+  const recapLines = (
+    (recaps as {
+      title?: string;
+      starts_at?: string;
+      recap_md?: string | null;
+    }[]) ?? []
+  )
     .map(r => {
       const date = new Date(r.starts_at ?? "").toLocaleDateString("ro-RO", {
         weekday: "short",
@@ -144,7 +147,12 @@ export default async function handler(req: Req, res: Res) {
     })
     .join("\n");
 
-  type MatchScore = { our_score: number; opponent_score: number; scorers?: unknown; recap_md?: string | null };
+  type MatchScore = {
+    our_score: number;
+    opponent_score: number;
+    scorers?: unknown;
+    recap_md?: string | null;
+  };
   type MatchRow = {
     title?: string;
     starts_at?: string;
@@ -172,8 +180,13 @@ export default async function handler(req: Req, res: Res) {
     })
     .join("\n");
 
-  const newKidLines = ((newKids as { full_name?: string; age_group_label?: string | null }[]) ?? [])
-    .map(k => `- ${(k.full_name ?? "").split(/\s+/)[0]} (${k.age_group_label ?? "fără grupă"})`)
+  const newKidLines = (
+    (newKids as { full_name?: string; age_group_label?: string | null }[]) ?? []
+  )
+    .map(
+      k =>
+        `- ${(k.full_name ?? "").split(/\s+/)[0]} (${k.age_group_label ?? "fără grupă"})`
+    )
     .join("\n");
 
   const userPrompt = `Sursele săptămânii (${new Date(since).toLocaleDateString("ro-RO")} → astăzi):

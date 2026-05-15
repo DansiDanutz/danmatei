@@ -20,10 +20,7 @@
  *   }
  */
 import { z } from "zod";
-import {
-  serviceClient,
-  getJwtFromHeader,
-} from "../_lib/supabase.js";
+import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
 
 const Query = z.object({
   days: z.coerce.number().int().min(1).max(365).default(30),

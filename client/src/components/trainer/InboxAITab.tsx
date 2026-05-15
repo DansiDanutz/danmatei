@@ -67,7 +67,10 @@ type Props = {
   trainerSlug: string | null;
 };
 
-const INTENT_LABEL: Record<string, { label: string; tone: "cyan" | "gold" | "muted" }> = {
+const INTENT_LABEL: Record<
+  string,
+  { label: string; tone: "cyan" | "gold" | "muted" }
+> = {
   register: { label: "Înscriere", tone: "gold" },
   visit: { label: "Programare vizită", tone: "cyan" },
   info: { label: "Informații", tone: "cyan" },
@@ -175,7 +178,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
   }, [fetchLeads]);
 
   // Realtime — pop a toast and refetch when a new lead lands for this trainer.
-  const { status: rtStatus } = useLeadRealtime(trainerSlug, (row) => {
+  const { status: rtStatus } = useLeadRealtime(trainerSlug, row => {
     const payload = row.payload as {
       leadId?: string;
       parentName?: string;
@@ -204,13 +207,20 @@ export default function InboxAITab({ trainerSlug }: Props) {
     });
 
     setHighlightId(leadId);
-    if (leadId) setTimeout(() => setHighlightId((cur) => (cur === leadId ? null : cur)), 6000);
+    if (leadId)
+      setTimeout(
+        () => setHighlightId(cur => (cur === leadId ? null : cur)),
+        6000
+      );
     void fetchLeads();
   });
 
   const unread = useMemo(
-    () => (leads ?? []).filter((l) => l.status !== "closed" && l.status !== "contacted").length,
-    [leads],
+    () =>
+      (leads ?? []).filter(
+        l => l.status !== "closed" && l.status !== "contacted"
+      ).length,
+    [leads]
   );
 
   const counts = useMemo(() => {
@@ -239,7 +249,8 @@ export default function InboxAITab({ trainerSlug }: Props) {
   const visibleLeads = useMemo(() => {
     const all = leads ?? [];
     let rows = showSnoozed ? all : all.filter(l => !isSnoozed(l));
-    if (filter !== "all") rows = rows.filter(l => bucketOf(l.status) === filter);
+    if (filter !== "all")
+      rows = rows.filter(l => bucketOf(l.status) === filter);
     const q = search.trim().toLowerCase();
     if (q) {
       rows = rows.filter(l => {
@@ -270,8 +281,10 @@ export default function InboxAITab({ trainerSlug }: Props) {
       }
       setUpdatingId(leadId);
       // Optimistic update
-      setLeads((prev) =>
-        prev ? prev.map((l) => (l.id === leadId ? { ...l, status: next } : l)) : prev,
+      setLeads(prev =>
+        prev
+          ? prev.map(l => (l.id === leadId ? { ...l, status: next } : l))
+          : prev
       );
       try {
         const r = await fetch("/api/lead/status", {
@@ -282,7 +295,10 @@ export default function InboxAITab({ trainerSlug }: Props) {
           },
           body: JSON.stringify({ id: leadId, status: next }),
         });
-        const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        const j = (await r.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+        };
         if (!r.ok || !j.ok) {
           toast.error("Nu am putut actualiza", {
             description: j.error ?? `HTTP ${r.status}`,
@@ -307,14 +323,17 @@ export default function InboxAITab({ trainerSlug }: Props) {
         setUpdatingId(null);
       }
     },
-    [session?.access_token, fetchLeads],
+    [session?.access_token, fetchLeads]
   );
 
   const snoozeLead = useCallback(
     async (leadId: string, hours: number | null) => {
       const token = session?.access_token;
       if (!token) return;
-      const next = hours === null ? null : new Date(Date.now() + hours * 3_600_000).toISOString();
+      const next =
+        hours === null
+          ? null
+          : new Date(Date.now() + hours * 3_600_000).toISOString();
       setUpdatingId(leadId);
       // Optimistic
       setLeads(prev =>
@@ -392,7 +411,8 @@ export default function InboxAITab({ trainerSlug }: Props) {
         } else {
           const updated = j.updated?.length ?? ids.length;
           const denied = j.denied?.length ?? 0;
-          const friendly = next === "contacted" ? "Marcate ca răspuns" : "Închise";
+          const friendly =
+            next === "contacted" ? "Marcate ca răspuns" : "Închise";
           toast.success(`${updated} lead-uri · ${friendly}`, {
             description:
               denied > 0
@@ -504,8 +524,8 @@ export default function InboxAITab({ trainerSlug }: Props) {
             <span className="text-gradient-cyan">AI</span>
           </h2>
           <p className="mt-1 text-sm text-white/60">
-            Părinți care au contactat academia prin agentul AI. Te-am pus
-            ca destinatar al transcrierilor pentru grupa ta.
+            Părinți care au contactat academia prin agentul AI. Te-am pus ca
+            destinatar al transcrierilor pentru grupa ta.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -515,7 +535,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
             <button
               type="button"
               onClick={() => {
-                void browserNotif.request().then((next) => {
+                void browserNotif.request().then(next => {
                   if (next === "granted") {
                     toast.success("Notificările sunt active", {
                       description:
@@ -598,8 +618,8 @@ export default function InboxAITab({ trainerSlug }: Props) {
             Niciun lead încă
           </h3>
           <p className="mt-2 text-sm text-white/55">
-            Când părinți noi vor cere un apel, transcrierile vor apărea aici
-            în câteva minute.
+            Când părinți noi vor cere un apel, transcrierile vor apărea aici în
+            câteva minute.
           </p>
         </div>
       )}
@@ -640,7 +660,9 @@ export default function InboxAITab({ trainerSlug }: Props) {
               }
             >
               <EyeOff className="size-3.5" />
-              {showSnoozed ? "Ascunde amânate" : `Arată amânate (${snoozedCount})`}
+              {showSnoozed
+                ? "Ascunde amânate"
+                : `Arată amânate (${snoozedCount})`}
             </button>
           )}
         </div>
@@ -659,7 +681,11 @@ export default function InboxAITab({ trainerSlug }: Props) {
               disabled={bulkBusy}
               className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/45 bg-brand-cyan/15 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/25 disabled:opacity-60"
             >
-              {bulkBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+              {bulkBusy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
               Marchează ca răspuns
             </button>
             <button
@@ -668,7 +694,11 @@ export default function InboxAITab({ trainerSlug }: Props) {
               disabled={bulkBusy}
               className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-white/80 transition-colors hover:border-rose-300/40 hover:text-rose-200 disabled:opacity-60"
             >
-              {bulkBusy ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCheck className="size-3.5" />}
+              {bulkBusy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <CheckCheck className="size-3.5" />
+              )}
               Închide
             </button>
             <button
@@ -694,7 +724,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
       {/* Filter pills */}
       {leads.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/8 p-1 self-start">
-          {(["all", "new", "contacted", "closed"] as StatusFilter[]).map((k) => {
+          {(["all", "new", "contacted", "closed"] as StatusFilter[]).map(k => {
             const active = filter === k;
             const count = counts[k];
             return (
@@ -731,12 +761,15 @@ export default function InboxAITab({ trainerSlug }: Props) {
             Niciun lead în această categorie.
           </li>
         )}
-        {visibleLeads.map((lead) => {
+        {visibleLeads.map(lead => {
           const open = openIds.has(lead.id);
           const bucket = bucketOf(lead.status);
           const isUpdating = updatingId === lead.id;
           const intentMeta = lead.latestCall?.intent
-            ? INTENT_LABEL[lead.latestCall.intent] ?? { label: lead.latestCall.intent, tone: "muted" as const }
+            ? (INTENT_LABEL[lead.latestCall.intent] ?? {
+                label: lead.latestCall.intent,
+                tone: "muted" as const,
+              })
             : null;
           const toneClass = (t: "cyan" | "gold" | "muted") =>
             t === "cyan"
@@ -768,7 +801,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
                   {lead.parent_name
                     .split(/\s+/)
                     .slice(0, 2)
-                    .map((s) => s[0]?.toUpperCase())
+                    .map(s => s[0]?.toUpperCase())
                     .join("")}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -782,8 +815,8 @@ export default function InboxAITab({ trainerSlug }: Props) {
                   </div>
                   <div className="text-xs text-white/55 mt-0.5">
                     Părinte ·{" "}
-                    <span className="text-white/80">{lead.child_name}</span>{" "}
-                    · {lead.child_age} ani
+                    <span className="text-white/80">{lead.child_name}</span> ·{" "}
+                    {lead.child_age} ani
                     {lead.child_position ? ` · ${lead.child_position}` : ""}
                   </div>
                   {isSnoozed(lead) && lead.snoozed_until && (
@@ -906,7 +939,11 @@ export default function InboxAITab({ trainerSlug }: Props) {
                       disabled={isUpdating}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-brand-gold/15 border border-brand-gold/35 text-brand-gold px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] hover:bg-brand-gold/25 disabled:opacity-50"
                     >
-                      {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                      {isUpdating ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Check className="size-3.5" />
+                      )}
                       Răspuns dat
                     </button>
                     <button
@@ -927,7 +964,11 @@ export default function InboxAITab({ trainerSlug }: Props) {
                     disabled={isUpdating}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] hover:bg-brand-cyan/20 disabled:opacity-50"
                   >
-                    {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCheck className="size-3.5" />}
+                    {isUpdating ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <CheckCheck className="size-3.5" />
+                    )}
                     Închide
                   </button>
                 )}
@@ -938,7 +979,11 @@ export default function InboxAITab({ trainerSlug }: Props) {
                     disabled={isUpdating}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.04] border border-white/12 text-white/65 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] hover:bg-white/[0.08] disabled:opacity-50"
                   >
-                    {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
+                    {isUpdating ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <RotateCcw className="size-3.5" />
+                    )}
                     Redeschide
                   </button>
                 )}
@@ -951,7 +996,11 @@ export default function InboxAITab({ trainerSlug }: Props) {
                     disabled={isUpdating}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-brand-cyan/30 bg-brand-cyan/[0.08] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/15 disabled:opacity-50"
                   >
-                    {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <Clock className="size-3.5" />}
+                    {isUpdating ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Clock className="size-3.5" />
+                    )}
                     Anulează amânare
                   </button>
                 ) : (
@@ -962,14 +1011,18 @@ export default function InboxAITab({ trainerSlug }: Props) {
                     aria-label="Amână 24 de ore"
                     className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-white/[0.04] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 transition-colors hover:border-brand-cyan/30 hover:text-white disabled:opacity-50"
                   >
-                    {isUpdating ? <Loader2 className="size-3.5 animate-spin" /> : <Clock className="size-3.5" />}
+                    {isUpdating ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Clock className="size-3.5" />
+                    )}
                     Amână 24h
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() =>
-                    setOpenIds((prev) => {
+                    setOpenIds(prev => {
                       const next = new Set(prev);
                       if (next.has(lead.id)) next.delete(lead.id);
                       else next.add(lead.id);
@@ -1024,7 +1077,10 @@ export default function InboxAITab({ trainerSlug }: Props) {
                   <textarea
                     value={drafts[lead.id]}
                     onChange={e =>
-                      setDrafts(prev => ({ ...prev, [lead.id]: e.target.value }))
+                      setDrafts(prev => ({
+                        ...prev,
+                        [lead.id]: e.target.value,
+                      }))
                     }
                     rows={5}
                     className="w-full rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)]/50 px-3 py-2 font-body text-sm text-white outline-none focus:border-brand-cyan/45"
@@ -1054,7 +1110,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
                       latest_call: lead.latestCall,
                     },
                     null,
-                    2,
+                    2
                   )}
                 </pre>
               )}
@@ -1064,8 +1120,9 @@ export default function InboxAITab({ trainerSlug }: Props) {
       </ul>
 
       <p className="text-[10px] uppercase tracking-[0.22em] text-white/35 text-center pt-2">
-        Trainer slug: <span className="text-white/55">{trainerSlug ?? "auto"}</span>{" "}
-        · Datele se actualizează la fiecare apel finalizat
+        Trainer slug:{" "}
+        <span className="text-white/55">{trainerSlug ?? "auto"}</span> · Datele
+        se actualizează la fiecare apel finalizat
       </p>
     </div>
   );

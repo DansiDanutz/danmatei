@@ -44,7 +44,9 @@ export default function Confetti({
   // mid-session.
   const reducedMotion = useMemo(() => {
     if (typeof window === "undefined") return false;
-    return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    return (
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false
+    );
   }, []);
 
   useEffect(() => {

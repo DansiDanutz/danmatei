@@ -90,9 +90,12 @@ export default function SpeakerTest({ onResult }: Props) {
       note(783.99, now + 0.45, 0.7); // G5
 
       // After the chime finishes, ask the parent to confirm.
-      window.setTimeout(() => {
-        setState("asking");
-      }, Math.round(TONE_SECONDS * 1000));
+      window.setTimeout(
+        () => {
+          setState("asking");
+        },
+        Math.round(TONE_SECONDS * 1000)
+      );
     } catch (err) {
       console.warn("[speaker-test] play failed", err);
       setError(

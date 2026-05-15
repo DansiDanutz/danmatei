@@ -19,10 +19,7 @@
  * trainerId) OR owner/super_admin.
  */
 import { z } from "zod";
-import {
-  serviceClient,
-  getJwtFromHeader,
-} from "../_lib/supabase.js";
+import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
 import { sendPushToUsers } from "../_lib/push.js";
 
 // Schema reflects what the messages table actually supports today:
@@ -85,7 +82,10 @@ export default async function handler(req: Req, res: Res) {
   if (audience === "child" && !childId) {
     return res
       .status(400)
-      .json({ error: "child_id_required", message: "audience=child requires childId" });
+      .json({
+        error: "child_id_required",
+        message: "audience=child requires childId",
+      });
   }
 
   let supabase;

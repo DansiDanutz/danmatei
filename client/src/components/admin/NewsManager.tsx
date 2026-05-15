@@ -101,9 +101,13 @@ export default function NewsManager() {
       setPosts((pData ?? []) as unknown as NewsRow[]);
     }
     const tOpts =
-      (tData as unknown as { id: string; profile: { full_name: string } | null }[] | null)
-        ?.filter((t) => t.profile)
-        .map((t) => ({ id: t.id, full_name: t.profile!.full_name })) ?? [];
+      (
+        tData as unknown as
+          | { id: string; profile: { full_name: string } | null }[]
+          | null
+      )
+        ?.filter(t => t.profile)
+        .map(t => ({ id: t.id, full_name: t.profile!.full_name })) ?? [];
     setTrainers(tOpts);
     setLoading(false);
   };
@@ -192,7 +196,7 @@ export default function NewsManager() {
     return path;
   };
 
-  const onSubmit = handleSubmit(async (v) => {
+  const onSubmit = handleSubmit(async v => {
     setError(null);
     try {
       let coverPath: string | null = null;
@@ -250,7 +254,7 @@ export default function NewsManager() {
     if (post.cover_path) {
       const { data } = supabase.storage
         .from("fotbal-news-public")
-                  .getPublicUrl(post.cover_path);
+        .getPublicUrl(post.cover_path);
       setCoverPreview(data.publicUrl);
     } else {
       setCoverPreview(null);
@@ -368,7 +372,7 @@ export default function NewsManager() {
               className="w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white"
             >
               <option value="">Alege antrenorul…</option>
-              {trainers.map((t) => (
+              {trainers.map(t => (
                 <option key={t.id} value={t.id}>
                   {t.full_name}
                 </option>
@@ -454,7 +458,7 @@ export default function NewsManager() {
         {!loading && posts.length === 0 && (
           <Empty hint="Nu există încă articole." />
         )}
-        {posts.map((post) => (
+        {posts.map(post => (
           <article
             key={post.id}
             className="flex flex-col gap-3 rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-4 sm:flex-row sm:items-start sm:gap-4"
@@ -464,8 +468,7 @@ export default function NewsManager() {
                 src={
                   supabase.storage
                     .from("fotbal-news-public")
-                                                .getPublicUrl(post.cover_path).data
-                    .publicUrl
+                    .getPublicUrl(post.cover_path).data.publicUrl
                 }
                 alt=""
                 className="aspect-[16/9] w-full shrink-0 rounded-xl object-cover sm:aspect-square sm:w-24"
@@ -545,7 +548,9 @@ const Field = ({
       {...rest}
       className="touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60"
     />
-    {error && <p className="mt-1 font-body text-xs text-rose-300/85">{error}</p>}
+    {error && (
+      <p className="mt-1 font-body text-xs text-rose-300/85">{error}</p>
+    )}
   </div>
 );
 

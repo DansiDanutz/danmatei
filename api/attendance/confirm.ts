@@ -15,10 +15,7 @@
  * Body: { childId: uuid, eventId: uuid, coming: boolean }
  */
 import { z } from "zod";
-import {
-  serviceClient,
-  getJwtFromHeader,
-} from "../_lib/supabase.js";
+import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
 
 const Body = z.object({
   childId: z.string().uuid(),
@@ -103,8 +100,7 @@ export default async function handler(req: Req, res: Res) {
     .select("role")
     .eq("id", userId)
     .maybeSingle();
-  const isAdmin =
-    prof?.role === "owner" || prof?.role === "super_admin";
+  const isAdmin = prof?.role === "owner" || prof?.role === "super_admin";
   if (!isAdmin && child.parent_id !== userId) {
     return res.status(403).json({ error: "forbidden" });
   }
@@ -129,16 +125,14 @@ export default async function handler(req: Req, res: Res) {
     return res.status(403).json({ error: "wrong_trainer_event" });
   }
 
-  const { error: upErr } = await supabase
-    .from("attendance")
-    .upsert(
-      {
-        event_id: eventId,
-        child_id: childId,
-        status: coming ? "present" : "absent",
-      },
-      { onConflict: "event_id, child_id" }
-    );
+  const { error: upErr } = await supabase.from("attendance").upsert(
+    {
+      event_id: eventId,
+      child_id: childId,
+      status: coming ? "present" : "absent",
+    },
+    { onConflict: "event_id, child_id" }
+  );
   if (upErr) {
     return res
       .status(500)
