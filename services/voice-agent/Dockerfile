@@ -28,11 +28,14 @@ RUN python -c "from livekit.plugins import silero; silero.VAD.load()"
 # Pre-download the multilingual turn-detector. Use livekit-agents' built-in
 # `download-files` command which knows where each plugin's models live, so
 # this catches all required files (model_q8.onnx, languages.json, etc.).
-# If the download fails (network blip during build), the agent falls back
-# to VAD turn detection at runtime — call still works, just slightly less
-# natural pauses.
+#
+# This MUST succeed — without it the agent falls back to pure VAD silence
+# detection which breaks entirely with background noise (the VAD stays
+# permanently active, the turn never flips, Andra never speaks).
+#
+# If the build fails here with a network error, retry — don't add `|| true`.
 COPY agent.py prompt.ro.md ./
-RUN python agent.py download-files || echo "WARN: turn-detector model pre-download failed; agent will fall back to VAD"
+RUN python agent.py download-files
 
 # LiveKit Agents workers expose a tiny HTTP debug server on this port —
 # default port the framework binds to. Fly will probe it for readiness.

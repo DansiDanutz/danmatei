@@ -252,7 +252,19 @@ class AndraAgent(Agent):
 
 
 def prewarm(proc: JobProcess) -> None:
-    proc.userdata["vad"] = silero.VAD.load()
+    # Raise activation_threshold from the default 0.5 → 0.7 so ambient
+    # background noise (TV, street, AC hum) doesn't keep the VAD permanently
+    # active. At 0.5 any room noise holds the turn open indefinitely and Andra
+    # never gets to speak. 0.7 requires a real speech signal — still picks up
+    # soft voices clearly, ignores most real-world background noise.
+    # min_speech_duration 0.1 s filters very short noise bursts that would
+    # otherwise start a "speech" window and block the turn.
+    proc.userdata["vad"] = silero.VAD.load(
+        activation_threshold=0.7,
+        min_speech_duration=0.1,
+        min_silence_duration=0.55,
+        prefix_padding_duration=0.3,
+    )
 
 
 async def entrypoint(ctx: JobContext) -> None:
@@ -297,6 +309,11 @@ async def entrypoint(ctx: JobContext) -> None:
     # _exceeded). Each provider now uses its own API key, so quota is
     # independent and much higher.
     stt_lang = os.environ.get("LIVEKIT_STT_LANGUAGE", "ro")
+    # endpointing_ms: Deepgram waits this many ms of silence before declaring
+    # utterance done. Default in streaming is very low (~10 ms) which chops
+    # speech on pauses mid-sentence and in noisy rooms. 300 ms gives speakers
+    # time to breathe between words without triggering a false end-of-turn.
+    stt_endpointing_ms = int(os.environ.get("LIVEKIT_STT_ENDPOINTING_MS", "300"))
     stt_model_name = os.environ.get("LIVEKIT_STT_MODEL", "deepgram/nova-3").split("/")[-1]
     llm_model_name = os.environ.get("LIVEKIT_LLM_MODEL", "openai/gpt-4o-mini").split("/")[-1]
     tts_model_name = os.environ.get(
@@ -347,22 +364,42 @@ async def entrypoint(ctx: JobContext) -> None:
         "set" if llm_api_key else "MISSING",
     )
 
-    # Multilingual turn detector needs ~50MB of HuggingFace model files. If
-    # the build didn't pre-download them, instantiation throws at runtime —
-    # fall back to plain VAD-based detection so the call still works.
+    # Multilingual turn detector uses a small language model to decide when the
+    # speaker is truly done talking — far more robust than pure VAD silence
+    # detection, especially with background noise. The model (~50 MB) is
+    # pre-downloaded by `python agent.py download-files` in the Dockerfile.
+    #
+    # If the model isn't available (rare: build skipped download, or the
+    # plugin import failed at the top of this file), we fall back to "vad"
+    # which uses only silence gaps. This still works but is very sensitive to
+    # background noise — the VAD threshold tweak above (0.7) partially
+    # compensates when we're in this fallback path.
     turn_detector: Any
     if MultilingualModel is not None:
         try:
             turn_detector = MultilingualModel()
+            log.info("turn_detector: MultilingualModel (language-model based, noise-robust)")
         except Exception as exc:  # noqa: BLE001
-            log.warning("MultilingualModel unavailable (%s), falling back to vad", exc)
+            log.warning(
+                "MultilingualModel failed to load (%s) — falling back to VAD silence detection. "
+                "Turn switching will be noise-sensitive. Rebuild the container to fix.",
+                exc,
+            )
             turn_detector = "vad"
     else:
+        log.warning(
+            "livekit-plugins-turn-detector not installed or import failed — "
+            "falling back to VAD silence detection. Add turn-detector to requirements.txt.",
+        )
         turn_detector = "vad"
 
     session = AgentSession(
         vad=ctx.proc.userdata["vad"],
-        stt=deepgram.STT(model=stt_model_name, language=stt_lang),
+        stt=deepgram.STT(
+            model=stt_model_name,
+            language=stt_lang,
+            endpointing_ms=stt_endpointing_ms,
+        ),
         llm=openai.LLM(
             model=llm_model_name,
             base_url=llm_base_url,
