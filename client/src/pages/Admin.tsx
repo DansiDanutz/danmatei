@@ -13,13 +13,17 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertTriangle,
+  ArrowRightLeft,
   Bell,
   Calendar,
+  Check,
   Loader2,
   Newspaper,
+  Pencil,
   RefreshCcw,
   Save,
   Send,
@@ -28,6 +32,7 @@ import {
   Users,
   UserPlus,
   UsersRound,
+  X,
 } from "lucide-react";
 import MemberShell from "@/components/MemberShell";
 import { supabase } from "@/lib/supabase";
@@ -62,11 +67,26 @@ type ChildRow = {
   id: string;
   full_name: string;
   dob: string;
+  school: string | null;
+  medical_notes: string | null;
   age_group_label: string | null;
   status: "active" | "paused" | "left";
   trainer_id: string | null;
   parent: { id: string; full_name: string; phone: string | null } | null;
 };
+
+type TrainerOption = {
+  id: string;
+  full_name: string;
+  active: boolean;
+};
+
+const childEditSchema = z.object({
+  full_name: z.string().min(1, "Numele este obligatoriu").max(120),
+  school: z.string().max(160).optional().or(z.literal("")),
+  medical_notes: z.string().max(1000).optional().or(z.literal("")),
+});
+type ChildEditValues = z.infer<typeof childEditSchema>;
 
 type LandingRow = {
   id: string;
@@ -532,10 +552,20 @@ function TrainersTab() {
 
 function MembersTab() {
   const [children, setChildren] = useState<ChildRow[]>([]);
-  const [trainerNames, setTrainerNames] = useState<Record<string, string>>({});
+  const [trainers, setTrainers] = useState<TrainerOption[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const trainerNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    trainers.forEach(t => {
+      map[t.id] = t.full_name;
+    });
+    return map;
+  }, [trainers]);
 
   const refresh = useMemo(
     () => async () => {
@@ -543,27 +573,36 @@ function MembersTab() {
         supabase
           .from("children")
           .select(
-            "id, full_name, dob, age_group_label, status, trainer_id, parent:profiles!children_parent_id_fkey(id, full_name, phone)"
+            "id, full_name, dob, school, medical_notes, age_group_label, status, trainer_id, parent:profiles!children_parent_id_fkey(id, full_name, phone)"
           )
           .order("created_at", { ascending: false }),
         supabase
           .from("trainers")
-          .select("id, profile:profiles!trainers_profile_id_fkey(full_name)"),
+          .select(
+            "id, active, profile:profiles!trainers_profile_id_fkey(full_name)"
+          ),
       ]);
       if (c.error) {
         setError(c.error.message);
         setLoading(false);
         return;
       }
-      const nameMap: Record<string, string> = {};
-      (
-        t.data as unknown as
-          | { id: string; profile: { full_name: string } | null }[]
-          | null
-      )?.forEach(r => {
-        if (r.profile) nameMap[r.id] = r.profile.full_name;
-      });
-      setTrainerNames(nameMap);
+      const trainerOptions: TrainerOption[] = (
+        (t.data as unknown as
+          | {
+              id: string;
+              active: boolean;
+              profile: { full_name: string } | null;
+            }[]
+          | null) ?? []
+      )
+        .filter(r => r.profile)
+        .map(r => ({
+          id: r.id,
+          active: r.active,
+          full_name: r.profile!.full_name,
+        }));
+      setTrainers(trainerOptions);
       setChildren((c.data ?? []) as unknown as ChildRow[]);
       setLoading(false);
     },
@@ -578,12 +617,128 @@ function MembersTab() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return children;
-    return children.filter(
-      c =>
+    return children.filter(c => {
+      const trainerName = c.trainer_id ? (trainerNames[c.trainer_id] ?? "") : "";
+      return (
         c.full_name.toLowerCase().includes(q) ||
-        (c.parent?.full_name ?? "").toLowerCase().includes(q)
+        (c.parent?.full_name ?? "").toLowerCase().includes(q) ||
+        trainerName.toLowerCase().includes(q)
+      );
+    });
+  }, [children, search, trainerNames]);
+
+  // Prune selection so it stays a subset of the visible filtered set.
+  // Without this, a child filtered out by search stays "selected" invisibly.
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const visibleIds = new Set(filtered.map(c => c.id));
+    let changed = false;
+    const next = new Set<string>();
+    selectedIds.forEach(id => {
+      if (visibleIds.has(id)) next.add(id);
+      else changed = true;
+    });
+    if (changed) setSelectedIds(next);
+  }, [filtered, selectedIds]);
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const activeTrainers = useMemo(
+    () => trainers.filter(t => t.active),
+    [trainers]
+  );
+
+  const updateChildLocally = (id: string, patch: Partial<ChildRow>) => {
+    setChildren(prev => prev.map(ch => (ch.id === id ? { ...ch, ...patch } : ch)));
+  };
+
+  const handleStatusChange = async (
+    id: string,
+    newStatus: ChildRow["status"]
+  ) => {
+    const { error: upErr } = await supabase
+      .from("children")
+      .update({ status: newStatus })
+      .eq("id", id);
+    if (upErr) {
+      setError(upErr.message);
+      toast.error("Nu am putut actualiza statusul", { description: upErr.message });
+    } else {
+      updateChildLocally(id, { status: newStatus });
+    }
+  };
+
+  const bulkTransferTo = async (trainerId: string) => {
+    if (selectedIds.size === 0 || bulkBusy) return;
+    const ids = Array.from(selectedIds);
+    const trainer = trainers.find(t => t.id === trainerId);
+    setBulkBusy(true);
+    const toastId = toast.loading(
+      `Transfer ${ids.length} copii la ${trainer?.full_name ?? "antrenor"}…`
     );
-  }, [children, search]);
+    const { error: upErr } = await supabase
+      .from("children")
+      .update({ trainer_id: trainerId })
+      .in("id", ids);
+    setBulkBusy(false);
+    if (upErr) {
+      setError(upErr.message);
+      toast.error("Transferul a eșuat", {
+        id: toastId,
+        description: upErr.message,
+      });
+      return;
+    }
+    toast.success(
+      `${ids.length} ${ids.length === 1 ? "copil mutat" : "copii mutați"} la ${trainer?.full_name ?? "antrenor"}.`,
+      { id: toastId }
+    );
+    clearSelection();
+    await refresh();
+  };
+
+  const bulkStatusChange = async (newStatus: ChildRow["status"]) => {
+    if (selectedIds.size === 0 || bulkBusy) return;
+    const ids = Array.from(selectedIds);
+    const label =
+      newStatus === "active"
+        ? "activ"
+        : newStatus === "paused"
+        ? "pauzat"
+        : "plecat";
+    setBulkBusy(true);
+    const toastId = toast.loading(
+      `Actualizez statusul pentru ${ids.length} copii…`
+    );
+    const { error: upErr } = await supabase
+      .from("children")
+      .update({ status: newStatus })
+      .in("id", ids);
+    setBulkBusy(false);
+    if (upErr) {
+      setError(upErr.message);
+      toast.error("Schimbarea statusului a eșuat", {
+        id: toastId,
+        description: upErr.message,
+      });
+      return;
+    }
+    toast.success(
+      `${ids.length} ${ids.length === 1 ? "copil marcat" : "copii marcați"} ca ${label}.`,
+      { id: toastId }
+    );
+    clearSelection();
+    await refresh();
+  };
 
   return (
     <div className="grid gap-4">
@@ -592,9 +747,12 @@ function MembersTab() {
           type="search"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Caută după copil sau părinte"
+          placeholder="Caută după copil, părinte sau antrenor"
           className="touch-target w-full flex-1 rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-4 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60 sm:w-auto"
         />
+        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/70">
+          {filtered.length} {filtered.length === 1 ? "copil afișat" : "copii afișați"}
+        </span>
         <button
           type="button"
           onClick={() => refresh()}
@@ -604,6 +762,61 @@ function MembersTab() {
           Reîncarcă
         </button>
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-2xl border border-brand-cyan/30 bg-[oklch(0.14_0.05_220)]/95 p-3 shadow-lg backdrop-blur">
+          <span className="font-heading text-[11px] uppercase tracking-[0.18em] text-brand-cyan">
+            {selectedIds.size} selectați
+          </span>
+
+          <div className="ml-1 inline-flex items-center gap-2">
+            <ArrowRightLeft className="size-3.5 text-white/55" />
+            <select
+              value=""
+              disabled={bulkBusy || activeTrainers.length === 0}
+              onChange={e => {
+                const v = e.target.value;
+                if (v) bulkTransferTo(v);
+              }}
+              className="rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-2 py-1 font-heading text-[10px] uppercase tracking-[0.12em] text-white/80 disabled:opacity-50"
+            >
+              <option value="">Transferă la antrenor…</option>
+              {activeTrainers.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={() => bulkStatusChange("paused")}
+            className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-amber-200 hover:bg-amber-300/20 disabled:opacity-50"
+          >
+            Marchează ca pauzat
+          </button>
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={() => bulkStatusChange("active")}
+            className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-emerald-200 hover:bg-emerald-300/20 disabled:opacity-50"
+          >
+            Marchează ca activ
+          </button>
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={clearSelection}
+            className="ml-auto inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/70 hover:text-white disabled:opacity-50"
+          >
+            <X className="size-3" />
+            Anulează selecția
+          </button>
+          {bulkBusy && <Loader2 className="size-3.5 animate-spin text-brand-cyan" />}
+        </div>
+      )}
 
       {error && (
         <p className="rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 py-2 font-body text-sm text-rose-200">
@@ -617,63 +830,229 @@ function MembersTab() {
 
       <div className="grid gap-3">
         {filtered.map(c => (
-          <article
+          <ChildCard
             key={c.id}
-            className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-4"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <div>
-                <h3 className="font-heading text-base font-semibold uppercase tracking-[0.04em] text-white">
-                  {c.full_name}
-                </h3>
-                <p className="mt-0.5 font-body text-xs text-white/55">
-                  {currentAge(c.dob)} ani · {c.age_group_label ?? "Nealocat"}
-                  {c.parent && ` · Părinte: ${c.parent.full_name}`}
-                  {c.parent?.phone && ` · ${c.parent.phone}`}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={c.status}
-                  onChange={async e => {
-                    const newStatus = e.target.value as ChildRow["status"];
-                    const { error: upErr } = await supabase
-                      .from("children")
-                      .update({ status: newStatus })
-                      .eq("id", c.id);
-                    if (upErr) {
-                      setError(upErr.message);
-                    } else {
-                      setChildren(prev =>
-                        prev.map(ch =>
-                          ch.id === c.id ? { ...ch, status: newStatus } : ch
-                        )
-                      );
-                    }
-                  }}
-                  className="rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-2 py-1 font-heading text-[10px] uppercase tracking-[0.12em] text-white/70"
-                >
-                  <option value="active">Activ</option>
-                  <option value="paused">Pauză</option>
-                  <option value="left">Plecat</option>
-                </select>
-                <span
-                  className={`rounded-full border px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] ${
-                    c.trainer_id
-                      ? "border-brand-cyan/30 bg-brand-cyan/10 text-brand-cyan"
-                      : "border-amber-300/30 bg-amber-300/10 text-amber-200"
-                  }`}
-                >
-                  {c.trainer_id
-                    ? (trainerNames[c.trainer_id] ?? "Antrenor")
-                    : "Nealocat"}
-                </span>
-              </div>
-            </div>
-          </article>
+            child={c}
+            trainerName={
+              c.trainer_id ? (trainerNames[c.trainer_id] ?? "Antrenor") : null
+            }
+            selected={selectedIds.has(c.id)}
+            onToggleSelect={() => toggleSelected(c.id)}
+            onStatusChange={newStatus => handleStatusChange(c.id, newStatus)}
+            onSaved={patch => updateChildLocally(c.id, patch)}
+            onError={msg => setError(msg)}
+          />
         ))}
       </div>
     </div>
+  );
+}
+
+function ChildCard({
+  child,
+  trainerName,
+  selected,
+  onToggleSelect,
+  onStatusChange,
+  onSaved,
+  onError,
+}: {
+  child: ChildRow;
+  trainerName: string | null;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onStatusChange: (s: ChildRow["status"]) => void;
+  onSaved: (patch: Partial<ChildRow>) => void;
+  onError: (msg: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ChildEditValues>({
+    resolver: zodResolver(childEditSchema),
+    defaultValues: {
+      full_name: child.full_name,
+      school: child.school ?? "",
+      medical_notes: child.medical_notes ?? "",
+    },
+  });
+
+  const startEdit = () => {
+    reset({
+      full_name: child.full_name,
+      school: child.school ?? "",
+      medical_notes: child.medical_notes ?? "",
+    });
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    reset({
+      full_name: child.full_name,
+      school: child.school ?? "",
+      medical_notes: child.medical_notes ?? "",
+    });
+  };
+
+  const onSubmit = handleSubmit(async v => {
+    const patch = {
+      full_name: v.full_name.trim(),
+      school: v.school?.trim() ? v.school.trim() : null,
+      medical_notes: v.medical_notes?.trim() ? v.medical_notes.trim() : null,
+    };
+    const { error: upErr } = await supabase
+      .from("children")
+      .update(patch)
+      .eq("id", child.id);
+    if (upErr) {
+      onError(upErr.message);
+      toast.error("Salvarea a eșuat", { description: upErr.message });
+      return;
+    }
+    onSaved(patch);
+    toast.success("Datele copilului au fost actualizate.");
+    setEditing(false);
+  });
+
+  return (
+    <article
+      className={`rounded-2xl border bg-[oklch(0.13_0.03_250)]/70 p-4 transition-colors ${
+        selected ? "border-brand-cyan/50" : "border-white/8"
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            aria-label={`Selectează ${child.full_name}`}
+            className="mt-1 size-4 cursor-pointer rounded border-white/20 bg-[oklch(0.10_0.02_250)] accent-brand-cyan"
+          />
+          <div>
+            <h3 className="font-heading text-base font-semibold uppercase tracking-[0.04em] text-white">
+              {child.full_name}
+            </h3>
+            <p className="mt-0.5 font-body text-xs text-white/55">
+              {currentAge(child.dob)} ani · {child.age_group_label ?? "Nealocat"}
+              {child.parent && ` · Părinte: ${child.parent.full_name}`}
+              {child.parent?.phone && ` · ${child.parent.phone}`}
+            </p>
+            {!editing && (child.school || child.medical_notes) && (
+              <p className="mt-1 font-body text-xs text-white/45">
+                {child.school && <>Școală: {child.school}</>}
+                {child.school && child.medical_notes && " · "}
+                {child.medical_notes && <>Medical: {child.medical_notes}</>}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {!editing && (
+            <button
+              type="button"
+              onClick={startEdit}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/75 hover:border-brand-cyan/40 hover:text-white"
+            >
+              <Pencil className="size-3" />
+              Editează
+            </button>
+          )}
+          <select
+            value={child.status}
+            onChange={e => onStatusChange(e.target.value as ChildRow["status"])}
+            className="rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-2 py-1 font-heading text-[10px] uppercase tracking-[0.12em] text-white/70"
+          >
+            <option value="active">Activ</option>
+            <option value="paused">Pauză</option>
+            <option value="left">Plecat</option>
+          </select>
+          <span
+            className={`rounded-full border px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] ${
+              child.trainer_id
+                ? "border-brand-cyan/30 bg-brand-cyan/10 text-brand-cyan"
+                : "border-amber-300/30 bg-amber-300/10 text-amber-200"
+            }`}
+          >
+            {trainerName ?? "Nealocat"}
+          </span>
+        </div>
+      </div>
+
+      {editing && (
+        <form onSubmit={onSubmit} className="mt-4 grid gap-3 border-t border-white/8 pt-4">
+          <BrandedField
+            htmlFor={`edit-name-${child.id}`}
+            label="Nume complet"
+            error={errors.full_name?.message}
+            required
+          >
+            <input
+              id={`edit-name-${child.id}`}
+              type="text"
+              {...register("full_name")}
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
+          <BrandedField
+            htmlFor={`edit-school-${child.id}`}
+            label="Școală (opțional)"
+            error={errors.school?.message}
+          >
+            <input
+              id={`edit-school-${child.id}`}
+              type="text"
+              {...register("school")}
+              placeholder="Ex: Școala 1, clasa a 3-a"
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
+          <BrandedField
+            htmlFor={`edit-medical-${child.id}`}
+            label="Note medicale (opțional, max 1000)"
+            error={errors.medical_notes?.message}
+          >
+            <textarea
+              id={`edit-medical-${child.id}`}
+              rows={3}
+              {...register("medical_notes")}
+              placeholder="Alergii, condiții relevante pentru antrenor…"
+              className="w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60"
+            />
+          </BrandedField>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan px-4 py-2 font-heading text-[11px] font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)] transition-colors hover:bg-[oklch(0.82_0.13_220)] disabled:opacity-60"
+            >
+              {isSubmitting ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <>
+                  <Check className="size-3.5" />
+                  Salvează
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={cancelEdit}
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-2 font-heading text-[10px] uppercase tracking-[0.18em] text-white/75 hover:text-white disabled:opacity-60"
+            >
+              <X className="size-3" />
+              Anulează
+            </button>
+          </div>
+        </form>
+      )}
+    </article>
   );
 }
 
