@@ -1,5 +1,9 @@
 /**
- * usePushSubscription — opt-in Web Push subscription for the current user.
+ * usePushSubscription — Web Push for the current user, ENABLED BY DEFAULT.
+ *
+ * Once signed in, the device auto-subscribes unless the user previously turned
+ * it off (opt-out, persisted in localStorage) or the browser blocked push. The
+ * bell's PushToggle lets the user disable / re-enable it on this device.
  *
  * Lifecycle:
  *  1. On mount, checks browser support, current Notification permission, and
@@ -18,7 +22,7 @@
  * Notification API only (visible only while a tab is open). This hook gives
  * us actual background delivery — phone screen off, browser closed.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Status =
@@ -38,6 +42,33 @@ type State = {
 const VAPID_KEY_ENDPOINT = "/api/push/vapid-key";
 const SUBSCRIBE_ENDPOINT = "/api/push/subscribe";
 const UNSUBSCRIBE_ENDPOINT = "/api/push/unsubscribe";
+
+// Per-device flags backing the "enabled by default" behaviour.
+const OPT_OUT_KEY = "push-opt-out"; // set when the user turns push off
+const AUTO_PROMPT_KEY = "push-auto-prompted"; // set after the first auto prompt
+
+function lsGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function lsSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+}
+function lsRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+}
+const isOptedOut = (): boolean => lsGet(OPT_OUT_KEY) === "1";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -76,6 +107,7 @@ export function usePushSubscription() {
     loading: false,
     error: null,
   });
+  const autoTriedRef = useRef(false);
 
   // Initial check.
   useEffect(() => {
@@ -122,6 +154,8 @@ export function usePushSubscription() {
   }, []);
 
   const subscribe = useCallback(async () => {
+    // Enabling clears any prior opt-out so default-on keeps this device on.
+    lsRemove(OPT_OUT_KEY);
     setState(s => ({ ...s, loading: true, error: null }));
 
     const key = await fetchVapidKey();
@@ -218,7 +252,27 @@ export function usePushSubscription() {
     setState({ status: "subscribed", loading: false, error: null });
   }, []);
 
+  // Default-on: when the initial check resolves to "unsubscribed", auto-enable
+  // push for this signed-in device — unless the user opted out or the browser
+  // blocked it. If permission is still "default" we prompt only once per device
+  // so we never nag on repeat visits.
+  useEffect(() => {
+    if (autoTriedRef.current) return;
+    if (state.status !== "unsubscribed") return;
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "denied") return;
+    if (isOptedOut()) return;
+    if (Notification.permission === "default") {
+      if (lsGet(AUTO_PROMPT_KEY) === "1") return;
+      lsSet(AUTO_PROMPT_KEY, "1");
+    }
+    autoTriedRef.current = true;
+    void subscribe();
+  }, [state.status, subscribe]);
+
   const unsubscribe = useCallback(async () => {
+    // Remember the user turned push off so we don't auto-resubscribe them.
+    lsSet(OPT_OUT_KEY, "1");
     setState(s => ({ ...s, loading: true, error: null }));
 
     const reg = await getRegistration();

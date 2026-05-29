@@ -26,6 +26,9 @@ export default function NotificationBell() {
   const { profile } = useAuth();
   const [items, setItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  // Called here (the bell is always mounted in the header) so push auto-enables
+  // on load — not only when the popover is opened.
+  const push = usePushSubscription();
 
   const fetchItems = useCallback(async () => {
     if (!profile) return;
@@ -179,7 +182,7 @@ export default function NotificationBell() {
           ))}
         </div>
 
-        <PushToggle />
+        <PushToggle push={push} />
       </PopoverContent>
     </Popover>
   );
@@ -191,9 +194,12 @@ export default function NotificationBell() {
 // feature that won't work. When supported, lets the user enable/disable
 // background push delivery on this device.
 
-function PushToggle() {
-  const { status, loading, error, subscribe, unsubscribe } =
-    usePushSubscription();
+function PushToggle({
+  push,
+}: {
+  push: ReturnType<typeof usePushSubscription>;
+}) {
+  const { status, loading, error, subscribe, unsubscribe } = push;
 
   // Don't pollute the popover when push isn't an option here.
   if (status === "checking" || status === "unsupported" || status === "not-configured") {
