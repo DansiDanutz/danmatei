@@ -195,7 +195,7 @@ export default function Grupe() {
               </div>
               <Link
                 href={`/campionat?grupa=${g.id}`}
-                className="inline-flex items-center gap-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:text-white"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-brand-cyan/25 bg-brand-cyan/[0.06] px-3 py-2 font-heading text-xs uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:border-brand-cyan/50 hover:bg-brand-cyan/10 hover:text-white"
               >
                 Rezultate
                 <ArrowRight className="size-3.5" />

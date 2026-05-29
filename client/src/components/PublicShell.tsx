@@ -454,7 +454,7 @@ export default function PublicShell({
           <div className="flex items-center gap-3 text-xs text-white/40">
             <a
               href="tel:0744311147"
-              className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 transition-colors hover:border-brand-cyan/40 hover:text-white"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/10 px-3 py-2 transition-colors hover:border-brand-cyan/40 hover:text-white"
             >
               <Phone className="size-3.5" />
               0744 311 147

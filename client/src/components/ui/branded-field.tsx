@@ -13,7 +13,7 @@ export interface BrandedFieldProps {
 export function BrandedField({ label, htmlFor, error, hint, required, children }: BrandedFieldProps) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={htmlFor} className="font-heading text-[11px] uppercase tracking-[0.18em] text-white/70">
+      <Label htmlFor={htmlFor} className="font-heading text-xs uppercase tracking-[0.18em] text-white/70">
         {label}
         {required && <span className="ml-1 text-rose-300">*</span>}
       </Label>

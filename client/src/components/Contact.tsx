@@ -92,10 +92,10 @@ export default function Contact() {
                     <info.icon className="w-5 h-5 sm:w-6 sm:h-6 text-cyan" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="font-heading text-[10px] sm:text-xs uppercase tracking-[0.15em] text-white/50 block mb-0.5">
+                    <span className="font-heading text-[11px] sm:text-xs uppercase tracking-[0.15em] text-white/50 block mb-0.5">
                       {info.label}
                     </span>
-                    <span className="font-body text-sm sm:text-base text-white group-hover:text-cyan transition-colors truncate block">
+                    <span className="font-body text-sm sm:text-base text-white group-hover:text-cyan transition-colors block whitespace-normal break-words text-balance">
                       {info.value}
                     </span>
                   </div>

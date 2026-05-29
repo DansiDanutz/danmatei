@@ -226,7 +226,7 @@ export default function Home() {
             const Icon = item.icon;
             const isExternal = /^https?:\/\//.test(item.href);
             const baseClass =
-              "group/menu inline-flex shrink-0 items-center justify-center rounded-full size-10 sm:size-11 transition-colors";
+              "group/menu inline-flex shrink-0 items-center justify-center rounded-full size-11 transition-colors";
             const variantClass = item.primary
               ? "border border-brand-cyan/60 bg-brand-cyan/20 text-brand-cyan hover:border-brand-cyan hover:bg-brand-cyan/30 hover:text-white"
               : "border border-transparent text-white/70 hover:border-brand-cyan/40 hover:bg-brand-cyan/10 hover:text-white";
@@ -386,7 +386,7 @@ export default function Home() {
                           >
                             {s.value}
                           </div>
-                          <div className="font-heading text-[9px] uppercase tracking-[0.18em] text-white/45">
+                          <div className="font-heading text-[11px] uppercase tracking-[0.18em] text-white/45">
                             {s.label}
                           </div>
                         </div>

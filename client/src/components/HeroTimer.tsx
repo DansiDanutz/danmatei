@@ -145,7 +145,7 @@ export default function HeroTimer({
               )}
             </span>
           </span>
-          <span className="font-heading text-[11px] font-medium uppercase tracking-[0.18em] text-white/85">
+          <span className="font-heading text-xs font-medium uppercase tracking-[0.18em] text-white/85">
             Sări peste
           </span>
         </motion.button>

@@ -55,7 +55,7 @@ export default function Inregistrare() {
           Ai deja cont?{" "}
           <Link
             href="/login"
-            className="font-heading uppercase tracking-[0.16em] text-brand-cyan hover:underline"
+            className="inline-flex min-h-[44px] items-center px-1 py-2 font-heading uppercase tracking-[0.16em] text-brand-cyan hover:underline"
           >
             Conectează-te
           </Link>
