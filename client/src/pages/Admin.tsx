@@ -59,6 +59,8 @@ type TrainerRow = {
   age_min: number;
   age_max: number;
   certifications: string[] | null;
+  whatsapp_number: string | null;
+  elevenlabs_agent_id: string | null;
   active: boolean;
   created_at: string;
   profile: { full_name: string; phone: string | null } | null;
@@ -252,6 +254,35 @@ const newTrainerSchema = z.object({
 });
 type NewTrainerValues = z.infer<typeof newTrainerSchema>;
 
+// Edit schema mirrors the create schema minus `email` — the login identity
+// lives in auth.users and can't be changed from here.
+const trainerEditSchema = z.object({
+  fullName: z.string().min(2).max(120),
+  phone: z.string().max(30).optional().or(z.literal("")),
+  whatsappNumber: z.string().max(30).optional().or(z.literal("")),
+  position: z.string().max(120).optional().or(z.literal("")),
+  elevenlabsAgentId: z.string().max(120).optional().or(z.literal("")),
+  bio: z.string().max(2000).optional().or(z.literal("")),
+  ageMin: z.number().min(4).max(25),
+  ageMax: z.number().min(4).max(25),
+  certifications: z.string().max(500).optional().or(z.literal("")),
+});
+type TrainerEditValues = z.infer<typeof trainerEditSchema>;
+
+function trainerToForm(t: TrainerRow): TrainerEditValues {
+  return {
+    fullName: t.profile?.full_name ?? "",
+    phone: t.profile?.phone ?? "",
+    whatsappNumber: t.whatsapp_number ?? "",
+    position: t.position ?? "",
+    elevenlabsAgentId: t.elevenlabs_agent_id ?? "",
+    bio: t.bio ?? "",
+    ageMin: t.age_min,
+    ageMax: t.age_max,
+    certifications: (t.certifications ?? []).join(", "),
+  };
+}
+
 function TrainersTab() {
   const { session } = useAuth();
   const [trainers, setTrainers] = useState<TrainerRow[]>([]);
@@ -275,7 +306,7 @@ function TrainersTab() {
         supabase
           .from("trainers")
           .select(
-            "id, profile_id, position, bio, age_min, age_max, certifications, active, created_at, profile:profiles!trainers_profile_id_fkey(full_name, phone)"
+            "id, profile_id, position, bio, age_min, age_max, certifications, whatsapp_number, elevenlabs_agent_id, active, created_at, profile:profiles!trainers_profile_id_fkey(full_name, phone)"
           )
           .order("display_order", { ascending: true }),
         supabase.from("children").select("trainer_id").eq("status", "active"),
@@ -511,58 +542,322 @@ function TrainersTab() {
         )}
         {!loading &&
           trainers.map(t => (
-            <article
+            <TrainerCard
               key={t.id}
-              className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <div>
-                  <h3 className="font-heading text-base font-semibold uppercase tracking-[0.04em] text-white">
-                    {t.profile?.full_name ?? "—"}
-                  </h3>
-                  <p className="mt-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan/85">
-                    {t.position ?? `U${t.age_min}–U${t.age_max}`}
-                    {t.profile?.phone && ` · ${t.profile.phone}`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/70">
-                    {t.child_count ?? 0} copii
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => toggleActive(t)}
-                    className={`rounded-full border px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] transition-colors ${
-                      t.active
-                        ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200 hover:bg-emerald-300/20"
-                        : "border-white/15 bg-white/[0.04] text-white/55 hover:text-white"
-                    }`}
-                  >
-                    {t.active ? "Activ" : "Inactiv"}
-                  </button>
-                </div>
-              </div>
-              {t.bio && (
-                <p className="mt-2 font-body text-sm leading-relaxed text-white/65">
-                  {t.bio}
-                </p>
-              )}
-              {(t.certifications?.length ?? 0) > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {(t.certifications ?? []).map(c => (
-                    <span
-                      key={c}
-                      className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.14em] text-white/70"
-                    >
-                      {c}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </article>
+              trainer={t}
+              onToggleActive={() => toggleActive(t)}
+              onSaved={refresh}
+              onError={setServerError}
+            />
           ))}
       </div>
     </div>
+  );
+}
+
+// ─── Trainer card ─────────────────────────────────────────────────────────────
+
+// One trainer row + inline editor. Owner RLS ("profiles owner update any" +
+// "trainers owner write") lets us patch both tables straight from the client,
+// the same way ChildCard / toggleActive already do.
+function TrainerCard({
+  trainer: t,
+  onToggleActive,
+  onSaved,
+  onError,
+}: {
+  trainer: TrainerRow;
+  onToggleActive: () => void;
+  onSaved: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<TrainerEditValues>({
+    resolver: zodResolver(trainerEditSchema),
+    defaultValues: trainerToForm(t),
+  });
+
+  const startEdit = () => {
+    reset(trainerToForm(t));
+    setEditing(true);
+  };
+  const cancelEdit = () => {
+    setEditing(false);
+    reset(trainerToForm(t));
+  };
+
+  const onSubmit = handleSubmit(async v => {
+    if (v.ageMax < v.ageMin) {
+      onError("Vârsta maximă trebuie să fie mai mare sau egală cu cea minimă.");
+      toast.error("Interval de vârstă invalid.");
+      return;
+    }
+    const certifications = v.certifications
+      ? v.certifications
+          .split(",")
+          .map(s => s.trim())
+          .filter(Boolean)
+      : [];
+
+    // 1. Profile (name + phone) — owner can update any profile row.
+    const { error: pErr } = await supabase
+      .from("profiles")
+      .update({
+        full_name: v.fullName.trim(),
+        phone: v.phone?.trim() ? v.phone.trim() : null,
+      })
+      .eq("id", t.profile_id);
+    if (pErr) {
+      onError(pErr.message);
+      toast.error("Salvarea a eșuat", { description: pErr.message });
+      return;
+    }
+
+    // 2. Trainer row (everything else).
+    const { error: tErr } = await supabase
+      .from("trainers")
+      .update({
+        position: v.position?.trim() ? v.position.trim() : null,
+        whatsapp_number: v.whatsappNumber?.trim() ? v.whatsappNumber.trim() : null,
+        elevenlabs_agent_id: v.elevenlabsAgentId?.trim()
+          ? v.elevenlabsAgentId.trim()
+          : null,
+        bio: v.bio?.trim() ? v.bio.trim() : null,
+        age_min: v.ageMin,
+        age_max: v.ageMax,
+        certifications,
+      })
+      .eq("id", t.id);
+    if (tErr) {
+      onError(tErr.message);
+      toast.error("Salvarea a eșuat", { description: tErr.message });
+      return;
+    }
+
+    toast.success("Datele antrenorului au fost actualizate.");
+    setEditing(false);
+    onSaved();
+  });
+
+  return (
+    <article className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h3 className="font-heading text-base font-semibold uppercase tracking-[0.04em] text-white">
+            {t.profile?.full_name ?? "—"}
+          </h3>
+          <p className="mt-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan/85">
+            {t.position ?? `U${t.age_min}–U${t.age_max}`}
+            {t.profile?.phone && ` · ${t.profile.phone}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/70">
+            {t.child_count ?? 0} copii
+          </span>
+          {!editing && (
+            <button
+              type="button"
+              onClick={startEdit}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/75 hover:border-brand-cyan/40 hover:text-white"
+            >
+              <Pencil className="size-3" />
+              Editează
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onToggleActive}
+            className={`rounded-full border px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] transition-colors ${
+              t.active
+                ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200 hover:bg-emerald-300/20"
+                : "border-white/15 bg-white/[0.04] text-white/55 hover:text-white"
+            }`}
+          >
+            {t.active ? "Activ" : "Inactiv"}
+          </button>
+        </div>
+      </div>
+
+      {!editing && t.bio && (
+        <p className="mt-2 font-body text-sm leading-relaxed text-white/65">
+          {t.bio}
+        </p>
+      )}
+      {!editing && (t.certifications?.length ?? 0) > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {(t.certifications ?? []).map(c => (
+            <span
+              key={c}
+              className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.14em] text-white/70"
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <form
+          onSubmit={onSubmit}
+          className="mt-4 grid gap-3 border-t border-white/8 pt-4"
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <BrandedField
+              htmlFor={`te-name-${t.id}`}
+              label="Nume complet"
+              error={errors.fullName?.message}
+              required
+            >
+              <input
+                id={`te-name-${t.id}`}
+                type="text"
+                {...register("fullName")}
+                className={LOCAL_INPUT_CLS}
+              />
+            </BrandedField>
+            <BrandedField
+              htmlFor={`te-phone-${t.id}`}
+              label="Telefon"
+              error={errors.phone?.message}
+            >
+              <input
+                id={`te-phone-${t.id}`}
+                type="text"
+                {...register("phone")}
+                placeholder="+40 7XX XXX XXX"
+                className={LOCAL_INPUT_CLS}
+              />
+            </BrandedField>
+            <BrandedField
+              htmlFor={`te-whatsapp-${t.id}`}
+              label="WhatsApp (E.164)"
+              error={errors.whatsappNumber?.message}
+            >
+              <input
+                id={`te-whatsapp-${t.id}`}
+                type="text"
+                {...register("whatsappNumber")}
+                placeholder="+40744311147"
+                className={LOCAL_INPUT_CLS}
+              />
+            </BrandedField>
+            <BrandedField
+              htmlFor={`te-position-${t.id}`}
+              label="Funcție"
+              error={errors.position?.message}
+            >
+              <input
+                id={`te-position-${t.id}`}
+                type="text"
+                {...register("position")}
+                placeholder="Antrenor U10–U12"
+                className={LOCAL_INPUT_CLS}
+              />
+            </BrandedField>
+          </div>
+          <BrandedField
+            htmlFor={`te-agent-${t.id}`}
+            label="ElevenLabs Agent ID (opțional)"
+            error={errors.elevenlabsAgentId?.message}
+          >
+            <input
+              id={`te-agent-${t.id}`}
+              type="text"
+              {...register("elevenlabsAgentId")}
+              placeholder="agent_xxx (lasă gol pentru asistentul implicit)"
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
+          <BrandedField
+            htmlFor={`te-bio-${t.id}`}
+            label="Biografie"
+            error={errors.bio?.message}
+          >
+            <textarea
+              id={`te-bio-${t.id}`}
+              rows={3}
+              {...register("bio")}
+              className="w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60"
+            />
+          </BrandedField>
+          <div className="grid grid-cols-2 gap-3">
+            <BrandedField
+              htmlFor={`te-min-${t.id}`}
+              label="Vârstă min"
+              error={errors.ageMin?.message}
+            >
+              <input
+                id={`te-min-${t.id}`}
+                type="number"
+                min={4}
+                max={25}
+                {...register("ageMin", { valueAsNumber: true })}
+                className={LOCAL_INPUT_CLS}
+              />
+            </BrandedField>
+            <BrandedField
+              htmlFor={`te-max-${t.id}`}
+              label="Vârstă max"
+              error={errors.ageMax?.message}
+            >
+              <input
+                id={`te-max-${t.id}`}
+                type="number"
+                min={4}
+                max={25}
+                {...register("ageMax", { valueAsNumber: true })}
+                className={LOCAL_INPUT_CLS}
+              />
+            </BrandedField>
+          </div>
+          <BrandedField
+            htmlFor={`te-certs-${t.id}`}
+            label="Certificări (separă prin virgulă)"
+            error={errors.certifications?.message}
+          >
+            <input
+              id={`te-certs-${t.id}`}
+              type="text"
+              {...register("certifications")}
+              placeholder="UEFA C, Prim ajutor"
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan px-4 py-2 font-heading text-[11px] font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)] transition-colors hover:bg-[oklch(0.82_0.13_220)] disabled:opacity-60"
+            >
+              {isSubmitting ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <>
+                  <Check className="size-3.5" />
+                  Salvează
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={cancelEdit}
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-2 font-heading text-[10px] uppercase tracking-[0.18em] text-white/75 hover:text-white disabled:opacity-60"
+            >
+              <X className="size-3" />
+              Anulează
+            </button>
+          </div>
+        </form>
+      )}
+    </article>
   );
 }
 
