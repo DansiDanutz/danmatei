@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
+import type { EmblaCarouselType } from "embla-carousel";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import SlideOwner from "./SlideOwner";
@@ -20,12 +21,27 @@ import SlidePlayers from "./SlidePlayers";
 const SLIDE_LABELS = ["Fondator", "Antrenori", "Jucători"] as const;
 
 export default function CunoasteDeck() {
-  const touchStartX = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number; nested: boolean } | null>(
+    null,
+  );
+  const [direction, setDirection] = useState(1);
+
+  // Never let the deck drag when the gesture begins inside a nested carousel
+  // (e.g. the trainer cards) — that inner swiper owns the horizontal motion.
+  const watchDeckDrag = useCallback(
+    (_api: EmblaCarouselType, evt: MouseEvent | TouchEvent | PointerEvent) => {
+      const target = evt.target as HTMLElement | null;
+      return !target?.closest?.("[data-deck-nested]");
+    },
+    [],
+  );
+
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     align: "start",
     skipSnaps: false,
     dragFree: false,
+    watchDrag: watchDeckDrag,
   });
   const [selected, setSelected] = useState(0);
 
@@ -66,22 +82,29 @@ export default function CunoasteDeck() {
   const scrollNext = () => emblaApi?.scrollNext();
   const canPrev = selected > 0;
   const canNext = selected < SLIDE_LABELS.length - 1;
-  const selectPrev = () => setSelected((current) => Math.max(0, current - 1));
-  const selectNext = () =>
-    setSelected((current) => Math.min(SLIDE_LABELS.length - 1, current + 1));
+
+  // Mobile single-slide navigation. `direction` drives the slide-in so a
+  // swipe reads as horizontal motion rather than a hard cut.
+  const goToMobile = (index: number) => {
+    const clamped = Math.max(0, Math.min(SLIDE_LABELS.length - 1, index));
+    setDirection(clamped >= selected ? 1 : -1);
+    setSelected(clamped);
+  };
+  const selectPrev = () => goToMobile(selected - 1);
+  const selectNext = () => goToMobile(selected + 1);
 
   const mobileSlides = [<SlideOwner />, <SlideTrainers />, <SlidePlayers />];
 
-  const handleTouchEnd = (clientX: number) => {
-    if (touchStartX.current === null) return;
-    const delta = touchStartX.current - clientX;
-    touchStartX.current = null;
-    if (Math.abs(delta) < 45) return;
-    if (delta > 0) {
-      selectNext();
-    } else {
-      selectPrev();
-    }
+  const handleSwipeEnd = (endX: number, endY: number) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start || start.nested) return; // nested carousel owns this gesture
+    const dx = start.x - endX;
+    const dy = start.y - endY;
+    if (Math.abs(dx) < 50) return; // too small to be a deck swipe
+    if (Math.abs(dx) <= Math.abs(dy) * 1.2) return; // vertical → it's a scroll
+    if (dx > 0) selectNext();
+    else selectPrev();
   };
 
   return (
@@ -110,19 +133,35 @@ export default function CunoasteDeck() {
       <div
         className="relative z-10 overflow-x-hidden lg:hidden"
         onTouchStart={(event) => {
-          touchStartX.current = event.touches[0]?.clientX ?? null;
+          const t = event.touches[0];
+          const target = event.target as HTMLElement | null;
+          touchStart.current = t
+            ? {
+                x: t.clientX,
+                y: t.clientY,
+                nested: !!target?.closest?.("[data-deck-nested]"),
+              }
+            : null;
         }}
         onTouchEnd={(event) => {
-          handleTouchEnd(event.changedTouches[0]?.clientX ?? 0);
+          const t = event.changedTouches[0];
+          if (t) handleSwipeEnd(t.clientX, t.clientY);
         }}
       >
-        {mobileSlides[selected]}
+        <motion.div
+          key={selected}
+          initial={{ opacity: 0, x: direction * 48 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {mobileSlides[selected]}
+        </motion.div>
         <div className="mx-auto mt-2 flex w-full max-w-xs items-center justify-center gap-2 px-5 pb-6">
           {SLIDE_LABELS.map((label, index) => (
             <button
               key={label}
               type="button"
-              onClick={() => setSelected(index)}
+              onClick={() => goToMobile(index)}
               aria-label={`Mergi la ${label}`}
               aria-current={selected === index}
               className="touch-target group flex h-8 items-center px-1"
