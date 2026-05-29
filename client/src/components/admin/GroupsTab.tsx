@@ -26,6 +26,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BrandedField } from "@/components/ui/branded-field";
 
 type GroupRow = {
   id: string;
@@ -36,6 +37,9 @@ type GroupRow = {
   active: boolean;
   trainer: { profile: { full_name: string } | null } | null;
 };
+
+/** Latest fee per group_id, used to show "X RON / lună" on cards. */
+type LatestFee = { group_id: string; monthly_fee_ron: number; effective_from: string };
 
 type TrainerOption = {
   id: string;
@@ -54,6 +58,7 @@ const groupSchema = z.object({
   birthYearMin: z.number().min(2000).max(2030),
   birthYearMax: z.number().min(2000).max(2030),
   trainerId: z.string().optional(),
+  monthlyFeeRon: z.number().min(0).max(99999),
 });
 type GroupForm = z.infer<typeof groupSchema>;
 
@@ -62,6 +67,7 @@ const DEFAULT_FORM: GroupForm = {
   birthYearMin: 2015,
   birthYearMax: 2015,
   trainerId: "",
+  monthlyFeeRon: 0,
 };
 
 export default function GroupsTab() {
@@ -69,6 +75,7 @@ export default function GroupsTab() {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [trainers, setTrainers] = useState<TrainerOption[]>([]);
   const [unassigned, setUnassigned] = useState<UnassignedChild[]>([]);
+  const [latestFees, setLatestFees] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -111,9 +118,33 @@ export default function GroupsTab() {
         [ge?.message, te?.message, ue?.message].filter(Boolean).join("; ")
       );
     }
-    setGroups((g ?? []) as unknown as GroupRow[]);
+    const groupsList = (g ?? []) as unknown as GroupRow[];
+    setGroups(groupsList);
     setTrainers((t ?? []) as unknown as TrainerOption[]);
     setUnassigned((u ?? []) as unknown as UnassignedChild[]);
+
+    // Fetch all fee rows for the visible groups; resolve the latest per
+    // group_id in JS so we can render "X RON / lună" on each card. Sorting
+    // by effective_from desc means the first row we see per group wins.
+    if (groupsList.length > 0) {
+      const { data: feeRows } = await supabase
+        .from("group_fees")
+        .select("group_id, monthly_fee_ron, effective_from")
+        .in(
+          "group_id",
+          groupsList.map((gr) => gr.id)
+        )
+        .order("effective_from", { ascending: false });
+      const latest = new Map<string, number>();
+      for (const f of ((feeRows ?? []) as unknown as LatestFee[])) {
+        if (!latest.has(f.group_id)) {
+          latest.set(f.group_id, Number(f.monthly_fee_ron));
+        }
+      }
+      setLatestFees(latest);
+    } else {
+      setLatestFees(new Map());
+    }
     setLoading(false);
   };
 
@@ -149,21 +180,55 @@ export default function GroupsTab() {
           setServerError(error.message);
           return;
         }
+        // If the fee changed, append a NEW group_fees row so the historical
+        // record is preserved — past charges keep their contemporary amount.
+        const prevFee = latestFees.get(editingId);
+        if (
+          profile?.id &&
+          (prevFee === undefined || Number(prevFee) !== Number(v.monthlyFeeRon))
+        ) {
+          const { error: feeErr } = await supabase.from("group_fees").insert({
+            group_id: editingId,
+            monthly_fee_ron: v.monthlyFeeRon,
+            effective_from: new Date().toISOString().slice(0, 10),
+            created_by: profile.id,
+          });
+          if (feeErr) {
+            // Surface the fee error but don't roll back — the group update
+            // already landed and the user can retry the fee on next save.
+            setServerError(`Grupa salvată, dar taxa: ${feeErr.message}`);
+          }
+        }
         toast.success("Grupă actualizată");
         setEditingId(null);
         reset(DEFAULT_FORM);
         loadAll();
       } else {
-        const { error } = await supabase.from("groups").insert({
-          label: v.label,
-          birth_year_min: v.birthYearMin,
-          birth_year_max: v.birthYearMax,
-          trainer_id: v.trainerId || null,
-          created_by: profile!.id,
-        });
+        const { data: created, error } = await supabase
+          .from("groups")
+          .insert({
+            label: v.label,
+            birth_year_min: v.birthYearMin,
+            birth_year_max: v.birthYearMax,
+            trainer_id: v.trainerId || null,
+            created_by: profile!.id,
+          })
+          .select("id")
+          .single();
         if (error) {
           setServerError(error.message);
           return;
+        }
+        if (created?.id) {
+          const { error: feeErr } = await supabase.from("group_fees").insert({
+            group_id: created.id,
+            monthly_fee_ron: v.monthlyFeeRon,
+            effective_from: new Date().toISOString().slice(0, 10),
+            created_by: profile!.id,
+          });
+          if (feeErr) {
+            setServerError(`Grupa creată, dar taxa: ${feeErr.message}`);
+          }
         }
         toast.success("Grupă creată");
         reset(DEFAULT_FORM);
@@ -183,6 +248,7 @@ export default function GroupsTab() {
       birthYearMin: g.birth_year_min,
       birthYearMax: g.birth_year_max,
       trainerId: g.trainer_id ?? "",
+      monthlyFeeRon: latestFees.get(g.id) ?? 0,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -362,6 +428,27 @@ export default function GroupsTab() {
               ))}
             </select>
           </div>
+          <div className="sm:col-span-1">
+            <BrandedField
+              htmlFor="g-monthly-fee"
+              label="Taxă lunară (RON)"
+              error={errors.monthlyFeeRon?.message}
+              hint={
+                editingId
+                  ? "Modificarea creează o nouă înregistrare istorică."
+                  : "Aplicată copiilor din grupă pe 1 a fiecărei luni."
+              }
+            >
+              <Input
+                id="g-monthly-fee"
+                type="number"
+                step="0.01"
+                min="0"
+                {...register("monthlyFeeRon", { valueAsNumber: true })}
+                className="h-10 rounded-xl border-white/10 bg-white/[0.04] text-white"
+              />
+            </BrandedField>
+          </div>
           <div className="sm:col-span-4 flex flex-wrap items-center gap-2">
             <button
               type="submit"
@@ -418,6 +505,11 @@ export default function GroupsTab() {
                       </h3>
                       <p className="mt-0.5 font-body text-xs text-white/55">
                         {g.birth_year_min}–{g.birth_year_max}
+                      </p>
+                      <p className="mt-1 font-heading text-[10px] uppercase tracking-[0.14em] text-brand-cyan/80">
+                        {latestFees.has(g.id)
+                          ? `${latestFees.get(g.id)} RON / lună`
+                          : "Fără taxă"}
                       </p>
                     </div>
                     <button
