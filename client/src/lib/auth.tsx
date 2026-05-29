@@ -60,6 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (userId: string) => {
+    if (!import.meta.env.VITE_SUPABASE_URL) {
+      console.warn("[auth] VITE_SUPABASE_URL missing; cannot load profile");
+      setProfile(null);
+      return;
+    }
     // Use fetch directly to avoid supabase client deadlock on getSession()
     const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=id,role,full_name,phone,locale,avatar_path,created_at,updated_at`;
     const token = JSON.parse(localStorage.getItem("scoala-fotbal-auth") || "{}").access_token;
@@ -78,7 +83,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       const data = await res.json();
-      setProfile((data[0] as Profile) ?? null);
+      const existing = (data[0] as Profile) ?? null;
+      if (existing) {
+        setProfile(existing);
+        return;
+      }
+      // No profile row yet (e.g. Google OAuth signup where the
+      // handle_new_user trigger skipped row creation because
+      // raw_user_meta_data.app !== 'fotbal'). Create one lazily from
+      // auth.users metadata so the user can reach /completeaza-profil
+      // with a valid profile.id.
+      const { data: userData } = await supabase.auth.getUser();
+      const authUser = userData.user;
+      if (!authUser || authUser.id !== userId) {
+        setProfile(null);
+        return;
+      }
+      const meta = (authUser.user_metadata ?? {}) as Record<string, unknown>;
+      const fullName =
+        (typeof meta.full_name === "string" && meta.full_name) ||
+        (typeof meta.name === "string" && meta.name) ||
+        "";
+      const { data: upserted, error: upsertErr } = await supabase
+        .from("profiles")
+        .upsert({
+          id: userId,
+          role: "parent",
+          full_name: fullName,
+          phone: "",
+        })
+        .select("id,role,full_name,phone,locale,avatar_path,created_at,updated_at")
+        .single();
+      if (upsertErr) {
+        console.warn("[auth] profile lazy-create error", upsertErr);
+        setProfile(null);
+        return;
+      }
+      setProfile(upserted as Profile);
     } catch (e) {
       console.warn("[auth] profile load error", e);
       setProfile(null);
