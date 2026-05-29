@@ -86,6 +86,16 @@ export default async function handler(req: Req, res: Res) {
 
   const svc = serviceClient();
 
+  // Where the invite email's "Accept the invite" link sends the trainer:
+  // the /seteaza-parola page, which captures the invite session and lets them
+  // set a password. Must be in Supabase Auth → URL Configuration → Redirect
+  // URLs (a `<origin>/**` wildcard covers it). Falls back to the SiteURL if not.
+  const appUrl = (
+    process.env.VITE_APP_URL ||
+    process.env.PUBLIC_BASE_URL ||
+    "https://danmatei.vercel.app"
+  ).replace(/\/+$/, "");
+
   // 1. Invite the user via Supabase Auth — this creates the auth.users row
   //    and emails them a setup link. The trigger on auth.users creates the
   //    fotbal.profiles row because we set raw_user_meta_data.app='fotbal'.
@@ -97,6 +107,7 @@ export default async function handler(req: Req, res: Res) {
       full_name: v.fullName,
       phone: v.phone ?? null,
     },
+    redirectTo: `${appUrl}/seteaza-parola`,
   });
   if (invite.error) {
     return res.status(400).json({ error: invite.error.message });

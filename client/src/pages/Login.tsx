@@ -7,20 +7,26 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import AuthCardShell from "@/components/AuthCardShell";
 import GoogleAuthButton from "@/components/GoogleAuthButton";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 
 export default function Login() {
   const { signInWithGoogle, signIn } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [showFallback, setShowFallback] = useState(false);
-  // Email/password test form (hidden unless ?email=1 is present)
-  const showEmailForm = new URLSearchParams(window.location.search).get("email") === "1";
+  // Email/password sign-in (trainers/staff use this; parents use Google).
+  // Revealable via a visible toggle, or auto-open with ?email=1.
+  const [showEmailForm, setShowEmailForm] = useState(
+    () => new URLSearchParams(window.location.search).get("email") === "1"
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [forgotBusy, setForgotBusy] = useState(false);
 
   // If redirect doesn't happen within 4s, show a fallback direct link.
   useEffect(() => {
@@ -58,6 +64,24 @@ export default function Login() {
     // Successful login triggers onAuthStateChange → redirect handled by App/RouteGuards
   };
 
+  const handleForgot = async () => {
+    if (!email) {
+      setServerError("Introdu adresa de email mai întâi, apoi apasă „Am uitat parola”.");
+      return;
+    }
+    setServerError(null);
+    setForgotBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/seteaza-parola`,
+    });
+    setForgotBusy(false);
+    if (error) {
+      setServerError(error.message);
+      return;
+    }
+    toast.success("Ți-am trimis un link de resetare pe email.");
+  };
+
   return (
     <AuthCardShell
       eyebrow="Cont membru"
@@ -88,9 +112,19 @@ export default function Login() {
           loading={submitting}
         />
 
+        {!showEmailForm && (
+          <button
+            type="button"
+            onClick={() => setShowEmailForm(true)}
+            className="font-body text-xs text-white/45 underline underline-offset-2 hover:text-brand-cyan"
+          >
+            Cont de antrenor sau staff? Conectează-te cu email.
+          </button>
+        )}
+
         {showEmailForm && (
           <form onSubmit={handleEmail} className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
-            <p className="text-center font-body text-xs text-white/55">Test login (email + parolă)</p>
+            <p className="text-center font-body text-xs text-white/55">Conectare cu email (antrenori / staff)</p>
             <input
               type="email"
               placeholder="Email"
@@ -113,6 +147,14 @@ export default function Login() {
               className="rounded-full border border-brand-cyan/40 bg-[oklch(0.10_0.02_250)] px-4 py-2 font-heading text-xs font-semibold uppercase tracking-[0.14em] text-white transition-all hover:border-brand-cyan/70 disabled:opacity-60"
             >
               {emailSubmitting ? <Loader2 className="mx-auto size-3 animate-spin" /> : "Conectează-te"}
+            </button>
+            <button
+              type="button"
+              onClick={handleForgot}
+              disabled={forgotBusy}
+              className="font-body text-xs text-white/55 underline underline-offset-2 hover:text-brand-cyan disabled:opacity-60"
+            >
+              {forgotBusy ? "Se trimite…" : "Am uitat parola"}
             </button>
           </form>
         )}
