@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Image as ImageIcon, Play, Trophy, Dumbbell, Swords, Users, MapPin, Award } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import { BrandSpinner } from "@/components/ui/brand-spinner";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
@@ -90,8 +90,10 @@ export default function Galerie() {
       pageDescription="Antrenamente, meciuri și sărbători din viața academiei."
     >
       {loading && (
-        <div className="grid place-items-center py-20">
-          <BrandSpinner size="sm" />
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
       )}
 

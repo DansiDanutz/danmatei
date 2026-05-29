@@ -6,10 +6,11 @@
  */
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Trophy } from "lucide-react";
+import { Calendar, MapPin, Trophy, TrendingUp } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { BrandSpinner } from "@/components/ui/brand-spinner";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
@@ -160,9 +161,19 @@ export default function Rezultate() {
       </div>
 
       {loading && (
-        <div className="grid place-items-center py-20">
-          <BrandSpinner size="sm" />
+        <div className="grid gap-3 sm:gap-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
+      )}
+
+      {!loading && results.length === 0 && (
+        <EmptyState
+          icon={<TrendingUp className="size-6" />}
+          title="Niciun rezultat încă"
+          description="Scorurile meciurilor oficiale vor apărea aici imediat ce sunt înregistrate."
+        />
       )}
 
       <div className="grid gap-3 sm:gap-4">

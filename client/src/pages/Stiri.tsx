@@ -9,7 +9,8 @@ import { motion } from "framer-motion";
 import { Calendar, Newspaper, Tag } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { BrandSpinner } from "@/components/ui/brand-spinner";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
@@ -135,11 +136,20 @@ export default function Stiri() {
     >
       {usingFallback && <DemoBanner />}
       {loading && (
-        <div className="grid place-items-center py-20">
-          <BrandSpinner size="sm" />
+        <div className="grid gap-3 sm:gap-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
       )}
-      {!loading && (
+      {!loading && posts.length === 0 && (
+        <EmptyState
+          icon={<Newspaper className="size-6" />}
+          title="Nicio știre încă"
+          description="Antrenorii postează aici noutățile săptămânii. Reveniți curând."
+        />
+      )}
+      {!loading && posts.length > 0 && (
         <div className="grid gap-3 sm:gap-4">
           {posts.map((p, i) => {
             const date = p.published_at
@@ -167,7 +177,7 @@ export default function Stiri() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-body text-[11px] text-white/45">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-body text-[11px] text-white/65">
                     <span className="inline-flex items-center gap-1">
                       <Calendar className="size-3 text-brand-cyan/70" />
                       {date}
