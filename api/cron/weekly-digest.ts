@@ -12,7 +12,7 @@
  *
  * Output: { ok, ranAt, parents, notified, push } — surfaces in Vercel logs.
  */
-import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
+import { serviceClient } from "../_lib/supabase.js";
 import { sendPushToUsers } from "../_lib/push.js";
 
 type Req = {
@@ -55,13 +55,26 @@ export default async function handler(req: Req, res: Res) {
     return res.status(405).json({ error: "method_not_allowed" });
   }
 
-  // Cron auth — same pattern as the daily cron.
+  // Cron auth — fail-closed. Vercel Cron sets the Authorization header
+  // automatically; we refuse to run in prod/preview when CRON_SECRET is
+  // unset so an unconfigured deploy can't be triggered by anyone.
   const expected = process.env.CRON_SECRET;
-  if (expected) {
+  if (!expected) {
+    if (
+      process.env.NODE_ENV === "production" ||
+      process.env.VERCEL_ENV === "production" ||
+      process.env.VERCEL_ENV === "preview"
+    ) {
+      return res.status(503).json({ error: "cron_secret_unset" });
+    }
+    // dev-only: log a warn and continue
+    console.warn(
+      "[cron/weekly-digest] CRON_SECRET unset — allowing in dev only"
+    );
+  } else {
     const auth = readHeader(req, "authorization") ?? "";
     if (auth !== `Bearer ${expected}`) {
-      const authProvided = getJwtFromHeader(auth);
-      if (!authProvided) return res.status(401).json({ error: "unauthorized" });
+      return res.status(401).json({ error: "unauthorized" });
     }
   }
 

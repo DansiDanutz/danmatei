@@ -68,24 +68,51 @@ export default async function handler(req: Req, res: Res) {
   }
   const v = parsed.data;
 
-  // Upsert on endpoint — covers both "first subscribe on this browser" and
-  // "browser rotated keys / replaced subscription".
+  // Endpoint is unique table-wide. Before inserting/updating we look it up
+  // to make sure it doesn't already belong to a DIFFERENT user — otherwise
+  // a known endpoint URL could be reassigned and notifications hijacked.
   const svc = serviceClient();
-  const { error } = await svc
+
+  const existing = await svc
     .from("push_subscriptions")
-    .upsert(
-      {
-        user_id: userId,
-        endpoint: v.endpoint,
+    .select("user_id")
+    .eq("endpoint", v.endpoint)
+    .maybeSingle();
+
+  if (existing.error) {
+    return res.status(500).json({ error: existing.error.message });
+  }
+
+  if (existing.data && existing.data.user_id !== userId) {
+    return res.status(409).json({ error: "endpoint_owned_by_another_user" });
+  }
+
+  if (existing.data) {
+    const { error } = await svc
+      .from("push_subscriptions")
+      .update({
         p256dh: v.keys.p256dh,
         auth: v.keys.auth,
         user_agent: v.userAgent ?? null,
         last_used_at: new Date().toISOString(),
-      },
-      { onConflict: "endpoint" }
-    );
-  if (error) {
-    return res.status(500).json({ error: error.message });
+      })
+      .eq("endpoint", v.endpoint)
+      .eq("user_id", userId);
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  } else {
+    const { error } = await svc.from("push_subscriptions").insert({
+      user_id: userId,
+      endpoint: v.endpoint,
+      p256dh: v.keys.p256dh,
+      auth: v.keys.auth,
+      user_agent: v.userAgent ?? null,
+      last_used_at: new Date().toISOString(),
+    });
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
   }
 
   return res.status(200).json({ ok: true });

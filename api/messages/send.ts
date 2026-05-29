@@ -123,6 +123,23 @@ export default async function handler(req: Req, res: Res) {
     return res.status(403).json({ error: "forbidden" });
   }
 
+  // When audience=child, confirm the child actually belongs to this
+  // trainer's group — otherwise a compromised trainer could message any
+  // parent in the academy by guessing childIds.
+  if (audience === "child") {
+    const { data: child, error: childErr } = await supabase
+      .from("children")
+      .select("id, trainer_id")
+      .eq("id", childId)
+      .single();
+    if (childErr || !child) {
+      return res.status(404).json({ error: "child_not_found" });
+    }
+    if (child.trainer_id !== trainerId) {
+      return res.status(403).json({ error: "child_not_in_your_group" });
+    }
+  }
+
   // 1) Insert the message — DB trigger creates in-app notifications.
   const { data: inserted, error: insErr } = await supabase
     .from("messages")
