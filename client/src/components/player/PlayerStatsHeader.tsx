@@ -7,8 +7,10 @@
  * match line, skill tree, and (for trainer/owner) an "Editează abilități"
  * editor.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Cake,
+  Camera,
   Edit3,
   Flame,
   Loader2,
@@ -17,12 +19,18 @@ import {
   Trophy,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { currentAge } from "@/lib/age";
+import { currentAge, isBirthdayToday } from "@/lib/age";
 import { useAuth } from "@/lib/auth";
+import Confetti from "@/components/effects/Confetti";
+
+const PHOTO_BUCKET = "fotbal-media-private";
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024; // 8 MB
 
 type Child = {
   id: string;
+  parent_id: string;
   full_name: string;
   dob: string;
   photo_path: string | null;
@@ -83,11 +91,84 @@ function avg(skills: Pick<Skills, SkillKey>): number {
   return sum / SKILL_ORDER.length;
 }
 
+// Streak milestones — celebrated with a confetti burst the first time the
+// child's current_streak crosses each threshold. Per-child localStorage
+// remembers the last-seen value so we don't refire on every page visit.
+const STREAK_MILESTONES = [5, 10, 20, 50] as const;
+
+type StreakTier = {
+  /** Romanian label shown under the streak number. */
+  label: string;
+  /** Tailwind color class for the streak number. */
+  numberClass: string;
+  /** Tailwind border + bg classes for the badge pill. */
+  pillClass: string;
+};
+
+function streakTier(streak: number): StreakTier {
+  if (streak >= 50) {
+    return {
+      label: "Legendă · 50+",
+      numberClass: "text-[#e879f9]",
+      pillClass: "border-[#e879f9]/45 bg-[#e879f9]/[0.10] text-[#e879f9]",
+    };
+  }
+  if (streak >= 20) {
+    return {
+      label: "Aur · 20+",
+      numberClass: "text-brand-gold",
+      pillClass: "border-brand-gold/45 bg-brand-gold/[0.12] text-brand-gold",
+    };
+  }
+  if (streak >= 10) {
+    return {
+      label: "Argint · 10+",
+      numberClass: "text-slate-200",
+      pillClass: "border-slate-200/40 bg-slate-200/[0.10] text-slate-200",
+    };
+  }
+  if (streak >= 5) {
+    return {
+      label: "Bronz · 5+",
+      numberClass: "text-amber-300",
+      pillClass: "border-amber-300/45 bg-amber-300/[0.10] text-amber-300",
+    };
+  }
+  return {
+    label: streak > 0 ? "În creștere" : "Fără streak",
+    numberClass: "text-brand-cyan",
+    pillClass: "border-white/15 bg-white/[0.04] text-white/55",
+  };
+}
+
+/**
+ * Returns the highest milestone the kid has just crossed since `lastSeen`,
+ * or null. Examples:
+ *   lastSeen=4, current=5  → 5
+ *   lastSeen=4, current=12 → 10  (skipped 5 only if both 5 and 10 were
+ *                                 crossed between writes — rare, fire one)
+ *   lastSeen=10, current=12 → null
+ *   lastSeen=10, current=10 → null
+ */
+function justCrossedMilestone(
+  current: number,
+  lastSeen: number
+): number | null {
+  let hit: number | null = null;
+  for (const m of STREAK_MILESTONES) {
+    if (current >= m && lastSeen < m) hit = m;
+  }
+  return hit;
+}
+
 function StarBar({ value }: { value: number }) {
   const rounded = Math.round(value * 2) / 2;
   return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`${rounded}/5`}>
-      {[1, 2, 3, 4, 5].map((i) => {
+    <span
+      className="inline-flex items-center gap-0.5"
+      aria-label={`${rounded}/5`}
+    >
+      {[1, 2, 3, 4, 5].map(i => {
         const filled = rounded >= i;
         const half = !filled && rounded + 0.5 >= i;
         return (
@@ -161,10 +242,22 @@ function SkillRow({
   );
 }
 
-export default function PlayerStatsHeader({ child }: { child: Child }) {
+export default function PlayerStatsHeader({
+  child,
+  onPhotoChanged,
+}: {
+  child: Child;
+  /** Called with the new storage path after a successful upload so the parent
+   *  page can update its local Child state and avoid a full refetch. */
+  onPhotoChanged?: (newPhotoPath: string) => void;
+}) {
   const { profile } = useAuth();
-  const canEdit =
+  const canEditSkills =
     profile?.role === "trainer" ||
+    profile?.role === "owner" ||
+    profile?.role === "super_admin";
+  const canEditPhoto =
+    profile?.id === child.parent_id ||
     profile?.role === "owner" ||
     profile?.role === "super_admin";
 
@@ -173,6 +266,8 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
   const [loading, setLoading] = useState(true);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const refetch = useCallback(async () => {
     setLoading(true);
@@ -180,14 +275,14 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
       supabase
         .from("v_child_stats")
         .select(
-          "child_id, attendance_total, attendance_present, attendance_percent, current_streak, matches_played, goals_total, assists_total",
+          "child_id, attendance_total, attendance_present, attendance_percent, current_streak, matches_played, goals_total, assists_total"
         )
         .eq("child_id", child.id)
         .maybeSingle(),
       supabase
         .from("player_skills")
         .select(
-          "child_id, pasare, conducere, tehnica, cooperare, disciplina, notes, updated_at",
+          "child_id, pasare, conducere, tehnica, cooperare, disciplina, notes, updated_at"
         )
         .eq("child_id", child.id)
         .maybeSingle(),
@@ -209,7 +304,7 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
       return;
     }
     supabase.storage
-      .from("fotbal-media-private")
+      .from(PHOTO_BUCKET)
       .createSignedUrl(child.photo_path, 60 * 60 * 4)
       .then(({ data }) => {
         if (!cancelled) setPhotoUrl(data?.signedUrl ?? null);
@@ -220,11 +315,123 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
   }, [child.photo_path]);
 
   const age = useMemo(() => currentAge(child.dob), [child.dob]);
-  const skillView = skills ?? { ...DEFAULT_SKILLS, child_id: child.id, notes: null, updated_at: "" };
+  const isBirthday = useMemo(() => isBirthdayToday(child.dob), [child.dob]);
+  const skillView = skills ?? {
+    ...DEFAULT_SKILLS,
+    child_id: child.id,
+    notes: null,
+    updated_at: "",
+  };
   const skillAvg = avg(skillView);
+
+  // Confetti fires for two distinct reasons: birthdays (every visit on the
+  // day) and streak milestones (once when crossed, remembered in
+  // localStorage). One mount, two triggers.
+  const [confettiToggle, setConfettiToggle] = useState(false);
+  const [milestoneHit, setMilestoneHit] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isBirthday) {
+      setConfettiToggle(false);
+      const t = setTimeout(() => setConfettiToggle(true), 50);
+      return () => clearTimeout(t);
+    }
+    setConfettiToggle(false);
+  }, [isBirthday, child.id]);
+
+  // Streak milestone detection. Runs after stats load.
+  useEffect(() => {
+    if (!stats) return;
+    if (typeof window === "undefined") return;
+    const key = `danmatei_streak_${child.id}`;
+    const raw = window.localStorage.getItem(key);
+    const lastSeen = raw ? Number(raw) : 0;
+    const hit = justCrossedMilestone(stats.current_streak, lastSeen);
+    if (hit !== null) {
+      setMilestoneHit(hit);
+      // Re-fire confetti even if birthday already lit it — toggle off then on.
+      setConfettiToggle(false);
+      const t = setTimeout(() => setConfettiToggle(true), 80);
+      // Auto-clear the milestone tag so the celebratory ring fades.
+      const clearTag = setTimeout(() => setMilestoneHit(null), 6000);
+      window.localStorage.setItem(key, String(stats.current_streak));
+      return () => {
+        clearTimeout(t);
+        clearTimeout(clearTag);
+      };
+    }
+    // Always sync localStorage to current so a streak reset doesn't get
+    // celebrated again later.
+    window.localStorage.setItem(key, String(stats.current_streak));
+  }, [stats, child.id]);
+
+  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !profile?.id) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Doar imagini, te rugăm.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast.error("Fișierul e prea mare. Maxim 8 MB.");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    // Storage RLS requires the path to start with auth.uid().
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const path = `${profile.id}/${child.id}/profile-${Date.now()}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from(PHOTO_BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (upErr) {
+      setUploadingPhoto(false);
+      toast.error(`Nu am putut urca poza: ${upErr.message}`);
+      return;
+    }
+
+    const { error: updErr } = await supabase
+      .from("children")
+      .update({ photo_path: path })
+      .eq("id", child.id);
+    if (updErr) {
+      setUploadingPhoto(false);
+      // Best-effort cleanup: remove the orphan upload.
+      void supabase.storage.from(PHOTO_BUCKET).remove([path]);
+      toast.error(`Nu am putut salva poza: ${updErr.message}`);
+      return;
+    }
+
+    // Refresh the signed URL immediately so the new photo shows without reload.
+    const { data: signed } = await supabase.storage
+      .from(PHOTO_BUCKET)
+      .createSignedUrl(path, 60 * 60 * 4);
+    setPhotoUrl(signed?.signedUrl ?? null);
+    setUploadingPhoto(false);
+    onPhotoChanged?.(path);
+    toast.success("Poza a fost actualizată.");
+  };
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-white/8 bg-[oklch(0.10_0.02_250)]">
+      {/* Birthday celebration — banner + confetti only on the day. */}
+      {isBirthday && (
+        <>
+          <Confetti fire={confettiToggle} durationMs={4500} count={70} />
+          <div className="flex flex-wrap items-center justify-center gap-3 bg-gradient-to-r from-brand-gold/30 via-brand-gold/15 to-brand-cyan/25 px-4 py-2.5 text-center">
+            <Cake className="size-4 text-brand-gold" />
+            <span className="font-heading text-sm uppercase tracking-[0.16em] text-white">
+              La mulți ani, {child.full_name.split(" ")[0]}!
+            </span>
+            <span className="font-heading text-[11px] uppercase tracking-[0.2em] text-brand-gold">
+              {age} ani
+            </span>
+          </div>
+        </>
+      )}
       {/* Hero band — photo + name */}
       <div className="relative h-44 sm:h-52">
         {photoUrl ? (
@@ -242,13 +449,43 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
             {child.age_group_label}
           </span>
         )}
+        {canEditPhoto && (
+          <>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              aria-label={photoUrl ? "Schimbă poza" : "Adaugă poza copilului"}
+              className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/40 bg-black/55 px-3 py-1.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan backdrop-blur-md transition-colors hover:border-brand-cyan/70 hover:bg-brand-cyan/15 disabled:opacity-60"
+            >
+              {uploadingPhoto ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Camera className="size-3.5" />
+              )}
+              {photoUrl ? "Schimbă poza" : "Adaugă poza"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={onPickPhoto}
+              disabled={uploadingPhoto}
+              className="sr-only"
+            />
+          </>
+        )}
         <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-heading text-3xl sm:text-4xl uppercase leading-[0.95] text-white truncate">
               {child.full_name}
             </h1>
             <div className="mt-1 text-[11px] uppercase tracking-[0.22em] text-brand-cyan font-bold">
-              {age} ani · Naștere {new Date(child.dob).toLocaleDateString("ro-RO", { year: "numeric", month: "short" })}
+              {age} ani · Naștere{" "}
+              {new Date(child.dob).toLocaleDateString("ro-RO", {
+                year: "numeric",
+                month: "short",
+              })}
             </div>
           </div>
           <div className="text-right shrink-0">
@@ -267,18 +504,28 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.06]">
-        <Stat
-          label="Streak"
-          value={stats ? `${stats.current_streak}` : "—"}
-          icon={<Flame className="size-3.5" />}
-          tone={stats && stats.current_streak >= 5 ? "gold" : "cyan"}
-          sub={stats?.current_streak ? "antrenamente la rând" : "fără antrenamente recente"}
+        {/* Streak — bespoke tier badge instead of the generic Stat layout */}
+        <StreakCard
+          streak={stats?.current_streak ?? null}
+          milestoneHit={milestoneHit}
         />
         <Stat
           label="Prezență"
-          value={stats?.attendance_percent != null ? `${stats.attendance_percent}%` : "—"}
-          tone={stats?.attendance_percent && stats.attendance_percent >= 80 ? "gold" : "cyan"}
-          sub={stats ? `${stats.attendance_present}/${stats.attendance_total} sesiuni` : "—"}
+          value={
+            stats?.attendance_percent != null
+              ? `${stats.attendance_percent}%`
+              : "—"
+          }
+          tone={
+            stats?.attendance_percent && stats.attendance_percent >= 80
+              ? "gold"
+              : "cyan"
+          }
+          sub={
+            stats
+              ? `${stats.attendance_present}/${stats.attendance_total} sesiuni`
+              : "—"
+          }
         />
         <Stat
           label="Goluri"
@@ -301,7 +548,7 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
           <h2 className="font-heading text-sm uppercase tracking-[0.18em] text-white">
             Profilul de joc
           </h2>
-          {canEdit && !editing && (
+          {canEditSkills && !editing && (
             <button
               type="button"
               onClick={() => setEditing(true)}
@@ -329,12 +576,13 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
           />
         ) : (
           <div className="space-y-2">
-            {SKILL_ORDER.map((k) => (
+            {SKILL_ORDER.map(k => (
               <SkillRow k={k} value={skillView[k]} editable={false} key={k} />
             ))}
             {skills?.updated_at && (
               <div className="pt-2 text-[10px] uppercase tracking-[0.18em] text-white/35 font-bold">
-                Actualizat {new Date(skills.updated_at).toLocaleDateString("ro-RO")}
+                Actualizat{" "}
+                {new Date(skills.updated_at).toLocaleDateString("ro-RO")}
               </div>
             )}
             {!skills && (
@@ -372,7 +620,60 @@ function Stat({
       <div className={`font-heading text-3xl leading-none mt-2 ${valColor}`}>
         {value}
       </div>
-      {sub && (
+      {sub && <div className="mt-1 text-[10.5px] text-white/55">{sub}</div>}
+    </div>
+  );
+}
+
+// Streak card replaces the generic Stat for the streak slot. Shows a tier
+// pill (Bronz / Argint / Aur / Legendă) and gets a temporary cyan glow ring
+// when the kid just crossed a milestone.
+function StreakCard({
+  streak,
+  milestoneHit,
+}: {
+  streak: number | null;
+  milestoneHit: number | null;
+}) {
+  const value = streak ?? 0;
+  const tier = streakTier(value);
+  const sub =
+    streak === null
+      ? "—"
+      : streak > 0
+        ? "antrenamente la rând"
+        : "fără antrenamente recente";
+
+  return (
+    <div
+      className={`relative bg-[oklch(0.10_0.02_250)] p-3 sm:p-4 transition-shadow ${
+        milestoneHit !== null
+          ? "shadow-[inset_0_0_0_2px_oklch(0.78_0.13_210/0.55)]"
+          : ""
+      }`}
+    >
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-white/55 font-bold">
+        <Flame className="size-3.5" />
+        Streak
+      </div>
+      <div className="mt-2 flex items-baseline gap-2">
+        <div
+          className={`font-heading text-3xl leading-none tabular-nums ${tier.numberClass}`}
+        >
+          {streak === null ? "—" : streak}
+        </div>
+        <span
+          className={`rounded-full border px-1.5 py-0.5 font-heading text-[9px] uppercase tracking-[0.18em] ${tier.pillClass}`}
+        >
+          {tier.label}
+        </span>
+      </div>
+      {milestoneHit !== null && (
+        <div className="mt-1 font-heading text-[10.5px] uppercase tracking-[0.18em] text-brand-cyan">
+          ⚡ Pragul {milestoneHit} atins!
+        </div>
+      )}
+      {milestoneHit === null && (
         <div className="mt-1 text-[10.5px] text-white/55">{sub}</div>
       )}
     </div>
@@ -404,17 +705,15 @@ function SkillEditor({
   const save = async () => {
     setSaving(true);
     setError(null);
-    const { error: err } = await supabase
-      .from("player_skills")
-      .upsert(
-        {
-          child_id: childId,
-          ...draft,
-          notes: notes.trim() ? notes.trim() : null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "child_id" },
-      );
+    const { error: err } = await supabase.from("player_skills").upsert(
+      {
+        child_id: childId,
+        ...draft,
+        notes: notes.trim() ? notes.trim() : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "child_id" }
+    );
     setSaving(false);
     if (err) {
       setError(err.message);
@@ -426,19 +725,19 @@ function SkillEditor({
   return (
     <div className="space-y-3">
       <div className="space-y-2">
-        {SKILL_ORDER.map((k) => (
+        {SKILL_ORDER.map(k => (
           <SkillRow
             k={k}
             value={draft[k]}
             editable
-            onChange={(next) => setDraft((d) => ({ ...d, [k]: next }))}
+            onChange={next => setDraft(d => ({ ...d, [k]: next }))}
             key={k}
           />
         ))}
       </div>
       <textarea
         value={notes}
-        onChange={(e) => setNotes(e.target.value)}
+        onChange={e => setNotes(e.target.value)}
         placeholder="Notițe pentru părinte (opțional)"
         rows={2}
         className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-sm text-white/85 placeholder-white/30 outline-none focus:border-brand-cyan/50"

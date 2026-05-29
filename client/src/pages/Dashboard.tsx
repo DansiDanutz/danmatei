@@ -42,12 +42,16 @@ export default function Dashboard() {
           .from("children")
           .select("id")
           .eq("parent_id", profile.id)
-          .limit(1);
+          .order("created_at", { ascending: true })
+          .limit(2);
         if (cancelled) return;
         if (error || !data || data.length === 0) {
           navigate("/inregistrare/copil");
-        } else {
+        } else if (data.length === 1) {
           navigate(`/copil/${data[0].id}`);
+        } else {
+          // 2+ children — let the parent pick. /copii already renders their roster.
+          navigate("/copii");
         }
       }
     })();

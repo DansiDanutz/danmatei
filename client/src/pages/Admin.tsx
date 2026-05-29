@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  AlertTriangle,
   Bell,
   Calendar,
   Loader2,
@@ -23,6 +24,7 @@ import {
   Save,
   Send,
   Tag,
+  TrendingUp,
   Users,
   UserPlus,
   UsersRound,
@@ -35,6 +37,8 @@ import GroupsTab from "@/components/admin/GroupsTab";
 import NewsManager from "@/components/admin/NewsManager";
 import ScheduleOversight from "@/components/admin/ScheduleOversight";
 import NotificationManager from "@/components/admin/NotificationManager";
+import AtRiskTab from "@/components/admin/AtRiskTab";
+import LeadAnalyticsTab from "@/components/admin/LeadAnalyticsTab";
 
 type TrainerRow = {
   id: string;
@@ -99,6 +103,12 @@ export default function Admin() {
           <Trigger value="membri" icon={<Users className="size-3.5" />}>
             Membri
           </Trigger>
+          <Trigger value="risc" icon={<AlertTriangle className="size-3.5" />}>
+            Risc
+          </Trigger>
+          <Trigger value="funnel" icon={<TrendingUp className="size-3.5" />}>
+            Funnel
+          </Trigger>
           <Trigger value="stiri" icon={<Tag className="size-3.5" />}>
             Știri
           </Trigger>
@@ -126,6 +136,16 @@ export default function Admin() {
         <TabsContent value="membri" className="mt-5">
           <LazyTab active={tab === "membri"}>
             <MembersTab />
+          </LazyTab>
+        </TabsContent>
+        <TabsContent value="risc" className="mt-5">
+          <LazyTab active={tab === "risc"}>
+            <AtRiskTab />
+          </LazyTab>
+        </TabsContent>
+        <TabsContent value="funnel" className="mt-5">
+          <LazyTab active={tab === "funnel"}>
+            <LeadAnalyticsTab />
           </LazyTab>
         </TabsContent>
         <TabsContent value="stiri" className="mt-5">
@@ -596,7 +616,7 @@ function MembersTab() {
               <div className="flex items-center gap-2">
                 <select
                   value={c.status}
-                  onChange={async (e) => {
+                  onChange={async e => {
                     const newStatus = e.target.value as ChildRow["status"];
                     const { error: upErr } = await supabase
                       .from("children")
@@ -605,8 +625,8 @@ function MembersTab() {
                     if (upErr) {
                       setError(upErr.message);
                     } else {
-                      setChildren((prev) =>
-                        prev.map((ch) =>
+                      setChildren(prev =>
+                        prev.map(ch =>
                           ch.id === c.id ? { ...ch, status: newStatus } : ch
                         )
                       );
@@ -794,9 +814,17 @@ function LandingTab() {
 
 // ─── lazy tab wrapper (prevents all tabs mounting at once) ───────────────────
 
-function LazyTab({ active, children }: { active: boolean; children: ReactNode }) {
+function LazyTab({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: ReactNode;
+}) {
   const [hasMounted, setHasMounted] = useState(false);
-    useEffect(() => { if (active && !hasMounted) setHasMounted(true); }, [active, hasMounted]);
+  useEffect(() => {
+    if (active && !hasMounted) setHasMounted(true);
+  }, [active, hasMounted]);
   if (!hasMounted) return null;
   return <>{children}</>;
 }

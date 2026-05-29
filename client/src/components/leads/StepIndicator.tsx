@@ -63,7 +63,7 @@ export default function StepIndicator({ current }: { current: Step }) {
   return (
     <ol
       aria-label="Pașii apelului"
-      className="grid gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-left sm:grid-cols-3"
+      className="grid grid-cols-3 gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] p-2 text-left sm:gap-2 sm:p-3"
     >
       {STEPS.map((step, index) => {
         const stepNum = (index + 1) as Step;
@@ -76,7 +76,7 @@ export default function StepIndicator({ current }: { current: Step }) {
             key={step.label}
             aria-current={isActive ? "step" : undefined}
             className={[
-              "flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition-all",
+              "flex items-center gap-1.5 rounded-xl px-1.5 py-1.5 transition-all sm:gap-2.5 sm:px-2.5 sm:py-2",
               isActive
                 ? `${colours.activeBg} ring-1 ring-inset ${colours.activeRing}`
                 : "ring-1 ring-inset ring-white/5",
@@ -84,7 +84,7 @@ export default function StepIndicator({ current }: { current: Step }) {
           >
             <span
               className={[
-                "grid size-7 shrink-0 place-items-center rounded-full font-heading text-[11px] font-bold tabular-nums transition-all",
+                "grid size-5 shrink-0 place-items-center rounded-full font-heading text-[10px] font-bold tabular-nums transition-all sm:size-7 sm:text-[11px]",
                 isActive
                   ? `${colours.activeBg} ${colours.activeText} ring-1 ${colours.activeRing}`
                   : isDone
@@ -92,11 +92,11 @@ export default function StepIndicator({ current }: { current: Step }) {
                     : "bg-white/[0.05] text-white/40 ring-1 ring-white/10",
               ].join(" ")}
             >
-              {isDone ? <Check className="size-3.5" /> : stepNum}
+              {isDone ? <Check className="size-3" /> : stepNum}
             </span>
             <span
               className={[
-                "font-heading text-[11px] uppercase tracking-[0.12em] transition-colors",
+                "font-heading text-[8px] uppercase leading-tight tracking-[0.06em] transition-colors sm:text-[11px] sm:tracking-[0.12em]",
                 isActive
                   ? `${colours.activeText} font-semibold`
                   : isDone

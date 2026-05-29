@@ -15,6 +15,7 @@ import {
   getJwtFromHeader,
   getUserIdFromJwt,
 } from "./_lib/supabase.js";
+import { sendPushToUsers } from "./_lib/push.js";
 
 const Body = z.object({
   target: z.enum(["all_parents", "group", "trainer"]),
@@ -135,8 +136,18 @@ export default async function handler(req: Req, res: Res) {
     return res.status(500).json({ error: insErr.message });
   }
 
+  // Best-effort Web Push fan-out. Always runs after the in-app insert
+  // succeeds; never throws (no-ops cleanly when VAPID isn't configured).
+  const push = await sendPushToUsers(recipientIds, {
+    title: v.title,
+    body: v.body,
+    tag: `notify-${v.target}`,
+    url: v.link ?? "/dashboard",
+  });
+
   return res.status(200).json({
     sent: rows.length,
     recipients: recipientIds,
+    push,
   });
 }

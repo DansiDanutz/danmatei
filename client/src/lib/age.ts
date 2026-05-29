@@ -52,3 +52,41 @@ export function formatTimelineDate(iso: string, locale = "ro-RO"): string {
     year: "numeric",
   });
 }
+
+/**
+ * Is the given DOB's anniversary today (Europe/Bucharest)? Compares month +
+ * day in the academy's local time so a parent in Cluj sees the banner all
+ * day no matter where the server runs. Feb 29 birthdays roll to Mar 1 on
+ * non-leap years.
+ */
+export function isBirthdayToday(
+  dob: string | Date,
+  today: Date = new Date()
+): boolean {
+  const d = typeof dob === "string" ? new Date(dob) : dob;
+  // Format "today" in Europe/Bucharest so the day boundary is right for Cluj.
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Bucharest",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = Object.fromEntries(
+    fmt.formatToParts(today).map(p => [p.type, p.value])
+  ) as { year: string; month: string; day: string };
+  const tMonth = Number(parts.month);
+  const tDay = Number(parts.day);
+  const tYear = Number(parts.year);
+
+  let bMonth = d.getUTCMonth() + 1;
+  let bDay = d.getUTCDate();
+
+  // Leap-day fallback: Feb 29 birthday celebrates on Mar 1 in non-leap years.
+  const isLeap = (tYear % 4 === 0 && tYear % 100 !== 0) || tYear % 400 === 0;
+  if (bMonth === 2 && bDay === 29 && !isLeap) {
+    bMonth = 3;
+    bDay = 1;
+  }
+
+  return tMonth === bMonth && tDay === bDay;
+}

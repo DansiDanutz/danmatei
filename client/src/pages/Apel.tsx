@@ -27,6 +27,7 @@ import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import StepIndicator from "@/components/leads/StepIndicator";
 import MicTest from "@/components/MicTest";
+import SpeakerTest from "@/components/SpeakerTest";
 
 type SessionData = {
   ok: true;
@@ -60,10 +61,14 @@ export default function Apel() {
       // First check mic permission so the connection failure mode is clean.
       try {
         setPhase("asking_mic");
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((t) => t.stop());
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        stream.getTracks().forEach(t => t.stop());
       } catch (err) {
-        setError("Pentru a vorbi cu consilierul, te rugăm să accepți accesul la microfon.");
+        setError(
+          "Pentru a vorbi cu consilierul, te rugăm să accepți accesul la microfon."
+        );
         setPhase("error");
         return;
       }
@@ -82,10 +87,12 @@ export default function Apel() {
         const errCode = "error" in j ? j.error : `HTTP ${r.status}`;
         if (errCode === "voice_not_configured") {
           setError(
-            "Apelul live nu este încă disponibil. Antrenorul te va contacta direct pe WhatsApp.",
+            "Apelul live nu este încă disponibil. Antrenorul te va contacta direct pe WhatsApp."
           );
         } else if (errCode === "invalid_token" || errCode === "missing_token") {
-          setError("Linkul a expirat. Te rugăm să ceri unul nou din /programare.");
+          setError(
+            "Linkul a expirat. Te rugăm să ceri unul nou din /programare."
+          );
         } else if (errCode === "lead_not_found") {
           setError("Nu am găsit cererea ta. Reia procesul din /programare.");
         } else {
@@ -160,6 +167,12 @@ function CallShell({
   error: string | null;
   onStart: () => void;
 }) {
+  // Pre-flight checklist — both must be true before the start button enables.
+  // We don't auto-block: the test components also surface failure UIs the
+  // parent can act on (browser permissions, volume, output device).
+  const [micOk, setMicOk] = useState(false);
+  const [speakerOk, setSpeakerOk] = useState(false);
+  const ready = micOk && speakerOk;
   return (
     <>
       {/* Step indicator — shows the parent they're on the final step of the
@@ -184,7 +197,7 @@ function CallShell({
 
       <p className="text-white/70 leading-relaxed mb-4">
         {phase === "idle" &&
-          "Apasă butonul verde de mai jos pentru a porni apelul cu Andra. Browserul îți va cere permisiunea de microfon — apasă „Permite” ca să te poată auzi."}
+          "Testează mai jos microfonul și sunetul, apoi apasă butonul pentru a vorbi cu Andra. Browserul îți va cere permisiunea de microfon — apasă „Permite”."}
         {phase === "asking_mic" && "Acceptă accesul la microfon din browser..."}
         {phase === "starting" && "Se conectează la consilierul Andra..."}
         {phase === "ended" &&
@@ -193,7 +206,12 @@ function CallShell({
           (error ?? "Ceva nu a funcționat. Te rugăm să încerci din nou.")}
       </p>
 
-      {phase === "idle" && <MicTest />}
+      {phase === "idle" && (
+        <>
+          <MicTest onResult={setMicOk} />
+          <SpeakerTest onResult={setSpeakerOk} />
+        </>
+      )}
 
       {phase === "idle" && (
         <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-400/40 font-heading text-[11px] uppercase tracking-[0.18em] text-emerald-300">
@@ -203,13 +221,35 @@ function CallShell({
       )}
 
       {(phase === "idle" || phase === "error") && (
-        <button
-          type="button"
-          onClick={onStart}
-          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-emerald-500 text-[oklch(0.15_0.05_150)] font-heading uppercase tracking-[0.16em] text-sm font-semibold shadow-[0_18px_50px_-18px_rgba(52,211,153,0.65)] hover:bg-emerald-400 transition"
-        >
-          🎙️ {phase === "error" ? "Reia apelul" : "Începe apelul"} →
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={phase === "idle" && !ready}
+            aria-disabled={phase === "idle" && !ready}
+            title={
+              phase === "idle" && !ready
+                ? "Testează microfonul și sunetul mai întâi"
+                : undefined
+            }
+            className={
+              phase === "idle" && !ready
+                ? "inline-flex w-full sm:w-auto items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-white/[0.04] border border-white/10 text-white/40 font-heading uppercase tracking-[0.16em] text-sm font-semibold cursor-not-allowed"
+                : "inline-flex w-full sm:w-auto items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-emerald-500 text-[oklch(0.15_0.05_150)] font-heading uppercase tracking-[0.16em] text-sm font-semibold shadow-[0_18px_50px_-18px_rgba(52,211,153,0.65)] hover:bg-emerald-400 transition"
+            }
+          >
+            🎙️ {phase === "error" ? "Reia apelul" : "Începe apelul"} →
+          </button>
+          {phase === "idle" && !ready && (
+            <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-white/45">
+              {!micOk && !speakerOk
+                ? "Testează microfonul și sunetul mai sus"
+                : !micOk
+                  ? "Testează microfonul mai sus"
+                  : "Testează sunetul mai sus"}
+            </p>
+          )}
+        </>
       )}
 
       {phase === "ended" && (
@@ -220,6 +260,7 @@ function CallShell({
           ← Înapoi la pagina principală
         </a>
       )}
+
     </>
   );
 }
@@ -240,12 +281,14 @@ function CallStage({
   const connection = useConnectionState();
   const room = useRoomContext();
   const { state: agentState } = useVoiceAssistant();
-  const tracks = useTracks([Track.Source.Microphone], { onlySubscribed: false });
+  const tracks = useTracks([Track.Source.Microphone], {
+    onlySubscribed: false,
+  });
   const agentTrack = tracks.find(
-    (t) =>
+    t =>
       t.participant.isAgent === true ||
       t.participant.identity === "andra-agent" ||
-      t.participant.identity?.startsWith("agent-"),
+      t.participant.identity?.startsWith("agent-")
   );
 
   const [speakerMuted, setSpeakerMuted] = useState(false);
@@ -273,7 +316,7 @@ function CallStage({
     setEnding(true);
     try {
       const payload = new TextEncoder().encode(
-        JSON.stringify({ event: "user_end_call_request" }),
+        JSON.stringify({ event: "user_end_call_request" })
       );
       await room.localParticipant.publishData(payload, { reliable: true });
     } catch {
@@ -354,7 +397,9 @@ function CallStage({
         </h1>
         <CallCountdown
           durationSeconds={CALL_DURATION_S}
-          running={connection === ConnectionState.Connected && Boolean(agentTrack)}
+          running={
+            connection === ConnectionState.Connected && Boolean(agentTrack)
+          }
         />
       </div>
 
@@ -391,7 +436,9 @@ function CallStage({
                 ? "user"
                 : "idle"
           }
-          visible={connection === ConnectionState.Connected && Boolean(agentTrack)}
+          visible={
+            connection === ConnectionState.Connected && Boolean(agentTrack)
+          }
         />
       </div>
 
@@ -407,7 +454,7 @@ function CallStage({
       <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
         <button
           type="button"
-          onClick={() => setSpeakerMuted((m) => !m)}
+          onClick={() => setSpeakerMuted(m => !m)}
           aria-pressed={speakerMuted}
           aria-label={speakerMuted ? "Activează sunetul" : "Oprește sunetul"}
           className={[
@@ -445,7 +492,9 @@ function CallStage({
       </div>
 
       <p className="mt-6 text-[10px] uppercase tracking-[0.22em] text-white/35">
-        {connection === ConnectionState.Connected ? "În direct" : "Se conectează"}
+        {connection === ConnectionState.Connected
+          ? "În direct"
+          : "Se conectează"}
       </p>
     </div>
   );
@@ -615,7 +664,17 @@ function CallCountdown({
 
 function ClockIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
     </svg>
@@ -642,7 +701,8 @@ function ConversationBall({
   // 25% and 75% map to the centers of the two columns in the grid-cols-2
   // layout — LEFT is Andra, RIGHT is the user. 50% is a neutral resting
   // spot before either side has talked.
-  const leftPct = target === "user" ? "75%" : target === "andra" ? "25%" : "50%";
+  const leftPct =
+    target === "user" ? "75%" : target === "andra" ? "25%" : "50%";
 
   return (
     <AnimatePresence>
@@ -695,7 +755,14 @@ function SoccerBallIcon() {
           <stop offset="100%" stopColor="#c9c9c9" />
         </radialGradient>
       </defs>
-      <circle cx="16" cy="16" r="15" fill="url(#ballHi)" stroke="#1a1a1a" strokeWidth="1.3" />
+      <circle
+        cx="16"
+        cy="16"
+        r="15"
+        fill="url(#ballHi)"
+        stroke="#1a1a1a"
+        strokeWidth="1.3"
+      />
       <polygon
         points="16,9 22,13.2 19.7,19.5 12.3,19.5 10,13.2"
         fill="#1a1a1a"
@@ -713,7 +780,17 @@ function SoccerBallIcon() {
 
 function SpeakerOnIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M11 5L6 9H2v6h4l5 4z" />
       <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
       <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
@@ -723,7 +800,17 @@ function SpeakerOnIcon() {
 
 function SpeakerOffIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M11 5L6 9H2v6h4l5 4z" />
       <line x1="22" y1="9" x2="16" y2="15" />
       <line x1="16" y1="9" x2="22" y2="15" />
@@ -733,15 +820,31 @@ function SpeakerOffIcon() {
 
 function WhatsAppIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.87 9.87 0 0 0 4.73 1.2h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.15h-.01a8.24 8.24 0 0 1-4.19-1.15l-.3-.18-3.11.82.83-3.04-.2-.31a8.22 8.22 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.83 2.41a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.25 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.14-.25-.02-.39.11-.51.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.42h-.48c-.17 0-.43.06-.66.31-.23.25-.86.84-.86 2.06s.88 2.4 1.01 2.56c.12.17 1.74 2.66 4.21 3.73.59.25 1.05.4 1.4.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.15-1.18-.07-.1-.23-.16-.48-.29z"/>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.87 9.87 0 0 0 4.73 1.2h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.15h-.01a8.24 8.24 0 0 1-4.19-1.15l-.3-.18-3.11.82.83-3.04-.2-.31a8.22 8.22 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.83 2.41a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.25 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.14-.25-.02-.39.11-.51.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.42h-.48c-.17 0-.43.06-.66.31-.23.25-.86.84-.86 2.06s.88 2.4 1.01 2.56c.12.17 1.74 2.66 4.21 3.73.59.25 1.05.4 1.4.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.15-1.18-.07-.1-.23-.16-.48-.29z" />
     </svg>
   );
 }
 
 function EndCallIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
       <line x1="3" y1="3" x2="21" y2="21" />
     </svg>
@@ -749,5 +852,7 @@ function EndCallIcon() {
 }
 
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
-function _unused(phase: Phase) { return phase; }
+function _unused(phase: Phase) {
+  return phase;
+}
 void useEffect; // keep import warm for future extensions

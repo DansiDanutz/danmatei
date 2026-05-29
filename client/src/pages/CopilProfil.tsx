@@ -10,19 +10,25 @@
  * loose; the policy filters rows. The page is shared by parent (their own
  * child), assigned trainer, and owner.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Activity,
   CalendarDays,
+  Check,
+  ChevronRight,
   ImagePlus,
   Loader2,
   MessageSquare,
   Newspaper,
+  Sparkles,
   Trophy,
   UserRound,
+  Users,
+  X,
 } from "lucide-react";
+import { toast } from "sonner";
 import MemberShell from "@/components/MemberShell";
 import PlayerStatsHeader from "@/components/player/PlayerStatsHeader";
 import { supabase } from "@/lib/supabase";
@@ -61,6 +67,10 @@ type ScheduleRow = {
   location: string | null;
   opponent: string | null;
   notes: string | null;
+  recap_md: string | null;
+  recap_published_at: string | null;
+  cancelled_at: string | null;
+  cancelled_reason: string | null;
 };
 
 type NewsRow = {
@@ -126,6 +136,15 @@ export default function CopilProfil() {
   const [media, setMedia] = useState<MediaRow[]>([]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [participations, setParticipations] = useState<ParticipationRow[]>([]);
+  const [siblings, setSiblings] = useState<{ id: string; full_name: string }[]>(
+    []
+  );
+  // Per-event attendance status keyed by event_id. Powers the parent's
+  // inline RSVP pills on upcoming training rows.
+  const [attendance, setAttendance] = useState<
+    Map<string, "present" | "absent" | "late" | "excused">
+  >(new Map());
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -168,14 +187,16 @@ export default function CopilProfil() {
           ? supabase
               .from("schedule_events")
               .select(
-                "id, kind, title, starts_at, ends_at, location, opponent, notes"
+                "id, kind, title, starts_at, ends_at, location, opponent, notes, recap_md, recap_published_at, cancelled_at, cancelled_reason"
               )
               .eq("trainer_id", childData.trainer_id)
               .order("starts_at", { ascending: true })
           : Promise.resolve({ data: [], error: null } as const),
         supabase
           .from("news")
-          .select("id, title, body_md, audience, group_trainer_id, published_at")
+          .select(
+            "id, title, body_md, audience, group_trainer_id, published_at"
+          )
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(30),
         supabase
@@ -197,7 +218,9 @@ export default function CopilProfil() {
                 "id, audience, body_md, created_at, trainer:trainers!messages_trainer_id_fkey(profile:profiles!trainers_profile_id_fkey(full_name))"
               )
               .eq("trainer_id", childData.trainer_id)
-              .or(`audience.eq.group,and(audience.in.(child,parent),child_id.eq.${childId})`)
+              .or(
+                `audience.eq.group,and(audience.in.(child,parent),child_id.eq.${childId})`
+              )
               .order("created_at", { ascending: false })
               .limit(50)
           : Promise.resolve({ data: [], error: null } as const),
@@ -210,6 +233,31 @@ export default function CopilProfil() {
       setMedia((md.data ?? []) as MediaRow[]);
       setMessages((msg.data ?? []) as unknown as MessageRow[]);
       setParticipations((pa.data ?? []) as unknown as ParticipationRow[]);
+
+      // Pull this child's attendance rows for the events we just loaded so
+      // the parent's RSVP pills know their last answer.
+      const eventIds = ((sch.data ?? []) as { id: string }[]).map(s => s.id);
+      if (eventIds.length > 0) {
+        const { data: attRows } = await supabase
+          .from("attendance")
+          .select("event_id, status")
+          .eq("child_id", childId)
+          .in("event_id", eventIds);
+        if (!cancelled) {
+          const map = new Map<
+            string,
+            "present" | "absent" | "late" | "excused"
+          >();
+          (
+            (attRows ?? []) as {
+              event_id: string;
+              status: "present" | "absent" | "late" | "excused";
+            }[]
+          ).forEach(r => map.set(r.event_id, r.status));
+          setAttendance(map);
+        }
+      }
+
       setLoading(false);
     })();
 
@@ -217,6 +265,100 @@ export default function CopilProfil() {
       cancelled = true;
     };
   }, [childId]);
+
+  // Parent's RSVP for an upcoming training. POSTs to /api/attendance/confirm
+  // which upserts an attendance row; the trainer can override on the day.
+  const confirmAttendance = useCallback(
+    async (eventId: string, coming: boolean) => {
+      if (!childId) return;
+      setConfirmingId(eventId);
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token;
+        if (!token) {
+          toast.error("Sesiune expirată — autentifică-te din nou.");
+          return;
+        }
+        const r = await fetch("/api/attendance/confirm", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ childId, eventId, coming }),
+        });
+        const j = (await r.json().catch(() => ({}))) as {
+          ok?: boolean;
+          status?: "present" | "absent";
+          error?: string;
+        };
+        if (!r.ok || !j.ok || !j.status) {
+          toast.error("Nu am putut confirma", {
+            description: j.error ?? `HTTP ${r.status}`,
+          });
+          return;
+        }
+        setAttendance(prev => {
+          const next = new Map(prev);
+          next.set(eventId, j.status!);
+          return next;
+        });
+        toast.success(coming ? "Mulțumim — vine!" : "OK, am notat absența");
+      } catch (err) {
+        toast.error("Eroare de rețea", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+      } finally {
+        setConfirmingId(null);
+      }
+    },
+    [childId]
+  );
+
+  // Honor ?confirm=<eventId> from a push notification — scroll the matching
+  // schedule card into view and add a brief highlight ring.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get("confirm");
+    if (!target) return;
+    const t = setTimeout(() => {
+      const el = document.querySelector(
+        `[data-event-id="${target}"]`
+      ) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-2", "ring-brand-cyan", "ring-offset-0");
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-brand-cyan", "ring-offset-0");
+        }, 4000);
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [schedule]);
+
+  // Fetch siblings only for the parent — used to render the kid-switcher above
+  // the player header when the parent has 2+ kids. RLS restricts the query to
+  // the current parent's own children, so this is cheap and safe.
+  useEffect(() => {
+    if (!child || !profile || profile.id !== child.parent_id) {
+      setSiblings([]);
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from("children")
+      .select("id, full_name")
+      .eq("parent_id", profile.id)
+      .order("created_at", { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setSiblings((data ?? []) as { id: string; full_name: string }[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [child, profile]);
 
   const age = useMemo(() => (child ? currentAge(child.dob) : null), [child]);
 
@@ -231,7 +373,7 @@ export default function CopilProfil() {
 
   const childNews = useMemo(() => {
     if (!child) return [];
-    return news.filter((n) => {
+    return news.filter(n => {
       if (n.audience === "public") return true;
       if (n.audience === "members") return true; // user is auth'd (parent)
       if (n.audience === "group") {
@@ -278,8 +420,51 @@ export default function CopilProfil() {
 
   return (
     <MemberShell>
+      {/* Sibling switcher — visible only to parents with 2+ kids. Lets a
+       *  multi-child family hop between profiles without going back to /copii. */}
+      {isParent && siblings.length > 1 && (
+        <nav
+          aria-label="Copiii tăi"
+          className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/55 p-2.5"
+        >
+          <span className="inline-flex items-center gap-1.5 px-2 font-heading text-[10px] uppercase tracking-[0.2em] text-white/55">
+            <Users className="size-3.5 text-brand-cyan/80" />
+            Copiii tăi
+          </span>
+          {siblings.map(s => {
+            const isCurrent = s.id === child.id;
+            return (
+              <Link
+                key={s.id}
+                href={`/copil/${s.id}`}
+                aria-current={isCurrent ? "page" : undefined}
+                className={
+                  isCurrent
+                    ? "inline-flex items-center gap-1 rounded-full border border-brand-cyan/45 bg-brand-cyan/15 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan"
+                    : "inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/[0.03] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-white/75 transition-colors hover:border-brand-cyan/40 hover:text-white"
+                }
+              >
+                {s.full_name.split(" ")[0]}
+                {!isCurrent && <ChevronRight className="size-3" />}
+              </Link>
+            );
+          })}
+          <Link
+            href="/inregistrare/copil"
+            className="ml-auto inline-flex items-center gap-1 rounded-full border border-dashed border-white/12 bg-white/[0.02] px-3 py-1.5 font-heading text-[10px] uppercase tracking-[0.16em] text-white/55 transition-colors hover:border-brand-cyan/40 hover:text-brand-cyan"
+          >
+            + Adaugă copil
+          </Link>
+        </nav>
+      )}
+
       {/* Premium player header — stats + skill tree */}
-      <PlayerStatsHeader child={child} />
+      <PlayerStatsHeader
+        child={child}
+        onPhotoChanged={newPath =>
+          setChild(prev => (prev ? { ...prev, photo_path: newPath } : prev))
+        }
+      />
 
       {/* Original header card (info + status + edit) */}
       <section className="mt-5 rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5 sm:p-7">
@@ -352,7 +537,9 @@ export default function CopilProfil() {
               <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <Detail
                   label="Data nașterii"
-                  value={new Date(child.dob).toLocaleDateString("ro-RO", { timeZone: "Europe/Bucharest" })}
+                  value={new Date(child.dob).toLocaleDateString("ro-RO", {
+                    timeZone: "Europe/Bucharest",
+                  })}
                 />
                 <Detail
                   label="Vârstă"
@@ -432,7 +619,13 @@ export default function CopilProfil() {
           )}
           <div className="grid gap-3">
             {upcoming.map(e => (
-              <ScheduleRowCard key={e.id} row={e} />
+              <ScheduleRowCard
+                key={e.id}
+                row={e}
+                rsvpStatus={attendance.get(e.id) ?? null}
+                onConfirm={isParent ? confirmAttendance : undefined}
+                busy={confirmingId === e.id}
+              />
             ))}
           </div>
         </TabsContent>
@@ -593,8 +786,26 @@ const Empty = ({ hint }: { hint: string }) => (
   </div>
 );
 
-const ScheduleRowCard = ({ row }: { row: ScheduleRow }) => (
-  <article className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5">
+type ScheduleRowCardProps = {
+  row: ScheduleRow;
+  /** Parent-only: their previous RSVP for this event, if any. */
+  rsvpStatus?: "present" | "absent" | "late" | "excused" | null;
+  /** Parent-only: handler to record an RSVP. Omit for non-parent viewers. */
+  onConfirm?: (eventId: string, coming: boolean) => void;
+  /** True while a confirm request is in flight for THIS event. */
+  busy?: boolean;
+};
+
+const ScheduleRowCard = ({
+  row,
+  rsvpStatus = null,
+  onConfirm,
+  busy = false,
+}: ScheduleRowCardProps) => (
+  <article
+    data-event-id={row.id}
+    className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5 transition-shadow"
+  >
     <div className="flex flex-wrap items-baseline justify-between gap-3">
       <h3 className="font-heading text-base font-semibold uppercase tracking-[0.04em] text-white">
         {row.title}
@@ -622,9 +833,103 @@ const ScheduleRowCard = ({ row }: { row: ScheduleRow }) => (
       })}
       {row.location && ` · ${row.location}`}
     </p>
+
+    {row.cancelled_at && (
+      <div className="mt-3 rounded-xl border border-rose-300/40 bg-rose-300/[0.08] px-3.5 py-2.5">
+        <div className="font-heading text-[10.5px] uppercase tracking-[0.2em] text-rose-300">
+          Anulat de antrenor
+        </div>
+        {row.cancelled_reason && (
+          <p className="mt-0.5 font-body text-sm text-rose-200/85">
+            {row.cancelled_reason}
+          </p>
+        )}
+      </div>
+    )}
+
     {row.notes && (
       <p className="mt-2 font-body text-sm text-white/70">{row.notes}</p>
     )}
+    {row.recap_md && (
+      <div className="mt-3 rounded-xl border border-brand-cyan/20 bg-brand-cyan/[0.05] p-3.5">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="inline-flex items-center gap-1.5 font-heading text-[10px] uppercase tracking-[0.2em] text-brand-cyan">
+            <Sparkles className="size-3" />
+            Recap antrenament
+          </span>
+          {row.recap_published_at && (
+            <span className="font-heading text-[10px] uppercase tracking-[0.16em] text-white/40">
+              {new Date(row.recap_published_at).toLocaleDateString("ro-RO", {
+                day: "2-digit",
+                month: "short",
+              })}
+            </span>
+          )}
+        </div>
+        <p className="whitespace-pre-line font-body text-[13.5px] leading-relaxed text-white/85">
+          {row.recap_md}
+        </p>
+      </div>
+    )}
+
+    {/* Parent RSVP — only shown when:
+     *   - the row was passed an onConfirm handler (i.e. viewer is parent)
+     *   - the event is a future training (matches/tournaments need no RSVP)
+     *   - within 5 days so the form doesn't clutter long-tail upcoming
+     *   - not cancelled. */}
+    {onConfirm &&
+      !row.cancelled_at &&
+      row.kind === "training" &&
+      new Date(row.starts_at).getTime() > Date.now() &&
+      new Date(row.starts_at).getTime() - Date.now() < 5 * 24 * 3600_000 && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5">
+          <span className="font-heading text-[11px] uppercase tracking-[0.18em] text-white/65">
+            {rsvpStatus === "present"
+              ? "Ai confirmat: vine"
+              : rsvpStatus === "absent"
+                ? "Ai confirmat: lipsește"
+                : "Vine la antrenament?"}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onConfirm(row.id, true)}
+              disabled={busy}
+              aria-pressed={rsvpStatus === "present"}
+              className={
+                rsvpStatus === "present"
+                  ? "inline-flex items-center gap-1.5 rounded-full border border-emerald-300/45 bg-emerald-300/15 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-emerald-300 disabled:opacity-60"
+                  : "inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-white/75 transition-colors hover:border-emerald-300/40 hover:text-emerald-300 disabled:opacity-60"
+              }
+            >
+              {busy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
+              Da
+            </button>
+            <button
+              type="button"
+              onClick={() => onConfirm(row.id, false)}
+              disabled={busy}
+              aria-pressed={rsvpStatus === "absent"}
+              className={
+                rsvpStatus === "absent"
+                  ? "inline-flex items-center gap-1.5 rounded-full border border-rose-300/45 bg-rose-300/15 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-rose-300 disabled:opacity-60"
+                  : "inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-white/75 transition-colors hover:border-rose-300/40 hover:text-rose-300 disabled:opacity-60"
+              }
+            >
+              {busy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <X className="size-3.5" />
+              )}
+              Nu
+            </button>
+          </div>
+        </div>
+      )}
   </article>
 );
 

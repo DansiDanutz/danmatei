@@ -9,12 +9,14 @@ import {
   Loader2,
   Newspaper,
   Save,
+  Sparkles,
   Trash2,
   Pencil,
   X,
   ImagePlus,
   Tag,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -57,6 +59,8 @@ export default function NewsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const [aiDisabled, setAiDisabled] = useState(false);
 
   const {
     register,
@@ -97,9 +101,13 @@ export default function NewsManager() {
       setPosts((pData ?? []) as unknown as NewsRow[]);
     }
     const tOpts =
-      (tData as unknown as { id: string; profile: { full_name: string } | null }[] | null)
-        ?.filter((t) => t.profile)
-        .map((t) => ({ id: t.id, full_name: t.profile!.full_name })) ?? [];
+      (
+        tData as unknown as
+          | { id: string; profile: { full_name: string } | null }[]
+          | null
+      )
+        ?.filter(t => t.profile)
+        .map(t => ({ id: t.id, full_name: t.profile!.full_name })) ?? [];
     setTrainers(tOpts);
     setLoading(false);
   };
@@ -108,6 +116,62 @@ export default function NewsManager() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const draftWeekly = async () => {
+    setDrafting(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        toast.error("Sesiune expirată — autentifică-te din nou.");
+        return;
+      }
+      const r = await fetch("/api/news/draft-weekly", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean;
+        title?: string;
+        body_md?: string;
+        sources?: { recaps: number; matches: number; newFamilies: number };
+        error?: string;
+      };
+      if (r.status === 503 && j.error === "ai_not_configured") {
+        setAiDisabled(true);
+        toast.info("AI-ul nu e configurat", {
+          description:
+            "Adaugă OPENAI_API_KEY pe Vercel pentru a folosi draft-ul automat.",
+        });
+        return;
+      }
+      if (!r.ok || !j.ok || !j.title || !j.body_md) {
+        toast.error("Nu am putut genera articolul", {
+          description: j.error ?? `HTTP ${r.status}`,
+        });
+        return;
+      }
+      // Pre-fill the form. Trainer reviews + clicks Save like normal.
+      setValue("title", j.title, { shouldDirty: true });
+      setValue("body_md", j.body_md, { shouldDirty: true });
+      setEditingId(null); // ensure we're in "create new" mode
+      const src = j.sources;
+      toast.success("Draft generat", {
+        description: src
+          ? `Bazat pe ${src.recaps} antrenamente, ${src.matches} meciuri, ${src.newFamilies} familii noi.`
+          : "Verifică textul și apasă Salvează.",
+      });
+    } catch (err) {
+      toast.error("Eroare de rețea", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -132,7 +196,7 @@ export default function NewsManager() {
     return path;
   };
 
-  const onSubmit = handleSubmit(async (v) => {
+  const onSubmit = handleSubmit(async v => {
     setError(null);
     try {
       let coverPath: string | null = null;
@@ -190,7 +254,7 @@ export default function NewsManager() {
     if (post.cover_path) {
       const { data } = supabase.storage
         .from("fotbal-news-public")
-                  .getPublicUrl(post.cover_path);
+        .getPublicUrl(post.cover_path);
       setCoverPreview(data.publicUrl);
     } else {
       setCoverPreview(null);
@@ -244,6 +308,25 @@ export default function NewsManager() {
           placeholder="Titlu știre"
         />
 
+        {/* AI weekly draft — pre-fills title + body_md based on the last 7
+         *  days of training recaps, match results, and new families. Hidden
+         *  once we know AI is off (503) so owners don't keep clicking. */}
+        {!aiDisabled && !editingId && (
+          <button
+            type="button"
+            onClick={() => void draftWeekly()}
+            disabled={drafting}
+            className="inline-flex items-center gap-2 self-start rounded-full border border-brand-cyan/40 bg-brand-cyan/[0.08] px-4 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/15 disabled:opacity-60"
+          >
+            {drafting ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            Draft săptămânal cu AI
+          </button>
+        )}
+
         <div>
           <label
             htmlFor="n-body"
@@ -289,7 +372,7 @@ export default function NewsManager() {
               className="w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white"
             >
               <option value="">Alege antrenorul…</option>
-              {trainers.map((t) => (
+              {trainers.map(t => (
                 <option key={t.id} value={t.id}>
                   {t.full_name}
                 </option>
@@ -375,7 +458,7 @@ export default function NewsManager() {
         {!loading && posts.length === 0 && (
           <Empty hint="Nu există încă articole." />
         )}
-        {posts.map((post) => (
+        {posts.map(post => (
           <article
             key={post.id}
             className="flex flex-col gap-3 rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-4 sm:flex-row sm:items-start sm:gap-4"
@@ -385,8 +468,7 @@ export default function NewsManager() {
                 src={
                   supabase.storage
                     .from("fotbal-news-public")
-                                                .getPublicUrl(post.cover_path).data
-                    .publicUrl
+                    .getPublicUrl(post.cover_path).data.publicUrl
                 }
                 alt=""
                 className="aspect-[16/9] w-full shrink-0 rounded-xl object-cover sm:aspect-square sm:w-24"
@@ -466,7 +548,9 @@ const Field = ({
       {...rest}
       className="touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60"
     />
-    {error && <p className="mt-1 font-body text-xs text-rose-300/85">{error}</p>}
+    {error && (
+      <p className="mt-1 font-body text-xs text-rose-300/85">{error}</p>
+    )}
   </div>
 );
 

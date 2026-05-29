@@ -6,10 +6,11 @@
  * supports mark-as-read (single + all).
  */
 import { useCallback, useEffect, useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, BellOff, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { usePushSubscription } from "@/lib/use-push-subscription";
 
 type Notification = {
   id: string;
@@ -177,7 +178,70 @@ export default function NotificationBell() {
             </button>
           ))}
         </div>
+
+        <PushToggle />
       </PopoverContent>
     </Popover>
+  );
+}
+
+// ─── Push opt-in footer ─────────────────────────────────────────────────────
+// Lives at the bottom of the bell popover. Hidden when the browser doesn't
+// support push or the server hasn't configured VAPID — no point teasing a
+// feature that won't work. When supported, lets the user enable/disable
+// background push delivery on this device.
+
+function PushToggle() {
+  const { status, loading, error, subscribe, unsubscribe } =
+    usePushSubscription();
+
+  // Don't pollute the popover when push isn't an option here.
+  if (status === "checking" || status === "unsupported" || status === "not-configured") {
+    return null;
+  }
+
+  if (status === "denied") {
+    return (
+      <div className="border-t border-white/8 px-4 py-3 font-body text-[11px] text-white/45">
+        Notificările push sunt blocate în browser. Activează-le din setările
+        site-ului ca să primești alerte când aplicația e închisă.
+      </div>
+    );
+  }
+
+  const isOn = status === "subscribed";
+
+  return (
+    <div className="border-t border-white/8 px-4 py-2.5">
+      <button
+        type="button"
+        onClick={() => (isOn ? void unsubscribe() : void subscribe())}
+        disabled={loading}
+        className={
+          isOn
+            ? "inline-flex w-full items-center justify-between gap-2 rounded-lg border border-brand-cyan/30 bg-brand-cyan/[0.08] px-3 py-2 font-heading text-[10.5px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/15 disabled:opacity-60"
+            : "inline-flex w-full items-center justify-between gap-2 rounded-lg border border-white/12 bg-white/[0.03] px-3 py-2 font-heading text-[10.5px] uppercase tracking-[0.16em] text-white/75 transition-colors hover:border-brand-cyan/40 hover:text-white disabled:opacity-60"
+        }
+      >
+        <span className="inline-flex items-center gap-2">
+          {loading ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : isOn ? (
+            <Bell className="size-3.5" />
+          ) : (
+            <BellOff className="size-3.5" />
+          )}
+          {isOn ? "Notificări push active" : "Activează notificări push"}
+        </span>
+        <span className="font-body text-[10px] normal-case text-white/40">
+          {isOn ? "Apasă pentru oprire" : "Pe acest dispozitiv"}
+        </span>
+      </button>
+      {error && (
+        <p className="mt-1.5 font-body text-[10.5px] text-rose-300/85">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

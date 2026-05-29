@@ -145,6 +145,7 @@ export default async function handler(req: Req, res: Res) {
       status,
       assigned_trainer_id,
       cc_trainer_ids,
+      snoozed_until,
       created_at,
       lead_calls (
         id,

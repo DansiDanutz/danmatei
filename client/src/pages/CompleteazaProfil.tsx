@@ -57,10 +57,20 @@ export default function CompleteazaProfil() {
 
   const onSubmit = async (v: FormValues) => {
     setServerError(null);
+    let id = profile?.id;
+    if (!id) {
+      const { data } = await supabase.auth.getUser();
+      id = data.user?.id;
+    }
+    if (!id) {
+      setServerError(
+        "Sesiunea ta a expirat. Te rugăm să te autentifici din nou."
+      );
+      return;
+    }
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: v.fullName, phone: v.phone })
-      .eq("id", profile!.id);
+      .upsert({ id, full_name: v.fullName, phone: v.phone });
 
     if (error) {
       setServerError(`Eroare la salvare: ${error.message}`);

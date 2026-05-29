@@ -21,6 +21,7 @@ import {
   Inbox,
   Loader2,
   MessageSquare,
+  Sparkles,
   Swords,
   Send,
   UserCog,
@@ -32,7 +33,9 @@ import AtribuiriTab from "@/components/trainer/AtribuiriTab";
 import InboxAITab from "@/components/trainer/InboxAITab";
 import MatchesTab from "@/components/trainer/MatchesTab";
 import AttendanceTab from "@/components/trainer/AttendanceTab";
+import TrainingRecapDialog from "@/components/trainer/TrainingRecapDialog";
 import { Link } from "wouter";
+import { toast } from "sonner";
 import MemberShell from "@/components/MemberShell";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -72,6 +75,7 @@ type Child = {
   dob: string;
   age_group_label: string | null;
   status: "active" | "paused" | "left";
+  photo_path: string | null;
   parent: { full_name: string; phone: string | null } | null;
 };
 
@@ -83,6 +87,10 @@ type ScheduleRow = {
   location: string | null;
   opponent: string | null;
   notes: string | null;
+  recap_md: string | null;
+  recap_published_at: string | null;
+  cancelled_at: string | null;
+  cancelled_reason: string | null;
 };
 
 type MessageRow = {
@@ -101,6 +109,7 @@ export default function Antrenor() {
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recapEvent, setRecapEvent] = useState<ScheduleRow | null>(null);
   const [tab, setTab] = useState("grupa");
 
   const refresh = useMemo(
@@ -134,13 +143,15 @@ export default function Antrenor() {
         supabase
           .from("children")
           .select(
-            "id, full_name, dob, age_group_label, status, parent:profiles!children_parent_id_fkey(full_name, phone)"
+            "id, full_name, dob, age_group_label, status, photo_path, parent:profiles!children_parent_id_fkey(full_name, phone)"
           )
           .eq("trainer_id", trainerRow.id)
           .order("full_name", { ascending: true }),
         supabase
           .from("schedule_events")
-          .select("id, kind, title, starts_at, location, opponent, notes")
+          .select(
+            "id, kind, title, starts_at, location, opponent, notes, recap_md, recap_published_at, cancelled_at, cancelled_reason"
+          )
           .eq("trainer_id", trainerRow.id)
           .order("starts_at", { ascending: false })
           .limit(40),
@@ -208,7 +219,6 @@ export default function Antrenor() {
     );
   }
 
-  
   return (
     <MemberShell>
       {/* Header */}
@@ -248,7 +258,10 @@ export default function Antrenor() {
           <Trigger value="meciuri" icon={<Swords className="size-3.5" />}>
             Meciuri
           </Trigger>
-          <Trigger value="prezenta" icon={<ClipboardCheck className="size-3.5" />}>
+          <Trigger
+            value="prezenta"
+            icon={<ClipboardCheck className="size-3.5" />}
+          >
             Prezență
           </Trigger>
           <Trigger value="mesaje" icon={<MessageSquare className="size-3.5" />}>
@@ -279,14 +292,11 @@ export default function Antrenor() {
                   className="group relative rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-4 transition-all hover:-translate-y-0.5 hover:border-brand-cyan/40 hover:bg-[oklch(0.15_0.03_250)]/85"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="grid size-10 place-items-center rounded-full border border-brand-cyan/30 bg-gradient-to-br from-[oklch(0.55_0.13_230)] via-[oklch(0.32_0.10_230)] to-[oklch(0.18_0.06_240)] font-heading text-sm font-bold text-white">
-                      {c.full_name
-                        .split(" ")
-                        .map(p => p[0])
-                        .slice(0, 2)
-                        .join("")
-                        .toUpperCase()}
-                    </div>
+                    <RosterAvatar
+                      photoPath={c.photo_path}
+                      fullName={c.full_name}
+                    />
+
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate font-heading text-sm font-semibold uppercase tracking-[0.04em] text-white">
                         {c.full_name}
@@ -320,7 +330,10 @@ export default function Antrenor() {
         <TabsContent value="program" className="mt-5">
           <LazyTab active={tab === "program"}>
             <div className="grid gap-5 lg:grid-cols-3">
-              <ScheduleForm trainerId={trainer.id} onCreated={() => refresh()} />
+              <ScheduleForm
+                trainerId={trainer.id}
+                onCreated={() => refresh()}
+              />
 
               <div className="lg:col-span-2">
                 {schedule.length === 0 && (
@@ -366,6 +379,60 @@ export default function Antrenor() {
                           {e.notes}
                         </p>
                       )}
+
+                      {/* Cancellation banner — visible to trainer when set */}
+                      {e.cancelled_at && (
+                        <div className="mt-3 rounded-xl border border-rose-300/35 bg-rose-300/[0.08] px-3 py-2">
+                          <div className="font-heading text-[10.5px] uppercase tracking-[0.18em] text-rose-300">
+                            Anulat
+                          </div>
+                          {e.cancelled_reason && (
+                            <p className="mt-0.5 font-body text-sm text-rose-200/85">
+                              {e.cancelled_reason}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Cancel / Reactivate — only on future events */}
+                      {new Date(e.starts_at) > new Date() && (
+                        <div className="mt-3 flex justify-end">
+                          <CancelEventButton
+                            eventId={e.id}
+                            cancelled={!!e.cancelled_at}
+                            onChanged={() => refresh()}
+                          />
+                        </div>
+                      )}
+
+                      {/* Recap controls — only for past training events.
+                       *  Match recaps live in match_results; tournaments &
+                       *  others don't use the recap surface. */}
+                      {e.kind === "training" &&
+                        new Date(e.starts_at) <= new Date() && (
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/8 pt-3">
+                            {e.recap_published_at ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/30 bg-brand-cyan/[0.08] px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.16em] text-brand-cyan">
+                                <Sparkles className="size-3" />
+                                Recap trimis părinților
+                              </span>
+                            ) : (
+                              <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
+                                Niciun recap încă
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setRecapEvent(e)}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/20"
+                            >
+                              <Sparkles className="size-3.5" />
+                              {e.recap_published_at
+                                ? "Editează recap"
+                                : "Recap cu AI"}
+                            </button>
+                          </div>
+                        )}
                     </article>
                   ))}
                 </div>
@@ -377,17 +444,26 @@ export default function Antrenor() {
         {/* MECIURI */}
         <TabsContent value="meciuri" className="mt-5">
           <LazyTab active={tab === "meciuri"}>
-            <MatchesTab trainerId={trainer.id} children={children.map(c => ({ id: c.id, full_name: c.full_name }))} />
+            <MatchesTab
+              trainerId={trainer.id}
+              children={children.map(c => ({
+                id: c.id,
+                full_name: c.full_name,
+              }))}
+            />
           </LazyTab>
         </TabsContent>
 
         {/* PREZENTA */}
         <TabsContent value="prezenta" className="mt-5">
           <LazyTab active={tab === "prezenta"}>
-              <AttendanceTab
-                      trainerId={trainer.id}
-                      children={children.map(c => ({ id: c.id, full_name: c.full_name }))}
-                    />
+            <AttendanceTab
+              trainerId={trainer.id}
+              children={children.map(c => ({
+                id: c.id,
+                full_name: c.full_name,
+              }))}
+            />
           </LazyTab>
         </TabsContent>
 
@@ -405,32 +481,32 @@ export default function Antrenor() {
                   <Empty hint="Nu ai trimis încă mesaje." />
                 )}
                 <div className="grid gap-3">
-                {messages.map(m => (
-                  <article
-                    key={m.id}
-                    className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
-                  >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
-                        {m.audience === "group"
-                          ? "Grupa"
-                          : m.audience === "child"
-                            ? "Copil"
-                            : "Părinte"}
-                      </span>
-                      <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
-                        {new Date(m.created_at).toLocaleString("ro-RO", {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                          timeZone: "Europe/Bucharest",
-                        })}
-                      </span>
-                    </div>
-                    <p className="mt-2 whitespace-pre-line font-body text-sm leading-relaxed text-white/85">
-                      {m.body_md}
-                    </p>
-                  </article>
-                ))}
+                  {messages.map(m => (
+                    <article
+                      key={m.id}
+                      className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
+                          {m.audience === "group"
+                            ? "Grupa"
+                            : m.audience === "child"
+                              ? "Copil"
+                              : "Părinte"}
+                        </span>
+                        <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
+                          {new Date(m.created_at).toLocaleString("ro-RO", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                            timeZone: "Europe/Bucharest",
+                          })}
+                        </span>
+                      </div>
+                      <p className="mt-2 whitespace-pre-line font-body text-sm leading-relaxed text-white/85">
+                        {m.body_md}
+                      </p>
+                    </article>
+                  ))}
                 </div>
               </div>
             </div>
@@ -440,7 +516,10 @@ export default function Antrenor() {
         {/* PROFIL */}
         <TabsContent value="profil" className="mt-5">
           <LazyTab active={tab === "profil"}>
-            <TrainerProfileForm trainer={trainer} onSaved={t => setTrainer(t)} />
+            <TrainerProfileForm
+              trainer={trainer}
+              onSaved={t => setTrainer(t)}
+            />
           </LazyTab>
         </TabsContent>
 
@@ -465,13 +544,35 @@ export default function Antrenor() {
           </LazyTab>
         </TabsContent>
       </Tabs>
+
+      {recapEvent && (
+        <TrainingRecapDialog
+          open={!!recapEvent}
+          onOpenChange={open => {
+            if (!open) setRecapEvent(null);
+          }}
+          event={recapEvent}
+          onPublished={() => {
+            setRecapEvent(null);
+            void refresh();
+          }}
+        />
+      )}
     </MemberShell>
   );
 }
 
-function LazyTab({ active, children }: { active: boolean; children: ReactNode }) {
+function LazyTab({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: ReactNode;
+}) {
   const [hasMounted, setHasMounted] = useState(false);
-    useEffect(() => { if (active && !hasMounted) setHasMounted(true); }, [active, hasMounted]);
+  useEffect(() => {
+    if (active && !hasMounted) setHasMounted(true);
+  }, [active, hasMounted]);
   if (!hasMounted) return null;
   return <>{children}</>;
 }
@@ -513,6 +614,56 @@ const Empty = ({ hint }: { hint: string }) => (
   </div>
 );
 
+// ─── Roster avatar — photo when present, initials otherwise ─────────────────
+
+function RosterAvatar({
+  photoPath,
+  fullName,
+}: {
+  photoPath: string | null;
+  fullName: string;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!photoPath) {
+      setUrl(null);
+      return;
+    }
+    void supabase.storage
+      .from("fotbal-media-private")
+      .createSignedUrl(photoPath, 60 * 60)
+      .then(({ data }) => {
+        if (!cancelled) setUrl(data?.signedUrl ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [photoPath]);
+
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={fullName}
+        className="size-10 shrink-0 rounded-full border border-brand-cyan/30 object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <div className="grid size-10 shrink-0 place-items-center rounded-full border border-brand-cyan/30 bg-gradient-to-br from-[oklch(0.55_0.13_230)] via-[oklch(0.32_0.10_230)] to-[oklch(0.18_0.06_240)] font-heading text-sm font-bold text-white">
+      {fullName
+        .split(" ")
+        .map(p => p[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()}
+    </div>
+  );
+}
+
 // ─── Schedule form ────────────────────────────────────────────────────────────
 
 const scheduleSchema = z.object({
@@ -524,6 +675,133 @@ const scheduleSchema = z.object({
   notes: z.string().max(500).optional().or(z.literal("")),
 });
 type ScheduleValues = z.infer<typeof scheduleSchema>;
+
+// ─── Cancel / Reactivate event ──────────────────────────────────────────────
+
+function CancelEventButton({
+  eventId,
+  cancelled,
+  onChanged,
+}: {
+  eventId: string;
+  cancelled: boolean;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const cancel = async () => {
+    const reason = window.prompt(
+      "Motivul anulării (opțional — apare în notificarea părinților):",
+      ""
+    );
+    if (reason === null) return; // user cancelled the prompt
+    setBusy(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        toast.error("Sesiune expirată — autentifică-te din nou.");
+        return;
+      }
+      const r = await fetch("/api/schedule/cancel", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ eventId, reason }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean;
+        notified?: number;
+        error?: string;
+      };
+      if (!r.ok || !j.ok) {
+        toast.error("Nu am putut anula", {
+          description: j.error ?? `HTTP ${r.status}`,
+        });
+        return;
+      }
+      const sent = j.notified ?? 0;
+      toast.success(
+        sent > 0
+          ? `Anulat — notificat ${sent} ${sent === 1 ? "părinte" : "părinți"}`
+          : "Anulat"
+      );
+      onChanged();
+    } catch (err) {
+      toast.error("Eroare de rețea", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reactivate = async () => {
+    setBusy(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        toast.error("Sesiune expirată — autentifică-te din nou.");
+        return;
+      }
+      const r = await fetch("/api/schedule/cancel", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ eventId, uncancel: true }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!r.ok || !j.ok) {
+        toast.error("Nu am putut reactiva", {
+          description: j.error ?? `HTTP ${r.status}`,
+        });
+        return;
+      }
+      toast.success("Reactivat — părinții NU au fost re-notificați.");
+      onChanged();
+    } catch (err) {
+      toast.error("Eroare de rețea", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (cancelled) {
+    return (
+      <button
+        type="button"
+        onClick={reactivate}
+        disabled={busy}
+        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/35 bg-emerald-300/[0.08] px-3 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.16em] text-emerald-300 transition-colors hover:bg-emerald-300/15 disabled:opacity-60"
+      >
+        {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+        Reactivează
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={cancel}
+      disabled={busy}
+      className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/35 bg-rose-300/[0.05] px-3 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.16em] text-rose-200/85 transition-colors hover:bg-rose-300/15 hover:text-rose-200 disabled:opacity-60"
+    >
+      {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+      Anulează
+    </button>
+  );
+}
 
 function ScheduleForm({
   trainerId,
@@ -573,12 +851,12 @@ function ScheduleForm({
         Eveniment nou
       </h2>
       <div className="flex gap-2">
-        {([
+        {[
           { k: "training" as const, label: "Antrenament" },
           { k: "match" as const, label: "Meci" },
           { k: "tournament" as const, label: "Turneu" },
           { k: "other" as const, label: "Altul" },
-        ]).map(({ k, label }) => (
+        ].map(({ k, label }) => (
           <label
             key={k}
             className={`flex-1 cursor-pointer rounded-xl border px-2 py-2 text-center font-heading text-[11px] uppercase tracking-[0.14em] transition-colors ${
@@ -694,14 +972,34 @@ function MessageForm({
 
   const onSubmit = handleSubmit(async v => {
     setServerError(null);
-    const { error } = await supabase.from("messages").insert({
-      trainer_id: trainerId,
-      audience: v.audience,
-      child_id: v.audience === "child" ? v.childId : null,
-      body_md: v.body,
+    // Route through /api/messages/send so the in-app insert (via DB trigger)
+    // and the Web Push fan-out happen together. Falls back to a clear
+    // server error message on failure.
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess.session?.access_token;
+    if (!token) {
+      setServerError("Sesiune expirată — autentifică-te din nou.");
+      return;
+    }
+    const r = await fetch("/api/messages/send", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        trainerId,
+        audience: v.audience,
+        childId: v.audience === "child" ? v.childId : null,
+        body: v.body,
+      }),
     });
-    if (error) {
-      setServerError(error.message);
+    const j = (await r.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+    };
+    if (!r.ok || !j.ok) {
+      setServerError(j.error ?? `HTTP ${r.status}`);
       return;
     }
     reset({ audience: v.audience, body: "", childId: v.childId });
@@ -717,11 +1015,13 @@ function MessageForm({
         Mesaj nou
       </h2>
       <div className="flex gap-2">
-        {([
-          { key: "group", label: "Grupa" },
-          { key: "child", label: "Un copil" },
-          { key: "parent", label: "Părinte" },
-        ] as const).map((a) => (
+        {(
+          [
+            { key: "group", label: "Grupa" },
+            { key: "child", label: "Un copil" },
+            { key: "parent", label: "Părinte" },
+          ] as const
+        ).map(a => (
           <label
             key={a.key}
             className={`flex-1 cursor-pointer rounded-xl border px-3 py-2 text-center font-heading text-[11px] uppercase tracking-[0.16em] transition-colors ${

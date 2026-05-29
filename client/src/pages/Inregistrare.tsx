@@ -88,12 +88,18 @@ export default function Inregistrare() {
             <p className="text-center font-body text-xs text-brand-cyan">
               Redirecționarea este blocată de browser.
             </p>
-            <a
-              href={`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(`${window.location.origin}/dashboard`)}&prompt=select_account`}
-              className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-white underline underline-offset-2 hover:text-brand-cyan"
-            >
-              Apasă aici pentru conectare directă
-            </a>
+            {import.meta.env.VITE_SUPABASE_URL ? (
+              <a
+                href={`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(`${window.location.origin}/dashboard`)}&prompt=select_account`}
+                className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-white underline underline-offset-2 hover:text-brand-cyan"
+              >
+                Apasă aici pentru conectare directă
+              </a>
+            ) : (
+              <p className="text-center font-body text-xs text-rose-200">
+                Eroare de configurare. Contactați administratorul.
+              </p>
+            )}
           </div>
         )}
 
