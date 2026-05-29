@@ -10,12 +10,29 @@
  * dashboard when configuring the webhook.
  */
 import { z } from "zod";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { serviceClient } from "../_lib/supabase.js";
 import {
   fetchTranscript,
   transcriptToMarkdown,
   transcriptSummary,
 } from "../_lib/elevenlabs.js";
+
+// Disable Vercel's default JSON body parser — we need the raw request bytes
+// verbatim to HMAC them. Matches the pattern in api/voice/webhook.ts.
+export const config = { api: { bodyParser: false } };
+
+const MAX_BODY_BYTES = 256 * 1024; // 256 KiB
+const MAX_TIMESTAMP_SKEW_MS = 5 * 60 * 1000; // 5 minutes
+
+// Fail-closed: require the secret at module-load time in production. ElevenLabs
+// signs delivery with it, and we will not accept unsigned bodies in prod.
+const IS_PROD =
+  process.env.NODE_ENV === "production" ||
+  process.env.VERCEL_ENV === "production";
+if (IS_PROD && !process.env.ELEVENLABS_WEBHOOK_SECRET) {
+  throw new Error("ELEVENLABS_WEBHOOK_SECRET required in production");
+}
 
 const Payload = z.object({
   type: z.string().optional(),
@@ -36,6 +53,8 @@ interface MinimalReq {
   method?: string;
   headers?: Record<string, string | string[] | undefined>;
   body?: unknown;
+  // With bodyParser disabled, the request is an AsyncIterable of Buffer chunks.
+  on?: (event: string, listener: (...args: unknown[]) => void) => void;
 }
 
 interface MinimalRes {
@@ -47,10 +66,47 @@ function readHeader(
   headers: Record<string, string | string[] | undefined> | undefined,
   key: string,
 ): string | undefined {
-  const v = headers?.[key];
+  const v = headers?.[key.toLowerCase()] ?? headers?.[key];
   if (typeof v === "string") return v;
   if (Array.isArray(v)) return v[0];
   return undefined;
+}
+
+class PayloadTooLargeError extends Error {
+  constructor() {
+    super("payload too large");
+    this.name = "PayloadTooLargeError";
+  }
+}
+
+async function readRawBody(req: MinimalReq): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of req as unknown as AsyncIterable<Buffer | string>) {
+    const buf = typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk;
+    total += buf.length;
+    if (total > MAX_BODY_BYTES) throw new PayloadTooLargeError();
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks);
+}
+
+function verifySignature(rawBody: Buffer, headerSig: string | undefined): boolean {
+  const secret = process.env.ELEVENLABS_WEBHOOK_SECRET;
+  // If no secret is configured (only possible in non-prod since prod throws
+  // at import time), accept unsigned — the dev needs to be able to iterate
+  // locally without a webhook secret.
+  if (!secret) return true;
+  if (!headerSig) return false;
+  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
+  const got = Buffer.from(headerSig);
+  const exp = Buffer.from(expected);
+  if (got.length !== exp.length) return false;
+  try {
+    return timingSafeEqual(got, exp);
+  } catch {
+    return false;
+  }
 }
 
 export default async function handler(req: MinimalReq, res: MinimalRes) {
@@ -58,17 +114,51 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const expected = process.env.ELEVENLABS_WEBHOOK_SECRET;
-  if (expected) {
-    const got =
-      readHeader(req.headers, "x-elevenlabs-signature") ??
-      readHeader(req.headers, "elevenlabs-signature");
-    if (got !== expected) {
-      return res.status(401).json({ error: "Invalid signature" });
+  let rawBody: Buffer;
+  try {
+    rawBody = await readRawBody(req);
+  } catch (err) {
+    if (err instanceof PayloadTooLargeError) {
+      return res.status(413).json({ error: "payload too large" });
+    }
+    return res.status(400).json({
+      error: "body_read_failed",
+      detail: err instanceof Error ? err.message : "read failed",
+    });
+  }
+
+  // Replay protection — require X-Elevenlabs-Timestamp within 5min skew.
+  // ElevenLabs may not yet send this header; the deployment gate is rotating
+  // the webhook secret once it does. When the secret is absent (non-prod only)
+  // we skip the timestamp check too.
+  if (process.env.ELEVENLABS_WEBHOOK_SECRET) {
+    const tsHeader =
+      readHeader(req.headers, "x-elevenlabs-timestamp") ??
+      readHeader(req.headers, "elevenlabs-timestamp");
+    const tsMs = tsHeader ? Number(tsHeader) : NaN;
+    if (!Number.isFinite(tsMs)) {
+      return res.status(401).json({ error: "missing_timestamp" });
+    }
+    if (Math.abs(Date.now() - tsMs) > MAX_TIMESTAMP_SKEW_MS) {
+      return res.status(401).json({ error: "timestamp_skew" });
     }
   }
 
-  const parsed = Payload.safeParse(req.body);
+  const sig =
+    readHeader(req.headers, "x-elevenlabs-signature") ??
+    readHeader(req.headers, "elevenlabs-signature");
+  if (!verifySignature(rawBody, sig)) {
+    return res.status(401).json({ error: "Invalid signature" });
+  }
+
+  let bodyJson: unknown;
+  try {
+    bodyJson = rawBody.length ? JSON.parse(rawBody.toString("utf-8")) : {};
+  } catch {
+    return res.status(400).json({ error: "Invalid payload" });
+  }
+
+  const parsed = Payload.safeParse(bodyJson);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid payload" });
   }

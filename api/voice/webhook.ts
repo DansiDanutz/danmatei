@@ -75,21 +75,53 @@ function readHeader(req: Req, key: string): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
+const MAX_BODY_BYTES = 256 * 1024; // 256 KiB
+const MAX_TIMESTAMP_SKEW_MS = 5 * 60 * 1000; // 5 minutes
+
+class PayloadTooLargeError extends Error {
+  constructor() {
+    super("payload too large");
+    this.name = "PayloadTooLargeError";
+  }
+}
+
 async function readRawBody(req: Req): Promise<Buffer> {
   const chunks: Buffer[] = [];
+  let total = 0;
   for await (const chunk of req as unknown as AsyncIterable<Buffer | string>) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk);
+    const buf = typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk;
+    total += buf.length;
+    if (total > MAX_BODY_BYTES) throw new PayloadTooLargeError();
+    chunks.push(buf);
   }
   return Buffer.concat(chunks);
 }
 
-function verifySignature(rawBody: Buffer, headerSig: string | undefined): boolean {
+// Tighter than the original: ONLY allow the no-secret bypass on local dev
+// (NODE_ENV !== 'production' AND VERCEL_ENV is neither 'production' nor
+// 'preview'). Preview deploys must fail closed.
+function bypassAllowed(): boolean {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.VERCEL_ENV !== "production" &&
+    process.env.VERCEL_ENV !== "preview"
+  );
+}
+
+function verifySignature(
+  rawBody: Buffer,
+  headerSig: string | undefined,
+  timestamp: string | undefined,
+): boolean {
   const secret = process.env.PIPECAT_WEBHOOK_SECRET;
-  if (!secret) {
-    return process.env.NODE_ENV !== "production" && process.env.VERCEL_ENV !== "production";
-  }
-  if (!headerSig) return false;
-  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
+  if (!secret) return bypassAllowed();
+  if (!headerSig || !timestamp) return false;
+  // Bind the timestamp into the HMAC payload so a captured signature can't
+  // be replayed with a different timestamp.
+  const expected = createHmac("sha256", secret)
+    .update(timestamp + ".")
+    .update(rawBody)
+    .digest("hex");
   if (headerSig.length !== expected.length) return false;
   try {
     return timingSafeEqual(Buffer.from(headerSig), Buffer.from(expected));
@@ -116,13 +148,39 @@ export default async function handler(req: Req, res: Res) {
   try {
     rawBody = await readRawBody(req);
   } catch (err) {
+    if (err instanceof PayloadTooLargeError) {
+      return res.status(413).json({ error: "payload too large" });
+    }
     return res.status(400).json({
       error: "body_read_failed",
       detail: err instanceof Error ? err.message : "read failed",
     });
   }
 
-  if (!verifySignature(rawBody, readHeader(req, "x-pipecat-signature"))) {
+  // Replay protection: require X-Pipecat-Timestamp (unix ms) within 5min of
+  // server clock. The timestamp is HMAC'd alongside the body so it can't be
+  // swapped out post-sign.
+  // TODO(PR-F): services/voice-agent/agent.py:474-485 (post_webhook) needs
+  // to send X-Pipecat-Timestamp and HMAC `${ts}.${body}` to match. This PR
+  // intentionally does NOT change agent.py.
+  const tsHeader = readHeader(req, "x-pipecat-timestamp");
+  const tsMs = tsHeader ? Number(tsHeader) : NaN;
+  if (process.env.PIPECAT_WEBHOOK_SECRET) {
+    if (!Number.isFinite(tsMs)) {
+      return res.status(401).json({ error: "missing_timestamp" });
+    }
+    if (Math.abs(Date.now() - tsMs) > MAX_TIMESTAMP_SKEW_MS) {
+      return res.status(401).json({ error: "timestamp_skew" });
+    }
+  }
+
+  if (
+    !verifySignature(
+      rawBody,
+      readHeader(req, "x-pipecat-signature"),
+      tsHeader,
+    )
+  ) {
     return res.status(401).json({ error: "invalid_signature" });
   }
 

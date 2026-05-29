@@ -132,6 +132,10 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
   }
 
   return res.status(200).json({
+    // Top-level success mirrors `whatsapp.sent` so the UI can decide whether
+    // to show a "we couldn't text you, here's your link" fallback CTA without
+    // peeking into the nested whatsapp object.
+    success: whatsappResult.sent,
     conversationId: insertConvo.data.id,
     link: insertConvo.data.share_link,
     whatsapp: whatsappResult,

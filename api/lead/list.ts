@@ -102,9 +102,16 @@ export default async function handler(req: Req, res: Res) {
     .select("role")
     .eq("id", userId)
     .single();
-  if (profileErr || profile?.role !== "trainer") {
+  if (
+    profileErr ||
+    !profile ||
+    (profile.role !== "trainer" &&
+      profile.role !== "owner" &&
+      profile.role !== "super_admin")
+  ) {
     return res.status(403).json({ error: "trainer_role_required" });
   }
+  const role = profile.role as "trainer" | "owner" | "super_admin";
 
   let supabase;
   try {
@@ -116,22 +123,28 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
-  const { data: trainer, error: trainerErr } = await supabase
-    .from("trainers")
-    .select("age_min, age_max")
-    .eq("profile_id", userId)
-    .eq("active", true)
-    .single();
-  if (trainerErr || !trainer) {
-    return res.status(403).json({ error: "trainer_profile_required" });
+  // For trainers, derive the routing slug from their own profile. Owners and
+  // super_admins skip this step and see every routed lead.
+  let trainerSlug: string | null = null;
+  if (role === "trainer") {
+    const { data: trainer, error: trainerErr } = await supabase
+      .from("trainers")
+      .select("age_min, age_max")
+      .eq("profile_id", userId)
+      .eq("active", true)
+      .single();
+    if (trainerErr || !trainer) {
+      return res.status(403).json({ error: "trainer_profile_required" });
+    }
+    trainerSlug = trainerSlugForAgeRange(
+      Number(trainer.age_min),
+      Number(trainer.age_max),
+    );
   }
 
-  const trainerSlug = trainerSlugForAgeRange(
-    Number(trainer.age_min),
-    Number(trainer.age_max),
-  );
-
-  // Pull leads scoped to the authenticated trainer's derived routing slug.
+  // Pull leads — trainers see only their slug; owner/super_admin see all
+  // routed leads (filtered to assigned_trainer_id is not null to keep the
+  // inbox sane and avoid surfacing unassigned drafts).
   let q = supabase
     .from("leads")
     .select(
@@ -161,9 +174,13 @@ export default async function handler(req: Req, res: Res) {
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  q = q.or(
-    `assigned_trainer_id.eq.${trainerSlug},cc_trainer_ids.cs.{${trainerSlug}}`,
-  );
+  if (trainerSlug) {
+    q = q.or(
+      `assigned_trainer_id.eq.${trainerSlug},cc_trainer_ids.cs.{${trainerSlug}}`,
+    );
+  } else {
+    q = q.not("assigned_trainer_id", "is", null);
+  }
 
   const { data, error } = await q;
   if (error) {
