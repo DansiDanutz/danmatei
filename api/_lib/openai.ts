@@ -1,4 +1,11 @@
 /**
+ * SSRF SAFETY: OPENAI_BASE_URL is read from env ONLY. NEVER let a caller
+ * override the base URL via request body, headers, or query string — that
+ * would allow arbitrary outbound requests from the Vercel function with
+ * the OPENAI_API_KEY attached. Audit reviewers: any future PR that lets
+ * a base URL come from user input is rejected at module load.
+ */
+/**
  * Chat-completions helper — OpenAI-compatible, provider-agnostic.
  *
  * Direct fetch (no SDK) keeps the dependency surface tiny. Used by features

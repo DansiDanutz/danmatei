@@ -33,6 +33,7 @@ type Req = {
 type Res = {
   status: (n: number) => Res;
   json: (body: unknown) => Res;
+  setHeader?: (k: string, v: string) => void;
 };
 
 function readHeader(req: Req, key: string): string | undefined {
@@ -117,6 +118,24 @@ export default async function handler(req: Req, res: Res) {
 
   const isFirstPublish = !event.recap_published_at;
   const shouldNotify = isFirstPublish || renotify;
+
+  // Cooldown on renotify: a compromised trainer shouldn't be able to
+  // hammer every parent. If renotify=true and the recap was published
+  // less than 1 hour ago, reject with 429 + Retry-After remaining seconds.
+  if (renotify && !isFirstPublish && event.recap_published_at) {
+    const lastMs = new Date(event.recap_published_at as string).getTime();
+    const elapsedMs = Date.now() - lastMs;
+    const cooldownMs = 60 * 60 * 1000;
+    if (elapsedMs < cooldownMs) {
+      const remainingMs = cooldownMs - elapsedMs;
+      res.setHeader?.("Retry-After", Math.ceil(remainingMs / 1000).toString());
+      return res.status(429).json({
+        error: "renotify_cooldown",
+        detail: "recap was renotified recently",
+        remainingSeconds: Math.ceil(remainingMs / 1000),
+      });
+    }
+  }
 
   // 1) Persist the recap on the event
   const nowIso = new Date().toISOString();

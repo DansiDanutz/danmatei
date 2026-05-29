@@ -179,9 +179,15 @@ export default async function handler(req: Req, res: Res) {
     if (latestCall) {
       const existing = (latestCall.summary as string | null) ?? "";
       const stamp = new Date().toLocaleString("ro-RO");
-      const joined = existing
-        ? `${existing}\n\n—\n[${stamp} · ${trainerSlug}]\n${note}`
-        : note;
+      const appended = `\n\n—\n[${stamp} · ${trainerSlug}]\n${note}`;
+      let joined = existing ? `${existing}${appended}` : note;
+      // Cap the summary at 16 KB so a trainer can't grow lead_calls.summary
+      // unboundedly. Truncate from the FRONT of existing so the newest
+      // reasoning is preserved; mark the cut with a [...] prefix.
+      const MAX_SUMMARY = 16384;
+      if (joined.length > MAX_SUMMARY) {
+        joined = `[…]${joined.slice(joined.length - (MAX_SUMMARY - 3))}`;
+      }
       await supabase
         .from("lead_calls")
         .update({ summary: joined })
