@@ -137,6 +137,25 @@ export default function InregistrareCopil() {
       setServerError(error?.message ?? "Eroare la salvare.");
       return;
     }
+    // Best-effort: alert the matching trainer + owner about the new signup so
+    // they can confirm / assign. Never blocks the parent's navigation.
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        void fetch("/api/enrollment/created", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ childId: data.id }),
+        }).catch(() => {});
+      }
+    } catch {
+      /* notification is best-effort */
+    }
     navigate(`/copil/${data.id}`);
   });
 

@@ -1,9 +1,10 @@
 /**
  * Admin → Grupe tab.
- * Owner creates age-year groups, assigns them to trainers,
- * edits and deletes existing groups,
- * and manually assigns unregistered children — preferring a year-matched group
- * so we populate children.group_id (not just children.trainer_id).
+ * Owner sets the single flat academy fee, creates/edits age-year groups and
+ * assigns them to trainers, and works the enrollment queue: every pending or
+ * on-hold child can be assigned to a group (which sets the trainer + applies
+ * the academy fee), put on hold (no trainer, no fee), or rejected — all via
+ * the enroll_* RPCs.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -20,13 +21,14 @@ import {
   Pencil,
   Trash2,
   X,
+  Coins,
+  PauseCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BrandedField } from "@/components/ui/branded-field";
 
 type GroupRow = {
   id: string;
@@ -38,18 +40,18 @@ type GroupRow = {
   trainer: { profile: { full_name: string } | null } | null;
 };
 
-/** Latest fee per group_id, used to show "X RON / lună" on cards. */
-type LatestFee = { group_id: string; monthly_fee_ron: number; effective_from: string };
-
 type TrainerOption = {
   id: string;
   profile: { full_name: string } | null;
 };
 
-type UnassignedChild = {
+type RequestChild = {
   id: string;
   full_name: string;
   dob: string;
+  assignment_status: "pending" | "on_hold";
+  trainer_id: string | null;
+  group_id: string | null;
   parent: { full_name: string; phone: string | null } | null;
 };
 
@@ -58,7 +60,6 @@ const groupSchema = z.object({
   birthYearMin: z.number().min(2000).max(2030),
   birthYearMax: z.number().min(2000).max(2030),
   trainerId: z.string().optional(),
-  monthlyFeeRon: z.number().min(0).max(99999),
 });
 type GroupForm = z.infer<typeof groupSchema>;
 
@@ -67,20 +68,21 @@ const DEFAULT_FORM: GroupForm = {
   birthYearMin: 2015,
   birthYearMax: 2015,
   trainerId: "",
-  monthlyFeeRon: 0,
 };
 
 export default function GroupsTab() {
   const { profile } = useAuth();
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [trainers, setTrainers] = useState<TrainerOption[]>([]);
-  const [unassigned, setUnassigned] = useState<UnassignedChild[]>([]);
-  const [latestFees, setLatestFees] = useState<Map<string, number>>(new Map());
+  const [requests, setRequests] = useState<RequestChild[]>([]);
+  const [academyFee, setAcademyFee] = useState<string>("0");
+  const [feeSaving, setFeeSaving] = useState(false);
+  const [groupChoice, setGroupChoice] = useState<Record<string, string>>({});
+  const [busyChild, setBusyChild] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [onlyMatched, setOnlyMatched] = useState(false);
 
   const {
     register,
@@ -94,57 +96,47 @@ export default function GroupsTab() {
 
   const loadAll = async () => {
     setServerError(null);
-    const [{ data: g, error: ge }, { data: t, error: te }, { data: u, error: ue }] =
-      await Promise.all([
-        supabase
-          .from("groups")
-          .select("id, label, birth_year_min, birth_year_max, trainer_id, active, trainer:trainers(profile:profiles(full_name))")
-          .order("birth_year_min", { ascending: false }),
-        supabase
-          .from("trainers")
-          .select("id, profile:profiles(full_name)")
-          .eq("active", true)
-          .order("display_order", { ascending: true }),
-        supabase
-          .from("children")
-          .select("id, full_name, dob, parent:profiles(full_name, phone)")
-          .is("trainer_id", null)
-          .eq("status", "active")
-          .order("dob", { ascending: true }),
-      ]);
+    const [
+      { data: g, error: ge },
+      { data: t, error: te },
+      { data: u, error: ue },
+      { data: settings },
+    ] = await Promise.all([
+      supabase
+        .from("groups")
+        .select(
+          "id, label, birth_year_min, birth_year_max, trainer_id, active, trainer:trainers(profile:profiles(full_name))"
+        )
+        .order("birth_year_min", { ascending: false }),
+      supabase
+        .from("trainers")
+        .select("id, profile:profiles(full_name)")
+        .eq("active", true)
+        .order("display_order", { ascending: true }),
+      supabase
+        .from("children")
+        .select(
+          "id, full_name, dob, assignment_status, trainer_id, group_id, parent:profiles!children_parent_id_fkey(full_name, phone)"
+        )
+        .in("assignment_status", ["pending", "on_hold"])
+        .eq("status", "active")
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("academy_settings")
+        .select("monthly_fee_ron")
+        .eq("id", true)
+        .single(),
+    ]);
 
     if (ge || te || ue) {
       setServerError(
         [ge?.message, te?.message, ue?.message].filter(Boolean).join("; ")
       );
     }
-    const groupsList = (g ?? []) as unknown as GroupRow[];
-    setGroups(groupsList);
+    setGroups((g ?? []) as unknown as GroupRow[]);
     setTrainers((t ?? []) as unknown as TrainerOption[]);
-    setUnassigned((u ?? []) as unknown as UnassignedChild[]);
-
-    // Fetch all fee rows for the visible groups; resolve the latest per
-    // group_id in JS so we can render "X RON / lună" on each card. Sorting
-    // by effective_from desc means the first row we see per group wins.
-    if (groupsList.length > 0) {
-      const { data: feeRows } = await supabase
-        .from("group_fees")
-        .select("group_id, monthly_fee_ron, effective_from")
-        .in(
-          "group_id",
-          groupsList.map((gr) => gr.id)
-        )
-        .order("effective_from", { ascending: false });
-      const latest = new Map<string, number>();
-      for (const f of ((feeRows ?? []) as unknown as LatestFee[])) {
-        if (!latest.has(f.group_id)) {
-          latest.set(f.group_id, Number(f.monthly_fee_ron));
-        }
-      }
-      setLatestFees(latest);
-    } else {
-      setLatestFees(new Map());
-    }
+    setRequests((u ?? []) as unknown as RequestChild[]);
+    if (settings) setAcademyFee(String(settings.monthly_fee_ron ?? 0));
     setLoading(false);
   };
 
@@ -152,15 +144,33 @@ export default function GroupsTab() {
     loadAll();
   }, []);
 
+  const saveFee = async () => {
+    const v = Number(academyFee);
+    if (Number.isNaN(v) || v < 0) {
+      toast.error("Sumă invalidă");
+      return;
+    }
+    setFeeSaving(true);
+    const { error } = await supabase
+      .from("academy_settings")
+      .update({
+        monthly_fee_ron: v,
+        updated_by: profile?.id ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", true);
+    setFeeSaving(false);
+    if (error) toast.error("Nu am putut salva taxa", { description: error.message });
+    else toast.success("Taxă academie actualizată");
+  };
+
   const onSubmit = async (v: GroupForm) => {
     if (v.birthYearMax < v.birthYearMin) {
       setServerError("Anul maxim trebuie să fie ≥ anul minim.");
       return;
     }
     if (!editingId && !profile?.id) {
-      toast.error("Profil incomplet", {
-        description: "Nu am putut identifica utilizatorul curent.",
-      });
+      toast.error("Profil incomplet");
       return;
     }
     setSaving(true);
@@ -180,55 +190,21 @@ export default function GroupsTab() {
           setServerError(error.message);
           return;
         }
-        // If the fee changed, append a NEW group_fees row so the historical
-        // record is preserved — past charges keep their contemporary amount.
-        const prevFee = latestFees.get(editingId);
-        if (
-          profile?.id &&
-          (prevFee === undefined || Number(prevFee) !== Number(v.monthlyFeeRon))
-        ) {
-          const { error: feeErr } = await supabase.from("group_fees").insert({
-            group_id: editingId,
-            monthly_fee_ron: v.monthlyFeeRon,
-            effective_from: new Date().toISOString().slice(0, 10),
-            created_by: profile.id,
-          });
-          if (feeErr) {
-            // Surface the fee error but don't roll back — the group update
-            // already landed and the user can retry the fee on next save.
-            setServerError(`Grupa salvată, dar taxa: ${feeErr.message}`);
-          }
-        }
         toast.success("Grupă actualizată");
         setEditingId(null);
         reset(DEFAULT_FORM);
         loadAll();
       } else {
-        const { data: created, error } = await supabase
-          .from("groups")
-          .insert({
-            label: v.label,
-            birth_year_min: v.birthYearMin,
-            birth_year_max: v.birthYearMax,
-            trainer_id: v.trainerId || null,
-            created_by: profile!.id,
-          })
-          .select("id")
-          .single();
+        const { error } = await supabase.from("groups").insert({
+          label: v.label,
+          birth_year_min: v.birthYearMin,
+          birth_year_max: v.birthYearMax,
+          trainer_id: v.trainerId || null,
+          created_by: profile!.id,
+        });
         if (error) {
           setServerError(error.message);
           return;
-        }
-        if (created?.id) {
-          const { error: feeErr } = await supabase.from("group_fees").insert({
-            group_id: created.id,
-            monthly_fee_ron: v.monthlyFeeRon,
-            effective_from: new Date().toISOString().slice(0, 10),
-            created_by: profile!.id,
-          });
-          if (feeErr) {
-            setServerError(`Grupa creată, dar taxa: ${feeErr.message}`);
-          }
         }
         toast.success("Grupă creată");
         reset(DEFAULT_FORM);
@@ -248,7 +224,6 @@ export default function GroupsTab() {
       birthYearMin: g.birth_year_min,
       birthYearMax: g.birth_year_max,
       trainerId: g.trainer_id ?? "",
-      monthlyFeeRon: latestFees.get(g.id) ?? 0,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -263,98 +238,96 @@ export default function GroupsTab() {
       !confirm(
         `Sigur ștergi grupa „${g.label}"? Copiii rămân alocați antrenorului — doar grupa dispare.`
       )
-    ) {
+    )
+      return;
+    const { error } = await supabase.from("groups").delete().eq("id", g.id);
+    if (error) {
+      toast.error("Nu am putut șterge grupa", { description: error.message });
       return;
     }
-    try {
-      const { error } = await supabase.from("groups").delete().eq("id", g.id);
-      if (error) {
-        toast.error("Nu am putut șterge grupa", { description: error.message });
-        return;
-      }
-      toast.success("Grupă ștearsă");
-      if (editingId === g.id) cancelEdit();
-      loadAll();
-    } catch (e) {
-      toast.error("Eroare", {
-        description: e instanceof Error ? e.message : String(e),
-      });
-    }
+    toast.success("Grupă ștearsă");
+    if (editingId === g.id) cancelEdit();
+    loadAll();
   };
 
   const assignGroupTrainer = async (groupId: string, trainerId: string | null) => {
-    try {
-      const { error } = await supabase
-        .from("groups")
-        .update({ trainer_id: trainerId })
-        .eq("id", groupId);
-      if (error) setServerError(error.message);
-      else loadAll();
-    } catch (e) {
-      setServerError(e instanceof Error ? e.message : "Eroare");
-    }
+    const { error } = await supabase
+      .from("groups")
+      .update({ trainer_id: trainerId })
+      .eq("id", groupId);
+    if (error) setServerError(error.message);
+    else loadAll();
   };
 
   const toggleGroupActive = async (groupId: string, active: boolean) => {
-    try {
-      const { error } = await supabase
-        .from("groups")
-        .update({ active })
-        .eq("id", groupId);
-      if (error) setServerError(error.message);
-      else loadAll();
-    } catch (e) {
-      setServerError(e instanceof Error ? e.message : "Eroare");
-    }
+    const { error } = await supabase
+      .from("groups")
+      .update({ active })
+      .eq("id", groupId);
+    if (error) setServerError(error.message);
+    else loadAll();
   };
 
-  /**
-   * Admin override path. If we know a year-matched group, write both
-   * group_id and (when set) the group's trainer_id. Otherwise fall back
-   * to the trainer-only path (legacy behavior).
-   */
-  const assignChild = async (
-    childId: string,
-    opts: { groupId?: string | null; trainerId?: string | null }
-  ) => {
-    const update: {
-      assignment_status: "accepted";
-      trainer_id?: string | null;
-      group_id?: string | null;
-    } = { assignment_status: "accepted" };
-    if (opts.groupId !== undefined) update.group_id = opts.groupId;
-    if (opts.trainerId !== undefined) update.trainer_id = opts.trainerId;
-    try {
-      const { error } = await supabase
-        .from("children")
-        .update(update)
-        .eq("id", childId);
-      if (error) {
-        toast.error("Nu am putut atribui copilul", { description: error.message });
-        return;
-      }
-      loadAll();
-    } catch (e) {
-      toast.error("Eroare", {
-        description: e instanceof Error ? e.message : String(e),
-      });
-    }
-  };
-
+  // ── Enrollment queue actions (via SECURITY DEFINER RPCs) ───────────────────
   const findMatchingGroup = (year: number) =>
     groups.find(
       (g) => g.active && year >= g.birth_year_min && year <= g.birth_year_max
     );
 
-  const visibleUnassigned = useMemo(() => {
-    if (!onlyMatched) return unassigned;
-    return unassigned.filter((c) => {
-      const y = new Date(c.dob).getFullYear();
-      return !!findMatchingGroup(y);
+  const choiceFor = (c: RequestChild): string => {
+    if (groupChoice[c.id] !== undefined) return groupChoice[c.id];
+    const matched = findMatchingGroup(new Date(c.dob).getFullYear());
+    return matched?.id ?? "";
+  };
+
+  const acceptToGroup = async (c: RequestChild) => {
+    const groupId = choiceFor(c);
+    if (!groupId) {
+      toast.error("Alege o grupă întâi.");
+      return;
+    }
+    const group = groups.find((g) => g.id === groupId);
+    setBusyChild(c.id);
+    const { error } = await supabase.rpc("enroll_accept", {
+      p_child: c.id,
+      p_group: groupId,
+      p_trainer: group?.trainer_id ?? null,
     });
-    // findMatchingGroup depends on `groups`, which is in deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unassigned, onlyMatched, groups]);
+    setBusyChild(null);
+    if (error) toast.error("Nu am putut repartiza", { description: error.message });
+    else {
+      toast.success(`Repartizat în ${group?.label ?? "grupă"} · taxa aplicată`);
+      loadAll();
+    }
+  };
+
+  const holdChild = async (c: RequestChild) => {
+    setBusyChild(c.id);
+    const { error } = await supabase.rpc("enroll_hold", { p_child: c.id });
+    setBusyChild(null);
+    if (error) toast.error("Eroare", { description: error.message });
+    else {
+      toast.success("Pus pe hold — fără antrenor și fără taxă");
+      loadAll();
+    }
+  };
+
+  const rejectChild = async (c: RequestChild) => {
+    if (!confirm(`Sigur respingi înscrierea pentru „${c.full_name}"?`)) return;
+    setBusyChild(c.id);
+    const { error } = await supabase.rpc("enroll_reject", { p_child: c.id });
+    setBusyChild(null);
+    if (error) toast.error("Eroare", { description: error.message });
+    else {
+      toast.success("Înscriere respinsă");
+      loadAll();
+    }
+  };
+
+  const pendingCount = useMemo(
+    () => requests.filter((r) => r.assignment_status === "pending").length,
+    [requests]
+  );
 
   if (loading) {
     return (
@@ -366,6 +339,42 @@ export default function GroupsTab() {
 
   return (
     <div className="space-y-8">
+      {/* Academy fee */}
+      <section className="rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5 sm:p-7">
+        <h2 className="flex items-center gap-2 font-heading text-lg font-bold uppercase tracking-[0.02em] text-white">
+          <Coins className="size-5 text-brand-gold" />
+          Taxă lunară academie
+        </h2>
+        <p className="mt-1 font-body text-sm text-white/55">
+          O singură taxă, aplicată fiecărui copil acceptat într-o grupă. Pune 0
+          pentru gratuit.
+        </p>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div>
+            <Label className="font-heading text-[10px] uppercase tracking-[0.16em] text-white/60">
+              RON / lună
+            </Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={academyFee}
+              onChange={(e) => setAcademyFee(e.target.value)}
+              className="mt-1.5 h-10 w-40 rounded-xl border-white/10 bg-white/[0.04] text-white"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={saveFee}
+            disabled={feeSaving}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-cyan px-4 font-heading text-[11px] font-semibold uppercase tracking-[0.14em] text-[oklch(0.08_0.02_250)] transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
+          >
+            {feeSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+            Salvează taxa
+          </button>
+        </div>
+      </section>
+
       {/* Create / edit group */}
       <section className="rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5 sm:p-7">
         <h2 className="flex items-center gap-2 font-heading text-lg font-bold uppercase tracking-[0.02em] text-white">
@@ -428,27 +437,6 @@ export default function GroupsTab() {
               ))}
             </select>
           </div>
-          <div className="sm:col-span-1">
-            <BrandedField
-              htmlFor="g-monthly-fee"
-              label="Taxă lunară (RON)"
-              error={errors.monthlyFeeRon?.message}
-              hint={
-                editingId
-                  ? "Modificarea creează o nouă înregistrare istorică."
-                  : "Aplicată copiilor din grupă pe 1 a fiecărei luni."
-              }
-            >
-              <Input
-                id="g-monthly-fee"
-                type="number"
-                step="0.01"
-                min="0"
-                {...register("monthlyFeeRon", { valueAsNumber: true })}
-                className="h-10 rounded-xl border-white/10 bg-white/[0.04] text-white"
-              />
-            </BrandedField>
-          </div>
           <div className="sm:col-span-4 flex flex-wrap items-center gap-2">
             <button
               type="submit"
@@ -506,11 +494,6 @@ export default function GroupsTab() {
                       <p className="mt-0.5 font-body text-xs text-white/55">
                         {g.birth_year_min}–{g.birth_year_max}
                       </p>
-                      <p className="mt-1 font-heading text-[10px] uppercase tracking-[0.14em] text-brand-cyan/80">
-                        {latestFees.has(g.id)
-                          ? `${latestFees.get(g.id)} RON / lună`
-                          : "Fără taxă"}
-                      </p>
                     </div>
                     <button
                       onClick={() => toggleGroupActive(g.id, !g.active)}
@@ -562,55 +545,51 @@ export default function GroupsTab() {
         )}
       </section>
 
-      {/* Unassigned children */}
+      {/* Enrollment requests */}
       <section className="rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2 font-heading text-lg font-bold uppercase tracking-[0.02em] text-white">
-              <UserX className="size-5 text-rose-300" />
-              Copii fără antrenor
+              <UsersRound className="size-5 text-brand-cyan" />
+              Cereri de înscriere
             </h2>
             <p className="mt-1 font-body text-sm text-white/55">
-              Acești copii nu sunt repartizați la nicio grupă. Poți să-i atribui manual.
+              Repartizează copilul într-o grupă (se aplică taxa), pune-l pe hold
+              (fără taxă) sau respinge cererea.
             </p>
           </div>
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-body text-xs text-white/70">
-            <input
-              type="checkbox"
-              checked={onlyMatched}
-              onChange={(e) => setOnlyMatched(e.target.checked)}
-              className="size-3.5 accent-brand-cyan"
-            />
-            Doar copii nealocați care au grupă potrivită
-          </label>
+          <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-3 py-1 font-heading text-[11px] uppercase tracking-[0.14em] text-brand-cyan">
+            {pendingCount} noi
+          </span>
         </div>
 
-        {visibleUnassigned.length === 0 ? (
+        {requests.length === 0 ? (
           <p className="mt-4 font-body text-sm text-white/50">
-            {unassigned.length === 0
-              ? "Toți copiii activi sunt repartizați. 🎉"
-              : "Niciun copil nealocat cu grupă potrivită."}
+            Nicio cerere în așteptare. 🎉
           </p>
         ) : (
           <div className="mt-4 space-y-2">
-            {visibleUnassigned.map((c) => {
+            {requests.map((c) => {
               const birthYear = new Date(c.dob).getFullYear();
-              const matchingGroup = findMatchingGroup(birthYear);
+              const onHold = c.assignment_status === "on_hold";
+              const busy = busyChild === c.id;
               return (
                 <div
                   key={c.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3"
+                  className="flex flex-col gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-heading text-sm font-semibold text-white">{c.full_name}</p>
-                      {matchingGroup ? (
-                        <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2 py-0.5 font-heading text-[9px] uppercase tracking-[0.14em] text-brand-cyan">
-                          → Grupa {matchingGroup.label}
+                      <p className="font-heading text-sm font-semibold text-white">
+                        {c.full_name}
+                      </p>
+                      {onHold ? (
+                        <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 font-heading text-[9px] uppercase tracking-[0.14em] text-amber-200">
+                          Pe hold
                         </span>
                       ) : (
-                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 font-heading text-[9px] uppercase tracking-[0.14em] text-white/45">
-                          Fără grupă potrivită
+                        <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2 py-0.5 font-heading text-[9px] uppercase tracking-[0.14em] text-brand-cyan">
+                          Nou
                         </span>
                       )}
                     </div>
@@ -618,43 +597,55 @@ export default function GroupsTab() {
                       {birthYear} · Părinte: {c.parent?.full_name ?? "—"}
                       {c.parent?.phone ? ` · ${c.parent.phone}` : ""}
                     </p>
-                    {!matchingGroup && (
-                      <p className="mt-1 font-body text-[11px] text-white/40">
-                        Nu există grupă pentru anul {birthYear}. Atribuie antrenorul direct.
-                      </p>
-                    )}
                   </div>
-                  {matchingGroup ? (
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={choiceFor(c)}
+                      onChange={(e) =>
+                        setGroupChoice((m) => ({ ...m, [c.id]: e.target.value }))
+                      }
+                      className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white outline-none focus:border-brand-cyan/60"
+                    >
+                      <option value="">— Alege grupa —</option>
+                      {groups
+                        .filter((g) => g.active)
+                        .map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.label} ({g.birth_year_min}–{g.birth_year_max})
+                          </option>
+                        ))}
+                    </select>
                     <button
                       type="button"
-                      onClick={() =>
-                        assignChild(c.id, {
-                          groupId: matchingGroup.id,
-                          trainerId: matchingGroup.trainer_id,
-                        })
-                      }
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 font-heading text-[10px] font-semibold uppercase tracking-[0.14em] text-[oklch(0.08_0.02_250)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                      onClick={() => acceptToGroup(c)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 font-heading text-[10px] font-semibold uppercase tracking-[0.14em] text-[oklch(0.08_0.02_250)] transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
                     >
-                      <ArrowRightLeft className="size-3" />
-                      Atribuie grupei
+                      {busy ? <Loader2 className="size-3 animate-spin" /> : <UserCheck className="size-3" />}
+                      Repartizează
                     </button>
-                  ) : (
-                    <select
-                      onChange={(e) => {
-                        if (e.target.value)
-                          assignChild(c.id, { trainerId: e.target.value });
-                      }}
-                      className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white outline-none focus:border-brand-cyan/60"
-                      defaultValue=""
+                    {!onHold && (
+                      <button
+                        type="button"
+                        onClick={() => holdChild(c)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 font-heading text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-200 transition-colors hover:bg-amber-300/20 disabled:opacity-50"
+                      >
+                        <PauseCircle className="size-3" />
+                        Hold
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => rejectChild(c)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 py-1.5 font-heading text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-200 transition-colors hover:bg-rose-300/20 disabled:opacity-50"
                     >
-                      <option value="">Atribuie antrenor…</option>
-                      {trainers.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.profile?.full_name ?? "Antrenor"}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                      <UserX className="size-3" />
+                      Respinge
+                    </button>
+                  </div>
                 </div>
               );
             })}
