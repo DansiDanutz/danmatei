@@ -55,9 +55,21 @@ export default async function handler(req: Req, res: Res) {
     return res.status(405).json({ error: "method_not_allowed" });
   }
 
-  // Cron auth — Vercel sets the Authorization header automatically.
+  // Cron auth — fail-closed. Vercel sets the Authorization header
+  // automatically; we refuse to run in prod/preview when CRON_SECRET is
+  // unset so an unconfigured deploy can't be triggered by anyone.
   const expected = process.env.CRON_SECRET;
-  if (expected) {
+  if (!expected) {
+    if (
+      process.env.NODE_ENV === "production" ||
+      process.env.VERCEL_ENV === "production" ||
+      process.env.VERCEL_ENV === "preview"
+    ) {
+      return res.status(503).json({ error: "cron_secret_unset" });
+    }
+    // dev-only: log a warn and continue
+    console.warn("[cron/daily] CRON_SECRET unset — allowing in dev only");
+  } else {
     const auth = readHeader(req, "authorization") ?? "";
     if (auth !== `Bearer ${expected}`) {
       return res.status(401).json({ error: "unauthorized" });
