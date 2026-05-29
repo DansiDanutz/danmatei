@@ -33,6 +33,12 @@ export interface PublicShellProps {
   pageTitle?: string;
   pageKicker?: string;
   pageDescription?: string;
+  /**
+   * Suppress the marketing footer. Used by immersive pages that supply their
+   * own fixed bottom chrome (e.g. /cunoaste's swipe deck), where this footer
+   * would otherwise collide with the deck's fixed pager.
+   */
+  hideFooter?: boolean;
 }
 
 export interface NavItem {
@@ -56,6 +62,7 @@ export default function PublicShell({
   pageTitle,
   pageKicker,
   pageDescription,
+  hideFooter = false,
 }: PublicShellProps) {
   const { profile, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
@@ -430,6 +437,7 @@ export default function PublicShell({
         <div className="mx-auto max-w-6xl px-4 pb-12 sm:px-8">{children}</div>
       </main>
 
+      {!hideFooter && (
       <footer className="relative z-10 mt-12 border-t border-white/5">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-4 py-8 sm:flex-row sm:items-center sm:px-8">
           <div className="flex items-center gap-3">
@@ -463,6 +471,7 @@ export default function PublicShell({
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 }
