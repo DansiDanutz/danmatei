@@ -96,7 +96,7 @@ export default function StepIndicator({ current }: { current: Step }) {
             </span>
             <span
               className={[
-                "font-heading text-[8px] uppercase leading-tight tracking-[0.06em] transition-colors sm:text-[11px] sm:tracking-[0.12em]",
+                "font-heading text-[11px] uppercase leading-tight tracking-[0.06em] transition-colors sm:text-xs sm:tracking-[0.12em]",
                 isActive
                   ? `${colours.activeText} font-semibold`
                   : isDone

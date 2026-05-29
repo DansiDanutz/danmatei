@@ -265,7 +265,7 @@ function ControlButton({
       onClick={onClick}
       aria-label={ariaLabel}
       data-role={dataRole}
-      className={`grid size-9 place-items-center rounded-full border backdrop-blur-md transition-colors ${styles}${pulseClass}`}
+      className={`grid size-11 place-items-center rounded-full border backdrop-blur-md transition-colors ${styles}${pulseClass}`}
     >
       {children}
     </button>
