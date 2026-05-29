@@ -24,6 +24,7 @@ import {
   Loader2,
   Newspaper,
   Pencil,
+  Receipt,
   RefreshCcw,
   Save,
   Send,
@@ -44,6 +45,7 @@ import ScheduleOversight from "@/components/admin/ScheduleOversight";
 import NotificationManager from "@/components/admin/NotificationManager";
 import AtRiskTab from "@/components/admin/AtRiskTab";
 import LeadAnalyticsTab from "@/components/admin/LeadAnalyticsTab";
+import PaymentsTab from "@/components/admin/PaymentsTab";
 import { BrandedField } from "@/components/ui/branded-field";
 
 const LOCAL_INPUT_CLS =
@@ -70,7 +72,7 @@ type ChildRow = {
   school: string | null;
   medical_notes: string | null;
   age_group_label: string | null;
-  status: "active" | "paused" | "left";
+  status: "active" | "paused" | "left" | "closed_unpaid" | "transferred";
   trainer_id: string | null;
   parent: { id: string; full_name: string; phone: string | null } | null;
 };
@@ -79,6 +81,14 @@ type TrainerOption = {
   id: string;
   full_name: string;
   active: boolean;
+};
+
+const STATUS_LABEL: Record<ChildRow["status"], string> = {
+  active: "activ",
+  paused: "pauzat",
+  left: "plecat",
+  closed_unpaid: "cont închis (neplată)",
+  transferred: "transferat",
 };
 
 const childEditSchema = z.object({
@@ -130,6 +140,9 @@ export default function Admin() {
           <Trigger value="risc" icon={<AlertTriangle className="size-3.5" />}>
             Risc
           </Trigger>
+          <Trigger value="plati" icon={<Receipt className="size-3.5" />}>
+            Plăți
+          </Trigger>
           <Trigger value="funnel" icon={<TrendingUp className="size-3.5" />}>
             Funnel
           </Trigger>
@@ -165,6 +178,11 @@ export default function Admin() {
         <TabsContent value="risc" className="mt-5">
           <LazyTab active={tab === "risc"}>
             <AtRiskTab />
+          </LazyTab>
+        </TabsContent>
+        <TabsContent value="plati" className="mt-5">
+          <LazyTab active={tab === "plati"}>
+            <PaymentsTab />
           </LazyTab>
         </TabsContent>
         <TabsContent value="funnel" className="mt-5">
@@ -709,12 +727,7 @@ function MembersTab() {
   const bulkStatusChange = async (newStatus: ChildRow["status"]) => {
     if (selectedIds.size === 0 || bulkBusy) return;
     const ids = Array.from(selectedIds);
-    const label =
-      newStatus === "active"
-        ? "activ"
-        : newStatus === "paused"
-        ? "pauzat"
-        : "plecat";
+    const label = STATUS_LABEL[newStatus];
     setBulkBusy(true);
     const toastId = toast.loading(
       `Actualizez statusul pentru ${ids.length} copii…`
@@ -971,6 +984,8 @@ function ChildCard({
             <option value="active">Activ</option>
             <option value="paused">Pauză</option>
             <option value="left">Plecat</option>
+            <option value="closed_unpaid">Cont închis</option>
+            <option value="transferred">Transferat</option>
           </select>
           <span
             className={`rounded-full border px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] ${
