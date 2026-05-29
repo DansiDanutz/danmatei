@@ -1,10 +1,15 @@
 /**
- * POST /api/trainers — owner-only. Creates a Supabase auth user with
- * `app: 'fotbal', role: 'trainer'` metadata (so the profile trigger fires)
- * and inserts the matching `fotbal.trainers` row. Returns the new trainer
- * row + an auth invite link the owner can copy/send.
+ * /api/trainers — owner / super_admin only.
  *
- * Auth: caller must be authenticated AND have `role = 'owner'` in their
+ * POST   — create a Supabase auth user with `app: 'fotbal', role: 'trainer'`
+ *          metadata (so the profile trigger fires), insert the matching
+ *          `fotbal.trainers` row, and email an invite link.
+ * DELETE — remove a trainer entirely by deleting their auth user. This
+ *          cascades profiles → trainers; the trainer's children and groups
+ *          are unassigned (FK on delete set null). Trainers with protected
+ *          history can't be hard-deleted — deactivate those instead.
+ *
+ * Auth: caller must be authenticated AND have role owner/super_admin in their
  * fotbal.profiles row. Verified server-side using userClient(jwt).
  */
 import { z } from "zod";
@@ -28,6 +33,10 @@ const Body = z.object({
   certifications: z.array(z.string().max(60)).max(10).optional(),
 });
 
+const DeleteBody = z.object({
+  profileId: z.string().uuid(),
+});
+
 type Req = {
   method?: string;
   headers?: Record<string, string | string[] | undefined>;
@@ -42,7 +51,7 @@ type Res = {
 };
 
 export default async function handler(req: Req, res: Res) {
-  if (req.method !== "POST") {
+  if (req.method !== "POST" && req.method !== "DELETE") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
@@ -73,6 +82,35 @@ export default async function handler(req: Req, res: Res) {
   if (!isAuthorised)
     return res.status(403).json({ error: "Owner role required" });
 
+  const svc = serviceClient();
+
+  // ── DELETE: remove a trainer entirely. Deleting the auth user cascades
+  //    profiles → trainers; the trainer's children/groups are unassigned
+  //    (FK on delete set null). A trainer with schema-protected history
+  //    (e.g. groups they created or payments they recorded) can't be
+  //    hard-deleted — surface a clear "deactivate instead" message.
+  if (req.method === "DELETE") {
+    const del = DeleteBody.safeParse(req.body);
+    if (!del.success) {
+      return res
+        .status(400)
+        .json({ error: "Invalid body", issues: del.error.issues });
+    }
+    // @ts-expect-error auth.admin exists on the service-role client but TS types hide it
+    const result = await svc.auth.admin.deleteUser(del.data.profileId);
+    if (result.error) {
+      const msg = result.error.message || "Delete failed";
+      const isFk = /foreign key|violat|constraint|23503/i.test(msg);
+      return res.status(isFk ? 409 : 400).json({
+        error: isFk
+          ? "Antrenorul are date asociate (ex. grupe sau plăți) și nu poate fi șters. Dezactivează-l în schimb."
+          : msg,
+      });
+    }
+    return res.status(200).json({ deleted: true });
+  }
+
+  // ── POST: create + invite a trainer ──────────────────────────────────────
   const parsed = Body.safeParse(req.body);
   if (!parsed.success) {
     return res
@@ -83,8 +121,6 @@ export default async function handler(req: Req, res: Res) {
   if (v.ageMax < v.ageMin) {
     return res.status(400).json({ error: "ageMax must be >= ageMin" });
   }
-
-  const svc = serviceClient();
 
   // Where the invite email's "Accept the invite" link sends the trainer:
   // the /seteaza-parola page, which captures the invite session and lets them

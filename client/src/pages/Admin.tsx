@@ -24,11 +24,13 @@ import {
   Loader2,
   Newspaper,
   Pencil,
+  Power,
   Receipt,
   RefreshCcw,
   Save,
   Send,
   Tag,
+  Trash2,
   TrendingUp,
   Users,
   UserPlus,
@@ -395,6 +397,36 @@ function TrainersTab() {
     refresh();
   };
 
+  // Hard-delete goes through the serverless function because removing the
+  // auth user needs the service role. The cascade unassigns the trainer's
+  // children/groups; trainers with protected history return a 409 asking the
+  // owner to deactivate instead.
+  const deleteTrainer = async (t: TrainerRow) => {
+    setServerError(null);
+    const r = await fetch("/api/trainers", {
+      method: "DELETE",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${session?.access_token ?? ""}`,
+      },
+      body: JSON.stringify({ profileId: t.profile_id }),
+    });
+    if (!r.ok) {
+      let msg = `API ${r.status}`;
+      try {
+        const j = (await r.json()) as { error?: string };
+        msg = j.error ?? msg;
+      } catch {
+        // keep the generic status message
+      }
+      setServerError(msg);
+      toast.error("Ștergerea a eșuat", { description: msg });
+      return;
+    }
+    toast.success("Antrenorul a fost șters.");
+    refresh();
+  };
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       {/* Add form */}
@@ -546,6 +578,7 @@ function TrainersTab() {
               key={t.id}
               trainer={t}
               onToggleActive={() => toggleActive(t)}
+              onDelete={() => deleteTrainer(t)}
               onSaved={refresh}
               onError={setServerError}
             />
@@ -563,15 +596,28 @@ function TrainersTab() {
 function TrainerCard({
   trainer: t,
   onToggleActive,
+  onDelete,
   onSaved,
   onError,
 }: {
   trainer: TrainerRow;
   onToggleActive: () => void;
+  onDelete: () => Promise<void>;
   onSaved: () => void;
   onError: (msg: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    await onDelete();
+    // On success the parent refreshes and unmounts this card; on failure it
+    // surfaces the error and we drop back out of the confirm state.
+    setDeleting(false);
+    setConfirmingDelete(false);
+  };
 
   const {
     register,
@@ -854,6 +900,60 @@ function TrainerCard({
               <X className="size-3" />
               Anulează
             </button>
+          </div>
+
+          {/* Administrare — deactivate / delete */}
+          <div className="mt-1 flex flex-wrap items-center gap-2 border-t border-white/8 pt-3">
+            <span className="mr-1 font-heading text-[10px] uppercase tracking-[0.2em] text-white/40">
+              Administrare
+            </span>
+            <button
+              type="button"
+              onClick={onToggleActive}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-2 font-heading text-[10px] uppercase tracking-[0.18em] text-white/75 transition-colors hover:border-amber-300/40 hover:text-amber-200"
+            >
+              <Power className="size-3" />
+              {t.active ? "Dezactivează" : "Activează"}
+            </button>
+            {!confirmingDelete ? (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/30 bg-rose-300/[0.06] px-3 py-2 font-heading text-[10px] uppercase tracking-[0.18em] text-rose-200/90 transition-colors hover:border-rose-300/60 hover:bg-rose-300/10"
+              >
+                <Trash2 className="size-3" />
+                Șterge
+              </button>
+            ) : (
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <span className="font-body text-[11px] text-rose-200/90">
+                  Sigur? Copiii alocați rămân nealocați.
+                </span>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/90 px-3 py-2 font-heading text-[10px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-rose-500 disabled:opacity-60"
+                >
+                  {deleting ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <>
+                      <Trash2 className="size-3" />
+                      Da, șterge
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleting}
+                  className="font-body text-[11px] text-white/55 underline underline-offset-2 hover:text-white disabled:opacity-60"
+                >
+                  Nu
+                </button>
+              </span>
+            )}
           </div>
         </form>
       )}
