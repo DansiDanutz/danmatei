@@ -13,7 +13,9 @@ import PublicShell from "@/components/PublicShell";
 
 export default function Cunoaste() {
   return (
-    <PublicShell>
+    // hideFooter: the deck supplies its own fixed bottom pager, so the
+    // marketing footer is suppressed here to avoid stacked bottom bars.
+    <PublicShell hideFooter>
       <CunoasteDeck />
     </PublicShell>
   );

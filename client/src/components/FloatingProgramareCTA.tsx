@@ -2,14 +2,22 @@
  * FloatingProgramareCTA — sticky bottom-right pill that opens the
  * /programare lead form after visitors have had time to read the page.
  *
- * Hidden on auth pages (avoid distraction during sign-up). Fades in after
- * the visitor scrolls past 600px so the hero stays clean.
+ * Hidden on auth pages (avoid distraction during sign-up) and on /cunoaste,
+ * where the swipe deck already has its own fixed bottom pager plus a
+ * per-slide CTA — a third fixed pill there just collides with both. Fades
+ * in after the visitor scrolls past 600px so the hero stays clean.
  */
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { PhoneCall } from "lucide-react";
 
-const HIDDEN_ROUTES = [/^\/apel/, /^\/login/, /^\/inregistrare/, /^\/programare/];
+const HIDDEN_ROUTES = [
+  /^\/apel/,
+  /^\/login/,
+  /^\/inregistrare/,
+  /^\/programare/,
+  /^\/cunoaste/,
+];
 
 export default function FloatingProgramareCTA() {
   const [location] = useLocation();
