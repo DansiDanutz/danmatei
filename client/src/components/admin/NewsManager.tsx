@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { BrandedField } from "@/components/ui/branded-field";
+
+const LOCAL_INPUT_CLS =
+  "touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -300,13 +304,15 @@ export default function NewsManager() {
           {editingId ? "Editează articol" : "Articol nou"}
         </h2>
 
-        <Field
-          id="n-title"
-          label="Titlu"
-          {...register("title")}
-          error={errors.title?.message}
-          placeholder="Titlu știre"
-        />
+        <BrandedField htmlFor="n-title" label="Titlu" error={errors.title?.message}>
+          <input
+            id="n-title"
+            type="text"
+            {...register("title")}
+            placeholder="Titlu știre"
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
 
         {/* AI weekly draft — pre-fills title + body_md based on the last 7
          *  days of training recaps, match results, and new families. Hidden
@@ -381,12 +387,14 @@ export default function NewsManager() {
           </div>
         )}
 
-        <Field
-          id="n-published"
-          label="Data publicării (lasă gol pentru acum)"
-          type="datetime-local"
-          {...register("published_at")}
-        />
+        <BrandedField htmlFor="n-published" label="Data publicării (lasă gol pentru acum)">
+          <input
+            id="n-published"
+            type="datetime-local"
+            {...register("published_at")}
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
 
         {/* Cover image */}
         <div>
@@ -525,34 +533,6 @@ export default function NewsManager() {
     </div>
   );
 }
-
-const Field = ({
-  id,
-  label,
-  error,
-  ...rest
-}: React.InputHTMLAttributes<HTMLInputElement> & {
-  id: string;
-  label: string;
-  error?: string;
-}) => (
-  <div>
-    <label
-      htmlFor={id}
-      className="mb-1.5 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55"
-    >
-      {label}
-    </label>
-    <input
-      id={id}
-      {...rest}
-      className="touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60"
-    />
-    {error && (
-      <p className="mt-1 font-body text-xs text-rose-300/85">{error}</p>
-    )}
-  </div>
-);
 
 const Empty = ({ hint }: { hint: string }) => (
   <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center font-body text-sm text-white/55">

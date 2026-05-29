@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Trophy, ListOrdered, MapPin } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
+import { BrandSpinner } from "@/components/ui/brand-spinner";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { TRAINERS } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
@@ -180,7 +181,7 @@ export default function Campionat() {
 
       {loading && (
         <div className="grid place-items-center py-20">
-          <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />
+          <BrandSpinner size="sm" />
         </div>
       )}
 

@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import StepIndicator from "./StepIndicator";
+import { BrandedField } from "@/components/ui/branded-field";
 
 const Schema = z.object({
   parentName: z.string().trim().min(2, "Numele este obligatoriu").max(120),
@@ -141,8 +142,9 @@ export default function LeadForm() {
       <StepIndicator current={1} />
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <Field label="Numele tău" error={errors.parentName?.message}>
+        <BrandedField htmlFor="lead-parentName" label="Numele tău" error={errors.parentName?.message}>
           <input
+            id="lead-parentName"
             {...register("parentName")}
             type="text"
             autoComplete="name"
@@ -150,9 +152,10 @@ export default function LeadForm() {
             className={inputCls(!!errors.parentName)}
             placeholder="ex. Andrei Popescu"
           />
-        </Field>
-        <Field label="Telefon (WhatsApp)" error={errors.parentPhone?.message}>
+        </BrandedField>
+        <BrandedField htmlFor="lead-parentPhone" label="Telefon (WhatsApp)" error={errors.parentPhone?.message}>
           <input
+            id="lead-parentPhone"
             {...register("parentPhone")}
             type="tel"
             autoComplete="tel"
@@ -161,18 +164,20 @@ export default function LeadForm() {
             className={inputCls(!!errors.parentPhone)}
             placeholder="07XX XXX XXX"
           />
-        </Field>
-        <Field label="Numele copilului" error={errors.childName?.message}>
+        </BrandedField>
+        <BrandedField htmlFor="lead-childName" label="Numele copilului" error={errors.childName?.message}>
           <input
+            id="lead-childName"
             {...register("childName")}
             type="text"
             aria-invalid={!!errors.childName}
             className={inputCls(!!errors.childName)}
             placeholder="ex. Luca"
           />
-        </Field>
-        <Field label="Vârsta copilului" error={errors.childAge?.message}>
+        </BrandedField>
+        <BrandedField htmlFor="lead-childAge" label="Vârsta copilului" error={errors.childAge?.message}>
           <input
+            id="lead-childAge"
             {...register("childAge")}
             type="number"
             min={4}
@@ -182,17 +187,18 @@ export default function LeadForm() {
             className={inputCls(!!errors.childAge)}
             placeholder="ex. 9"
           />
-        </Field>
+        </BrandedField>
       </div>
 
-      <Field label="Postul preferat (opțional)">
+      <BrandedField htmlFor="lead-childPosition" label="Postul preferat (opțional)">
         <input
+          id="lead-childPosition"
           {...register("childPosition")}
           type="text"
           className={inputCls(false)}
           placeholder="ex. atacant, mijlocaș, portar"
         />
-      </Field>
+      </BrandedField>
 
       <Controller
         control={control}
@@ -247,26 +253,6 @@ export default function LeadForm() {
         WhatsApp în sub 1 minut · GDPR · Cluj-Napoca
       </p>
     </form>
-  );
-}
-
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="font-heading text-[10px] uppercase tracking-[0.2em] text-white/55 mb-1.5 block">
-        {label}
-      </span>
-      {children}
-      {error ? <span className="text-red-300 text-xs mt-1.5 block">{error}</span> : null}
-    </label>
   );
 }
 

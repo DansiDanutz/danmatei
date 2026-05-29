@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { Calendar, MapPin, Trophy, Users } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
+import { BrandSpinner } from "@/components/ui/brand-spinner";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
@@ -122,7 +123,7 @@ export default function Turnee() {
 
       {loading && (
         <div className="grid place-items-center py-20">
-          <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />
+          <BrandSpinner size="sm" />
         </div>
       )}
 

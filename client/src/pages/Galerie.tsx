@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Image as ImageIcon, Play, Trophy, Dumbbell, Swords, Users, MapPin, Award } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
+import { BrandSpinner } from "@/components/ui/brand-spinner";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
@@ -90,7 +91,7 @@ export default function Galerie() {
     >
       {loading && (
         <div className="grid place-items-center py-20">
-          <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />
+          <BrandSpinner size="sm" />
         </div>
       )}
 

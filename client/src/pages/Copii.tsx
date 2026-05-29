@@ -12,6 +12,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Cake, ShieldCheck, UserPlus } from "lucide-react";
 import { Link } from "wouter";
 import PublicShell from "@/components/PublicShell";
+import { BrandSpinner } from "@/components/ui/brand-spinner";
 import { supabase } from "@/lib/supabase";
 import { AGE_GROUPS } from "@/data/landing";
 import { useAuth } from "@/lib/auth";
@@ -197,7 +198,7 @@ export default function Copii() {
 
       {loadingRows && (
         <div className="grid place-items-center py-20">
-          <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />
+          <BrandSpinner size="sm" />
         </div>
       )}
 

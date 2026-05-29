@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Bell, Check, ArrowRight, Calendar, MessageSquare } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
+import { BrandSpinner } from "@/components/ui/brand-spinner";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
@@ -140,7 +141,7 @@ export default function Notificari() {
     >
       {loading && (
         <div className="grid place-items-center py-16">
-          <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />
+          <BrandSpinner size="sm" />
         </div>
       )}
 

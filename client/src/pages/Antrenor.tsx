@@ -40,6 +40,10 @@ import MemberShell from "@/components/MemberShell";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { currentAge } from "@/lib/age";
+import { BrandedField } from "@/components/ui/branded-field";
+
+const LOCAL_INPUT_CLS =
+  "touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-4 py-3 font-body text-base text-white placeholder:text-white/25 focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20";
 
 type Trainer = {
   id: string;
@@ -875,35 +879,42 @@ function ScheduleForm({
           </label>
         ))}
       </div>
-      <Field
-        id="schedule-title"
-        label="Titlu"
-        {...register("title")}
-        error={errors.title?.message}
-        placeholder="ex. Antrenament tactic"
-      />
-      <Field
-        id="schedule-starts"
-        label="Dată / oră"
-        type="datetime-local"
-        {...register("startsAt")}
-        error={errors.startsAt?.message}
-      />
-      <Field
-        id="schedule-location"
-        label="Locație (opțional)"
-        {...register("location")}
-        error={errors.location?.message}
-        placeholder="Baza Sportivă Mănăștur"
-      />
-      {kind === "match" && (
-        <Field
-          id="schedule-opponent"
-          label="Adversar"
-          {...register("opponent")}
-          error={errors.opponent?.message}
-          placeholder="ACS Sănătatea"
+      <BrandedField htmlFor="schedule-title" label="Titlu" error={errors.title?.message}>
+        <input
+          id="schedule-title"
+          type="text"
+          {...register("title")}
+          placeholder="ex. Antrenament tactic"
+          className={LOCAL_INPUT_CLS}
         />
+      </BrandedField>
+      <BrandedField htmlFor="schedule-starts" label="Dată / oră" error={errors.startsAt?.message}>
+        <input
+          id="schedule-starts"
+          type="datetime-local"
+          {...register("startsAt")}
+          className={LOCAL_INPUT_CLS}
+        />
+      </BrandedField>
+      <BrandedField htmlFor="schedule-location" label="Locație (opțional)" error={errors.location?.message}>
+        <input
+          id="schedule-location"
+          type="text"
+          {...register("location")}
+          placeholder="Baza Sportivă Mănăștur"
+          className={LOCAL_INPUT_CLS}
+        />
+      </BrandedField>
+      {kind === "match" && (
+        <BrandedField htmlFor="schedule-opponent" label="Adversar" error={errors.opponent?.message}>
+          <input
+            id="schedule-opponent"
+            type="text"
+            {...register("opponent")}
+            placeholder="ACS Sănătatea"
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
       )}
       <div>
         <label
@@ -1188,13 +1199,15 @@ function TrainerProfileForm({
       <h2 className="font-heading text-[11px] uppercase tracking-[0.2em] text-white/55">
         Profil antrenor
       </h2>
-      <Field
-        id="profile-position"
-        label="Funcție"
-        {...register("position")}
-        error={errors.position?.message}
-        placeholder="Antrenor U10–U12"
-      />
+      <BrandedField htmlFor="profile-position" label="Funcție" error={errors.position?.message}>
+        <input
+          id="profile-position"
+          type="text"
+          {...register("position")}
+          placeholder="Antrenor U10–U12"
+          className={LOCAL_INPUT_CLS}
+        />
+      </BrandedField>
       <div>
         <label
           htmlFor="profile-bio"
@@ -1210,32 +1223,36 @@ function TrainerProfileForm({
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field
-          id="profile-min"
-          label="Vârstă min"
-          type="number"
-          min={4}
-          max={25}
-          {...register("ageMin", { valueAsNumber: true })}
-          error={errors.ageMin?.message}
-        />
-        <Field
-          id="profile-max"
-          label="Vârstă max"
-          type="number"
-          min={4}
-          max={25}
-          {...register("ageMax", { valueAsNumber: true })}
-          error={errors.ageMax?.message}
-        />
+        <BrandedField htmlFor="profile-min" label="Vârstă min" error={errors.ageMin?.message}>
+          <input
+            id="profile-min"
+            type="number"
+            min={4}
+            max={25}
+            {...register("ageMin", { valueAsNumber: true })}
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
+        <BrandedField htmlFor="profile-max" label="Vârstă max" error={errors.ageMax?.message}>
+          <input
+            id="profile-max"
+            type="number"
+            min={4}
+            max={25}
+            {...register("ageMax", { valueAsNumber: true })}
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
       </div>
-      <Field
-        id="profile-certs"
-        label="Certificări (separă prin virgulă)"
-        {...register("certifications")}
-        placeholder="UEFA C, Prim ajutor"
-        error={errors.certifications?.message}
-      />
+      <BrandedField htmlFor="profile-certs" label="Certificări (separă prin virgulă)" error={errors.certifications?.message}>
+        <input
+          id="profile-certs"
+          type="text"
+          {...register("certifications")}
+          placeholder="UEFA C, Prim ajutor"
+          className={LOCAL_INPUT_CLS}
+        />
+      </BrandedField>
 
       {serverError && (
         <p className="rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 py-1.5 font-body text-xs text-rose-200">
@@ -1263,32 +1280,3 @@ function TrainerProfileForm({
   );
 }
 
-const Field = ({
-  id,
-  label,
-  type = "text",
-  error,
-  ...rest
-}: React.InputHTMLAttributes<HTMLInputElement> & {
-  id: string;
-  label: string;
-  error?: string;
-}) => (
-  <div>
-    <label
-      htmlFor={id}
-      className="mb-1.5 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55"
-    >
-      {label}
-    </label>
-    <input
-      id={id}
-      type={type}
-      {...rest}
-      className="touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-4 py-3 font-body text-base text-white placeholder:text-white/25 focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20"
-    />
-    {error && (
-      <p className="mt-1 font-body text-xs text-rose-300/85">{error}</p>
-    )}
-  </div>
-);
