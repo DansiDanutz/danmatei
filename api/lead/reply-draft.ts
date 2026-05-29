@@ -22,6 +22,7 @@ import {
   isConfigured as openAIConfigured,
   OpenAINotConfiguredError,
 } from "../_lib/openai.js";
+import { checkRateLimit } from "../_lib/ratelimit.js";
 
 const Body = z.object({
   leadId: z.string().uuid(),
@@ -35,6 +36,7 @@ type Req = {
 type Res = {
   status: (n: number) => Res;
   json: (body: unknown) => Res;
+  setHeader?: (k: string, v: string) => void;
 };
 
 function readHeader(req: Req, key: string): string | undefined {
@@ -110,6 +112,19 @@ export default async function handler(req: Req, res: Res) {
     return res.status(401).json({ error: "invalid_jwt" });
   }
   const userId = userData.user.id;
+
+  // Per-user/hour LLM rate limit (first-line defense — see api/_lib/ratelimit.ts)
+  const rl = checkRateLimit(
+    `reply-draft:${userId}`,
+    20,
+    60 * 60 * 1000,
+  );
+  if (!rl.ok) {
+    res.setHeader?.("Retry-After", Math.ceil(rl.resetIn / 1000).toString());
+    return res
+      .status(429)
+      .json({ error: "rate_limited", detail: "too many LLM requests" });
+  }
 
   // Caller profile + trainer row to derive their slug for authorization
   const [{ data: prof }, { data: trainerRow }] = await Promise.all([

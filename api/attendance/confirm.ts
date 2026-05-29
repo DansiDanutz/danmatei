@@ -117,12 +117,17 @@ export default async function handler(req: Req, res: Res) {
   if (event.kind !== "training") {
     return res.status(400).json({ error: "event_not_training" });
   }
-  if (
-    child.trainer_id &&
-    event.trainer_id &&
-    child.trainer_id !== event.trainer_id
-  ) {
-    return res.status(403).json({ error: "wrong_trainer_event" });
+  // Trainer guard: whenever the event has a trainer assigned, the child
+  // MUST have the same trainer assigned. The previous version only checked
+  // when BOTH were set, which let a parent confirm an unassigned child into
+  // any training event — sidestepping the trainer-of-record check entirely.
+  if (event.trainer_id) {
+    if (!child.trainer_id) {
+      return res.status(403).json({ error: "child_no_trainer" });
+    }
+    if (child.trainer_id !== event.trainer_id) {
+      return res.status(403).json({ error: "wrong_trainer_event" });
+    }
   }
 
   const { error: upErr } = await supabase.from("attendance").upsert(
