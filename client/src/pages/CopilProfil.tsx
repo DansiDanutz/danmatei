@@ -12,6 +12,9 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRoute, Link } from "wouter";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Activity,
@@ -22,6 +25,7 @@ import {
   Loader2,
   MessageSquare,
   Newspaper,
+  Send,
   Sparkles,
   Trophy,
   UserRound,
@@ -95,6 +99,7 @@ type MessageRow = {
   audience: "group" | "child" | "parent";
   body_md: string;
   created_at: string;
+  sender_role: "trainer" | "parent";
   trainer: { profile: { full_name: string } | null } | null;
 };
 
@@ -215,7 +220,7 @@ export default function CopilProfil() {
           ? supabase
               .from("messages")
               .select(
-                "id, audience, body_md, created_at, trainer:trainers!messages_trainer_id_fkey(profile:profiles!trainers_profile_id_fkey(full_name))"
+                "id, audience, body_md, created_at, sender_role, trainer:trainers!messages_trainer_id_fkey(profile:profiles!trainers_profile_id_fkey(full_name))"
               )
               .eq("trainer_id", childData.trainer_id)
               .or(
@@ -359,6 +364,22 @@ export default function CopilProfil() {
       cancelled = true;
     };
   }, [child, profile]);
+
+  const refetchMessages = useCallback(async () => {
+    if (!child?.trainer_id || !child?.id) return;
+    const { data } = await supabase
+      .from("messages")
+      .select(
+        "id, audience, body_md, created_at, sender_role, trainer:trainers!messages_trainer_id_fkey(profile:profiles!trainers_profile_id_fkey(full_name))"
+      )
+      .eq("trainer_id", child.trainer_id)
+      .or(
+        `audience.eq.group,and(audience.in.(child,parent),child_id.eq.${child.id})`
+      )
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setMessages((data ?? []) as unknown as MessageRow[]);
+  }, [child?.trainer_id, child?.id]);
 
   const age = useMemo(() => (child ? currentAge(child.dob) : null), [child]);
 
@@ -677,38 +698,55 @@ export default function CopilProfil() {
             <Empty hint="Nu există încă mesaje de la antrenor." />
           )}
           <div className="grid gap-3">
-            {messages.map(m => (
-              <article
-                key={m.id}
-                className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
-                    {m.audience === "group"
-                      ? "Grupa"
-                      : m.audience === "child"
-                        ? "Copil"
-                        : "Părinte"}
-                  </span>
-                  <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
-                    {new Date(m.created_at).toLocaleString("ro-RO", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                      timeZone: "Europe/Bucharest",
-                    })}
-                  </span>
-                </div>
-                {m.trainer?.profile?.full_name && (
-                  <p className="mt-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/40">
-                    De la {m.trainer.profile.full_name}
+            {messages.map(m => {
+              const isParentSender = m.sender_role === "parent";
+              return (
+                <article
+                  key={m.id}
+                  className={
+                    isParentSender
+                      ? "rounded-2xl border border-brand-cyan/25 bg-brand-cyan/[0.06] p-5"
+                      : "rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
+                  }
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span
+                      className={
+                        isParentSender
+                          ? "rounded-full border border-brand-cyan/45 bg-brand-cyan/15 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan"
+                          : "rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-white/70"
+                      }
+                    >
+                      {isParentSender ? "Tu" : "Antrenor"}
+                    </span>
+                    <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
+                      {new Date(m.created_at).toLocaleString("ro-RO", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                        timeZone: "Europe/Bucharest",
+                      })}
+                    </span>
+                  </div>
+                  {!isParentSender && m.trainer?.profile?.full_name && (
+                    <p className="mt-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/40">
+                      De la {m.trainer.profile.full_name}
+                    </p>
+                  )}
+                  <p className="mt-2 whitespace-pre-line font-body text-sm leading-relaxed text-white/85">
+                    {m.body_md}
                   </p>
-                )}
-                <p className="mt-2 whitespace-pre-line font-body text-sm leading-relaxed text-white/85">
-                  {m.body_md}
-                </p>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
+          {isParent && (
+            <ReplyForm
+              child={child}
+              onSent={() => {
+                void refetchMessages();
+              }}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="istoric" className="mt-5">
@@ -1067,5 +1105,94 @@ function MediaThumb({ path, kind }: { path: string; kind: "image" | "video" }) {
       playsInline
       className="size-full object-cover"
     />
+  );
+}
+
+// ─── Parent reply form ────────────────────────────────────────────────────────
+
+const replySchema = z.object({
+  body: z.string().min(1, "Scrie un mesaj").max(2000),
+});
+type ReplyValues = z.infer<typeof replySchema>;
+
+function ReplyForm({
+  child,
+  onSent,
+}: {
+  child: Child;
+  onSent: () => void;
+}) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ReplyValues>({
+    resolver: zodResolver(replySchema),
+    defaultValues: { body: "" },
+  });
+
+  const disabled = !child.trainer_id;
+
+  const onSubmit = handleSubmit(async values => {
+    if (!child.trainer_id) return;
+    const { error } = await supabase.from("messages").insert({
+      trainer_id: child.trainer_id,
+      audience: "parent",
+      child_id: child.id,
+      body_md: values.body,
+      sender_role: "parent",
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    reset({ body: "" });
+    toast.success("Mesaj trimis");
+    onSent();
+  });
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
+    >
+      <h3 className="font-heading text-[11px] uppercase tracking-[0.2em] text-white/55">
+        Răspunde antrenorului
+      </h3>
+      <textarea
+        rows={3}
+        disabled={disabled}
+        {...register("body")}
+        placeholder="Scrie un mesaj antrenorului…"
+        className="w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60 disabled:opacity-50"
+      />
+      {errors.body && (
+        <p className="font-body text-xs text-rose-300/85">
+          {errors.body.message}
+        </p>
+      )}
+      {disabled && (
+        <p className="font-body text-xs text-white/55">
+          Așteptăm să te repartizăm la un antrenor.
+        </p>
+      )}
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={disabled || isSubmitting}
+          className="touch-target inline-flex items-center justify-center gap-2 rounded-full bg-brand-cyan px-4 py-2.5 font-heading text-[11px] font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)] transition-colors hover:bg-[oklch(0.82_0.13_220)] disabled:opacity-60"
+        >
+          {isSubmitting ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <>
+              <Send className="size-3.5" />
+              Trimite
+            </>
+          )}
+        </button>
+      </div>
+    </form>
   );
 }

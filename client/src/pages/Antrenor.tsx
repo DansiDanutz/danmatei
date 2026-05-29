@@ -103,6 +103,7 @@ type MessageRow = {
   child_id: string | null;
   body_md: string;
   created_at: string;
+  sender_role: "trainer" | "parent";
 };
 
 export default function Antrenor() {
@@ -115,6 +116,11 @@ export default function Antrenor() {
   const [loading, setLoading] = useState(true);
   const [recapEvent, setRecapEvent] = useState<ScheduleRow | null>(null);
   const [tab, setTab] = useState("grupa");
+  const [messagePrefill, setMessagePrefill] = useState<{
+    audience: "group" | "child" | "parent";
+    childId?: string;
+    key: number;
+  } | null>(null);
 
   const refresh = useMemo(
     () => async () => {
@@ -161,7 +167,7 @@ export default function Antrenor() {
           .limit(40),
         supabase
           .from("messages")
-          .select("id, audience, child_id, body_md, created_at")
+          .select("id, audience, child_id, body_md, created_at, sender_role")
           .eq("trainer_id", trainerRow.id)
           .order("created_at", { ascending: false })
           .limit(20),
@@ -476,41 +482,76 @@ export default function Antrenor() {
           <LazyTab active={tab === "mesaje"}>
             <div className="grid gap-5 lg:grid-cols-3">
               <MessageForm
+                key={messagePrefill?.key ?? "default"}
                 trainerId={trainer.id}
                 children_={children}
                 onSent={() => refresh()}
+                prefill={messagePrefill}
               />
               <div className="lg:col-span-2">
                 {messages.length === 0 && (
-                  <Empty hint="Nu ai trimis încă mesaje." />
+                  <Empty hint="Nu există încă mesaje." />
                 )}
                 <div className="grid gap-3">
-                  {messages.map(m => (
-                    <article
-                      key={m.id}
-                      className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
-                    >
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
-                          {m.audience === "group"
-                            ? "Grupa"
-                            : m.audience === "child"
-                              ? "Copil"
-                              : "Părinte"}
-                        </span>
-                        <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
-                          {new Date(m.created_at).toLocaleString("ro-RO", {
-                            dateStyle: "short",
-                            timeStyle: "short",
-                            timeZone: "Europe/Bucharest",
-                          })}
-                        </span>
-                      </div>
-                      <p className="mt-2 whitespace-pre-line font-body text-sm leading-relaxed text-white/85">
-                        {m.body_md}
-                      </p>
-                    </article>
-                  ))}
+                  {messages.map(m => {
+                    const isParentSender = m.sender_role === "parent";
+                    const childName = m.child_id
+                      ? (children.find(c => c.id === m.child_id)?.full_name ??
+                        null)
+                      : null;
+                    return (
+                      <article
+                        key={m.id}
+                        className={
+                          isParentSender
+                            ? "rounded-2xl border border-brand-cyan/25 bg-brand-cyan/[0.06] p-5"
+                            : "rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
+                        }
+                      >
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span
+                            className={
+                              isParentSender
+                                ? "rounded-full border border-brand-cyan/45 bg-brand-cyan/15 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan"
+                                : "rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-white/70"
+                            }
+                          >
+                            {isParentSender
+                              ? `Părinte${childName ? `: ${childName}` : ""}`
+                              : "Tu"}
+                          </span>
+                          <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
+                            {new Date(m.created_at).toLocaleString("ro-RO", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                              timeZone: "Europe/Bucharest",
+                            })}
+                          </span>
+                        </div>
+                        <p className="mt-2 whitespace-pre-line font-body text-sm leading-relaxed text-white/85">
+                          {m.body_md}
+                        </p>
+                        {isParentSender && m.child_id && (
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setMessagePrefill({
+                                  audience: "child",
+                                  childId: m.child_id ?? undefined,
+                                  key: Date.now(),
+                                })
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan transition-colors hover:bg-brand-cyan/20"
+                            >
+                              <Send className="size-3" />
+                              Răspunde
+                            </button>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -963,10 +1004,12 @@ function MessageForm({
   trainerId,
   children_,
   onSent,
+  prefill,
 }: {
   trainerId: string;
   children_: Child[];
   onSent: () => void;
+  prefill?: { audience: "group" | "child" | "parent"; childId?: string } | null;
 }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const {
@@ -980,6 +1023,15 @@ function MessageForm({
     defaultValues: { audience: "group", body: "" },
   });
   const audience = watch("audience");
+
+  useEffect(() => {
+    if (!prefill) return;
+    reset({
+      audience: prefill.audience,
+      childId: prefill.childId,
+      body: "",
+    });
+  }, [prefill, reset]);
 
   const onSubmit = handleSubmit(async v => {
     setServerError(null);
