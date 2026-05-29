@@ -39,6 +39,10 @@ import ScheduleOversight from "@/components/admin/ScheduleOversight";
 import NotificationManager from "@/components/admin/NotificationManager";
 import AtRiskTab from "@/components/admin/AtRiskTab";
 import LeadAnalyticsTab from "@/components/admin/LeadAnalyticsTab";
+import { BrandedField } from "@/components/ui/branded-field";
+
+const LOCAL_INPUT_CLS =
+  "touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-4 py-3 font-body text-base text-white placeholder:text-white/25 focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20";
 
 type TrainerRow = {
   id: string;
@@ -332,49 +336,60 @@ function TrainersTab() {
         <h2 className="font-heading text-[11px] uppercase tracking-[0.2em] text-white/55">
           Antrenor nou
         </h2>
-        <Field
-          id="t-email"
-          label="Email"
-          type="email"
-          {...register("email")}
-          error={errors.email?.message}
-          placeholder="antrenor@email.ro"
-        />
-        <Field
-          id="t-name"
-          label="Nume complet"
-          {...register("fullName")}
-          error={errors.fullName?.message}
-          placeholder="Andrei Popa"
-        />
-        <Field
-          id="t-phone"
-          label="Telefon (opțional)"
-          {...register("phone")}
-          error={errors.phone?.message}
-          placeholder="+40 7XX XXX XXX"
-        />
-        <Field
-          id="t-whatsapp"
-          label="WhatsApp (E.164)"
-          {...register("whatsappNumber")}
-          error={errors.whatsappNumber?.message}
-          placeholder="+40744311147"
-        />
-        <Field
-          id="t-position"
-          label="Funcție"
-          {...register("position")}
-          error={errors.position?.message}
-          placeholder="Antrenor U10–U12"
-        />
-        <Field
-          id="t-agent"
-          label="ElevenLabs Agent ID (opțional)"
-          {...register("elevenlabsAgentId")}
-          error={errors.elevenlabsAgentId?.message}
-          placeholder="agent_xxx (lasă gol pentru asistentul implicit)"
-        />
+        <BrandedField htmlFor="t-email" label="Email" error={errors.email?.message}>
+          <input
+            id="t-email"
+            type="email"
+            {...register("email")}
+            placeholder="antrenor@email.ro"
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
+        <BrandedField htmlFor="t-name" label="Nume complet" error={errors.fullName?.message}>
+          <input
+            id="t-name"
+            type="text"
+            {...register("fullName")}
+            placeholder="Andrei Popa"
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
+        <BrandedField htmlFor="t-phone" label="Telefon (opțional)" error={errors.phone?.message}>
+          <input
+            id="t-phone"
+            type="text"
+            {...register("phone")}
+            placeholder="+40 7XX XXX XXX"
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
+        <BrandedField htmlFor="t-whatsapp" label="WhatsApp (E.164)" error={errors.whatsappNumber?.message}>
+          <input
+            id="t-whatsapp"
+            type="text"
+            {...register("whatsappNumber")}
+            placeholder="+40744311147"
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
+        <BrandedField htmlFor="t-position" label="Funcție" error={errors.position?.message}>
+          <input
+            id="t-position"
+            type="text"
+            {...register("position")}
+            placeholder="Antrenor U10–U12"
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
+        <BrandedField htmlFor="t-agent" label="ElevenLabs Agent ID (opțional)" error={errors.elevenlabsAgentId?.message}>
+          <input
+            id="t-agent"
+            type="text"
+            {...register("elevenlabsAgentId")}
+            placeholder="agent_xxx (lasă gol pentru asistentul implicit)"
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
         <div>
           <label
             htmlFor="t-bio"
@@ -390,32 +405,36 @@ function TrainersTab() {
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field
-            id="t-min"
-            label="Vârstă min"
-            type="number"
-            min={4}
-            max={25}
-            {...register("ageMin", { valueAsNumber: true })}
-            error={errors.ageMin?.message}
-          />
-          <Field
-            id="t-max"
-            label="Vârstă max"
-            type="number"
-            min={4}
-            max={25}
-            {...register("ageMax", { valueAsNumber: true })}
-            error={errors.ageMax?.message}
-          />
+          <BrandedField htmlFor="t-min" label="Vârstă min" error={errors.ageMin?.message}>
+            <input
+              id="t-min"
+              type="number"
+              min={4}
+              max={25}
+              {...register("ageMin", { valueAsNumber: true })}
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
+          <BrandedField htmlFor="t-max" label="Vârstă max" error={errors.ageMax?.message}>
+            <input
+              id="t-max"
+              type="number"
+              min={4}
+              max={25}
+              {...register("ageMax", { valueAsNumber: true })}
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
         </div>
-        <Field
-          id="t-certs"
-          label="Certificări (separă prin virgulă)"
-          {...register("certifications")}
-          error={errors.certifications?.message}
-          placeholder="UEFA C, Prim ajutor"
-        />
+        <BrandedField htmlFor="t-certs" label="Certificări (separă prin virgulă)" error={errors.certifications?.message}>
+          <input
+            id="t-certs"
+            type="text"
+            {...register("certifications")}
+            placeholder="UEFA C, Prim ajutor"
+            className={LOCAL_INPUT_CLS}
+          />
+        </BrandedField>
         {serverError && (
           <p className="rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 py-1.5 font-body text-xs text-rose-200">
             {serverError}
@@ -738,12 +757,15 @@ function LandingTab() {
           Hero (pagina /)
         </h2>
         <div className="mt-3 grid gap-3">
-          <Field
-            id="hero-badge"
-            label="Eticheta de sus"
-            value={hero.badge}
-            onChange={e => setHero(h => ({ ...h, badge: e.target.value }))}
-          />
+          <BrandedField htmlFor="hero-badge" label="Eticheta de sus">
+            <input
+              id="hero-badge"
+              type="text"
+              value={hero.badge}
+              onChange={e => setHero(h => ({ ...h, badge: e.target.value }))}
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
           <div>
             <label className="mb-1.5 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55">
               Slogan
@@ -763,18 +785,24 @@ function LandingTab() {
           Slide Owner (pagina /cunoaste)
         </h2>
         <div className="mt-3 grid gap-3">
-          <Field
-            id="owner-name"
-            label="Nume"
-            value={owner.name}
-            onChange={e => setOwner(o => ({ ...o, name: e.target.value }))}
-          />
-          <Field
-            id="owner-role"
-            label="Rol"
-            value={owner.role}
-            onChange={e => setOwner(o => ({ ...o, role: e.target.value }))}
-          />
+          <BrandedField htmlFor="owner-name" label="Nume">
+            <input
+              id="owner-name"
+              type="text"
+              value={owner.name}
+              onChange={e => setOwner(o => ({ ...o, name: e.target.value }))}
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
+          <BrandedField htmlFor="owner-role" label="Rol">
+            <input
+              id="owner-role"
+              type="text"
+              value={owner.role}
+              onChange={e => setOwner(o => ({ ...o, role: e.target.value }))}
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
           <div>
             <label className="mb-1.5 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55">
               Citat
@@ -837,32 +865,3 @@ const Empty = ({ hint }: { hint: string }) => (
   </div>
 );
 
-const Field = ({
-  id,
-  label,
-  type = "text",
-  error,
-  ...rest
-}: React.InputHTMLAttributes<HTMLInputElement> & {
-  id: string;
-  label: string;
-  error?: string;
-}) => (
-  <div>
-    <label
-      htmlFor={id}
-      className="mb-1.5 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55"
-    >
-      {label}
-    </label>
-    <input
-      id={id}
-      type={type}
-      {...rest}
-      className="touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-4 py-3 font-body text-base text-white placeholder:text-white/25 focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20"
-    />
-    {error && (
-      <p className="mt-1 font-body text-xs text-rose-300/85">{error}</p>
-    )}
-  </div>
-);

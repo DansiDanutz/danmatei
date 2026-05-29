@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { BrandSpinner } from "@/components/ui/brand-spinner";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -41,7 +42,7 @@ const Apel = lazy(() => import("./pages/Apel"));
 function PageLoader() {
   return (
     <div className="grid min-h-[100dvh] place-items-center bg-[oklch(0.08_0.02_250)]">
-      <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />
+      <BrandSpinner size="sm" />
     </div>
   );
 }

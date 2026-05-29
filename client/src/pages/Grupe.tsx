@@ -9,6 +9,7 @@ import { ArrowRight, Calendar, Users as UsersIcon } from "lucide-react";
 import { Link } from "wouter";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
+import { BrandSpinner } from "@/components/ui/brand-spinner";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { TRAINERS, type Trainer } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
@@ -122,7 +123,7 @@ export default function Grupe() {
 
       {loading && (
         <div className="grid place-items-center py-20">
-          <div className="size-6 animate-spin rounded-full border-2 border-brand-cyan border-t-transparent" />
+          <BrandSpinner size="sm" />
         </div>
       )}
 

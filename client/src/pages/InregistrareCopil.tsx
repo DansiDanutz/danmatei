@@ -20,6 +20,10 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { currentAge, ageGroupLabel } from "@/lib/age";
 import MemberShell from "@/components/MemberShell";
+import { BrandedField } from "@/components/ui/branded-field";
+
+const LOCAL_INPUT_CLS =
+  "touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-4 py-3 font-body text-base text-white placeholder:text-white/25 outline-none focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20";
 
 type TrainerRow = {
   id: string;
@@ -161,20 +165,23 @@ export default function InregistrareCopil() {
               Date de bază
             </h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field
-                id="fullName"
-                label="Numele copilului"
-                placeholder="ex. Andrei Popescu"
-                error={errors.fullName?.message}
-                {...register("fullName")}
-              />
-              <Field
-                id="dob"
-                label="Data nașterii"
-                type="date"
-                error={errors.dob?.message}
-                {...register("dob")}
-              />
+              <BrandedField htmlFor="fullName" label="Numele copilului" error={errors.fullName?.message}>
+                <input
+                  id="fullName"
+                  type="text"
+                  placeholder="ex. Andrei Popescu"
+                  {...register("fullName")}
+                  className={LOCAL_INPUT_CLS}
+                />
+              </BrandedField>
+              <BrandedField htmlFor="dob" label="Data nașterii" error={errors.dob?.message}>
+                <input
+                  id="dob"
+                  type="date"
+                  {...register("dob")}
+                  className={LOCAL_INPUT_CLS}
+                />
+              </BrandedField>
               <div>
                 <label
                   htmlFor="gender"
@@ -192,13 +199,15 @@ export default function InregistrareCopil() {
                   <option value="X">Nu specifică</option>
                 </select>
               </div>
-              <Field
-                id="school"
-                label="Școală (opțional)"
-                placeholder="ex. Școala 16 Cluj-Napoca"
-                error={errors.school?.message}
-                {...register("school")}
-              />
+              <BrandedField htmlFor="school" label="Școală (opțional)" error={errors.school?.message}>
+                <input
+                  id="school"
+                  type="text"
+                  placeholder="ex. Școala 16 Cluj-Napoca"
+                  {...register("school")}
+                  className={LOCAL_INPUT_CLS}
+                />
+              </BrandedField>
             </div>
 
             <div className="mt-4">
@@ -328,34 +337,3 @@ export default function InregistrareCopil() {
   );
 }
 
-const Field = ({
-  id,
-  label,
-  type = "text",
-  placeholder,
-  error,
-  ...rest
-}: React.InputHTMLAttributes<HTMLInputElement> & {
-  id: string;
-  label: string;
-  error?: string;
-}) => (
-  <div>
-    <label
-      htmlFor={id}
-      className="mb-1.5 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55"
-    >
-      {label}
-    </label>
-    <input
-      id={id}
-      type={type}
-      placeholder={placeholder}
-      {...rest}
-      className="touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-4 py-3 font-body text-base text-white placeholder:text-white/25 outline-none focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20"
-    />
-    {error && (
-      <p className="mt-1 font-body text-xs text-rose-300/85">{error}</p>
-    )}
-  </div>
-);
