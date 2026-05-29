@@ -19,6 +19,10 @@
     {
       "path": "/api/cron/reap-stale-calls",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/generate-monthly-charges",
+      "schedule": "30 0 1 * *"
     }
   ],
   "headers": [
