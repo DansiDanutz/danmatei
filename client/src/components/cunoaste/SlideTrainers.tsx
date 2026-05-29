@@ -115,6 +115,7 @@ export default function SlideTrainers() {
           <div
             className="overflow-hidden px-5 sm:px-10 lg:px-20"
             ref={emblaRef}
+            data-deck-nested
           >
             <div className="flex gap-4 sm:gap-5">
               {TRAINERS.map((t, i) => (
