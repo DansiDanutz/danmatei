@@ -408,7 +408,7 @@ function CallStage({
             RIGHT = You (parent) — illustrated kicker, mirrored so he
                     faces left toward Andra (native art kicks rightward)
           The ball passes between them — see <ConversationBall /> */}
-      <div className="relative grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+      <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-6">
         <ParticipantCard
           name="Andra"
           role="Consilier AI"

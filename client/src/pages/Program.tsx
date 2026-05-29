@@ -8,7 +8,8 @@ import { motion } from "framer-motion";
 import { Calendar, Dumbbell, MapPin, Swords, Trophy } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { BrandSpinner } from "@/components/ui/brand-spinner";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
@@ -152,8 +153,10 @@ export default function Program() {
       {usingFallback && <DemoBanner />}
 
       {loading && (
-        <div className="grid place-items-center py-20">
-          <BrandSpinner size="sm" />
+        <div className="grid gap-3">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
       )}
 
@@ -212,7 +215,7 @@ export default function Program() {
                     </div>
                     <div className="text-right font-heading text-sm tabular-nums text-white">
                       <div>{start}</div>
-                      {end && <div className="text-white/45">– {end}</div>}
+                      {end && <div className="text-white/65">– {end}</div>}
                     </div>
                   </li>
                 );
@@ -223,9 +226,11 @@ export default function Program() {
       </div>
 
       {!loading && events.length === 0 && (
-        <p className="py-12 text-center font-body text-sm text-white/45">
-          Nu sunt evenimente planificate în următoarele două săptămâni.
-        </p>
+        <EmptyState
+          icon={<Calendar className="size-6" />}
+          title="Niciun eveniment programat"
+          description="Nu sunt antrenamente sau meciuri planificate în următoarele două săptămâni."
+        />
       )}
     </PublicShell>
   );

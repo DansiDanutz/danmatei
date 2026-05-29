@@ -9,7 +9,8 @@ import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Bell, Check, ArrowRight, Calendar, MessageSquare } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import { BrandSpinner } from "@/components/ui/brand-spinner";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
@@ -140,21 +141,20 @@ export default function Notificari() {
       pageDescription="Tot ce ai ratat — pe scurt."
     >
       {loading && (
-        <div className="grid place-items-center py-16">
-          <BrandSpinner size="sm" />
+        <div className="grid gap-3">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
       )}
 
       {!loading && items.length === 0 && (
-        <div className="grid place-items-center rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/40 py-16 text-center">
-          <Bell className="size-9 text-brand-cyan" />
-          <p className="mt-3 font-heading text-lg uppercase tracking-wider text-white">
-            Inbox gol
-          </p>
-          <p className="mt-1 font-body text-sm text-white/55">
-            Te anunțăm aici când apare ceva nou.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Bell className="size-6" />}
+          title="Inbox gol"
+          description="Te anunțăm aici când apare ceva nou."
+          tone="cyan"
+        />
       )}
 
       <ul className="space-y-2">
@@ -183,7 +183,7 @@ export default function Notificari() {
                   <p className="truncate font-heading text-sm font-semibold text-white">
                     {n.title}
                   </p>
-                  <span className="ml-auto shrink-0 font-body text-[11px] text-white/45">
+                  <span className="ml-auto shrink-0 font-body text-[11px] text-white/65">
                     {dateFormatter.format(new Date(n.created_at))}
                   </span>
                 </div>

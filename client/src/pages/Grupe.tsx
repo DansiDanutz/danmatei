@@ -9,7 +9,8 @@ import { ArrowRight, Calendar, Users as UsersIcon } from "lucide-react";
 import { Link } from "wouter";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { BrandSpinner } from "@/components/ui/brand-spinner";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { TRAINERS, type Trainer } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
@@ -122,9 +123,19 @@ export default function Grupe() {
       {usingFallback && <DemoBanner />}
 
       {loading && (
-        <div className="grid place-items-center py-20">
-          <BrandSpinner size="sm" />
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
+      )}
+
+      {!loading && groups.length === 0 && (
+        <EmptyState
+          icon={<UsersIcon className="size-6" />}
+          title="Nicio grupă activă"
+          description="Antrenorii și grupele vor apărea aici imediat ce sunt create în panou."
+        />
       )}
 
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">

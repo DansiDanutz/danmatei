@@ -8,7 +8,8 @@ import { motion } from "framer-motion";
 import { Calendar, MapPin, Trophy, Users } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { BrandSpinner } from "@/components/ui/brand-spinner";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { expoOut } from "@/lib/motion";
 
@@ -122,9 +123,20 @@ export default function Turnee() {
       {usingFallback && <DemoBanner />}
 
       {loading && (
-        <div className="grid place-items-center py-20">
-          <BrandSpinner size="sm" />
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
+      )}
+
+      {!loading && upcoming.length === 0 && past.length === 0 && (
+        <EmptyState
+          icon={<Trophy className="size-6" />}
+          title="Niciun turneu programat"
+          description="Calendarul de turnee va apărea aici imediat ce sunt anunțate competițiile."
+          tone="gold"
+        />
       )}
 
       {upcoming.length > 0 && (

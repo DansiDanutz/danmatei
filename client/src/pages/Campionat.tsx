@@ -11,7 +11,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Trophy, ListOrdered, MapPin } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
 import DemoBanner from "@/components/DemoBanner";
-import { BrandSpinner } from "@/components/ui/brand-spinner";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { TRAINERS } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
@@ -180,8 +181,10 @@ export default function Campionat() {
       {usingFallback && <DemoBanner />}
 
       {loading && (
-        <div className="grid place-items-center py-20">
-          <BrandSpinner size="sm" />
+        <div className="space-y-3">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
       )}
 
@@ -239,7 +242,7 @@ export default function Campionat() {
                   >
                     <div className="px-5 py-5 sm:px-7">
                       {g.matches.length === 0 ? (
-                        <p className="font-body text-sm italic text-white/45">
+                        <p className="font-body text-sm italic text-white/65">
                           Nu există meciuri înregistrate încă.
                         </p>
                       ) : (
@@ -259,15 +262,11 @@ export default function Campionat() {
       </div>
 
       {groups.length === 0 && !loading && (
-        <div className="grid place-items-center rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/40 py-16 text-center">
-          <Trophy className="size-9 text-brand-gold" />
-          <p className="mt-3 font-heading text-lg uppercase tracking-wider text-white">
-            Nu sunt grupe active
-          </p>
-          <p className="mt-1 font-body text-sm text-white/55">
-            Antrenorii vor fi listați aici imediat ce sunt creați în panou.
-          </p>
-        </div>
+        <EmptyState
+          icon={<ListOrdered className="size-6" />}
+          title="Nu sunt grupe active"
+          description="Antrenorii vor fi listați aici imediat ce sunt creați în panou."
+        />
       )}
     </PublicShell>
   );
@@ -318,7 +317,7 @@ function MatchListItem({ m }: MatchListItemProps) {
             {m.title}
           </p>
           {m.location && (
-            <p className="mt-1 inline-flex items-center gap-1 text-xs text-white/45">
+            <p className="mt-1 inline-flex items-center gap-1 text-xs text-white/65">
               <MapPin className="size-3" />
               {m.location}
             </p>
