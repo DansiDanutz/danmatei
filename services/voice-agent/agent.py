@@ -79,11 +79,21 @@ WRAPUP_AT_SECONDS = max(MAX_CALL_SECONDS - 30, MAX_CALL_SECONDS // 2)  # 150s if
 
 
 async def post_webhook(payload: dict[str, Any]) -> None:
-    """POST end-of-call payload to /api/voice/webhook, HMAC-signed."""
+    """POST end-of-call payload to /api/voice/webhook, HMAC-signed.
+
+    Signs `{timestamp_ms}.{raw_body}` to give the server a replay-protection
+    window — matches the PR-C server-side verification which requires both
+    X-Pipecat-Signature and X-Pipecat-Timestamp.
+    """
     body = json.dumps(payload).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
+    ts_ms = int(time.time() * 1000)
+    headers = {
+        "Content-Type": "application/json",
+        "X-Pipecat-Timestamp": str(ts_ms),
+    }
     if WEBHOOK_SECRET:
-        sig = hmac.new(WEBHOOK_SECRET.encode("utf-8"), body, hashlib.sha256).hexdigest()
+        signed_payload = f"{ts_ms}.".encode("utf-8") + body
+        sig = hmac.new(WEBHOOK_SECRET.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
         headers["X-Pipecat-Signature"] = sig
     url = f"{API_BASE.rstrip('/')}/api/voice/webhook"
     try:
@@ -300,7 +310,7 @@ async def entrypoint(ctx: JobContext) -> None:
     stt_model_name = os.environ.get("LIVEKIT_STT_MODEL", "deepgram/nova-3").split("/")[-1]
     llm_model_name = os.environ.get("LIVEKIT_LLM_MODEL", "openai/gpt-4o-mini").split("/")[-1]
     tts_model_name = os.environ.get(
-        "LIVEKIT_TTS_MODEL", "elevenlabs/eleven_multilingual_v2"
+        "LIVEKIT_TTS_MODEL", "elevenlabs/eleven_turbo_v2_5"
     ).split("/")[-1]
     tts_voice = os.environ.get("LIVEKIT_TTS_VOICE", "hpp4J3VqNfWAUOO0d1Us")  # Bella premade
 

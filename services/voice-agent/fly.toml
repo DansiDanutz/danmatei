@@ -14,7 +14,7 @@ primary_region = "fra"   # Frankfurt — closest to LiveKit eu-west-1 region
   LIVEKIT_STT_MODEL = "deepgram/nova-3"
   LIVEKIT_STT_LANGUAGE = "ro"
   LIVEKIT_LLM_MODEL = "openai/gpt-4o-mini"
-  LIVEKIT_TTS_MODEL = "elevenlabs/eleven_multilingual_v2"
+  LIVEKIT_TTS_MODEL = "elevenlabs/eleven_turbo_v2_5"
   LIVEKIT_TTS_VOICE = "hpp4J3VqNfWAUOO0d1Us"
   MAX_CALL_SECONDS = "180"
 
