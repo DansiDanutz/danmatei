@@ -55,8 +55,8 @@ export default async function handler(req: Req, res: Res) {
   const jwt = getJwtFromHeader(authHeader);
   if (!jwt) return res.status(401).json({ error: "Missing bearer token" });
 
-  // Verify caller is the owner.
-  let isOwner = false;
+  // Verify caller is an owner or super_admin (both can manage trainers).
+  let isAuthorised = false;
   try {
     const userId = await getUserIdFromJwt(jwt);
     const u = userClient(jwt);
@@ -66,11 +66,12 @@ export default async function handler(req: Req, res: Res) {
       .eq("id", userId)
       .single();
     if (error) throw error;
-    isOwner = data?.role === "owner";
+    isAuthorised = data?.role === "owner" || data?.role === "super_admin";
   } catch (e) {
     return res.status(401).json({ error: (e as Error).message });
   }
-  if (!isOwner) return res.status(403).json({ error: "Owner role required" });
+  if (!isAuthorised)
+    return res.status(403).json({ error: "Owner role required" });
 
   const parsed = Body.safeParse(req.body);
   if (!parsed.success) {

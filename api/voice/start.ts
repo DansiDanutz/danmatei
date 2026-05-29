@@ -42,10 +42,25 @@ type Res = {
   json: (body: unknown) => Res;
 };
 
-const SIGNING_SECRET =
-  process.env.LEAD_LINK_SIGNING_SECRET ??
-  process.env.SUPABASE_SERVICE_ROLE ??
-  "danmatei-dev";
+// Fail-closed signing secret. Must match api/lead/create.ts. In production
+// the env var is REQUIRED; in dev/preview we fall back to a clearly-marked
+// dev-only value with a warn so we don't accidentally ship the forgeable
+// "danmatei-dev" literal.
+const IS_PROD =
+  process.env.NODE_ENV === "production" ||
+  process.env.VERCEL_ENV === "production";
+function resolveSigningSecret(): string {
+  const fromEnv = process.env.LEAD_LINK_SIGNING_SECRET;
+  if (fromEnv) return fromEnv;
+  if (IS_PROD) {
+    throw new Error("LEAD_LINK_SIGNING_SECRET required in production");
+  }
+  console.warn(
+    "[voice/start] LEAD_LINK_SIGNING_SECRET not set — using dev-only fallback",
+  );
+  return "danmatei-dev-only";
+}
+const SIGNING_SECRET = resolveSigningSecret();
 
 function verifyToken(token: string): { leadId: string } | null {
   const [payloadB64, sig] = token.split(".");

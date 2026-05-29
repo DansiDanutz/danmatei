@@ -89,8 +89,14 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
       .eq("id", childId)
       .maybeSingle();
     const child = childQ.data as ChildLookup | null;
-    trainerId = child?.trainer_id ?? null;
-    agentId = child?.trainer?.elevenlabs_agent_id ?? null;
+    // The user-scoped client (RLS-bound) already restricts to children the
+    // caller owns. An empty result means the childId is not theirs or
+    // doesn't exist — either way, refuse to proceed to the service insert.
+    if (childQ.error || !child) {
+      return res.status(404).json({ error: "child not found" });
+    }
+    trainerId = child.trainer_id ?? null;
+    agentId = child.trainer?.elevenlabs_agent_id ?? null;
   }
 
   const shareToken = randomBytes(12).toString("base64url");

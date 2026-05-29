@@ -52,6 +52,7 @@
     "express": "^4.21.2",
     "framer-motion": "^12.23.22",
     "input-otp": "^1.4.2",
+    "libphonenumber-js": "^1.13.3",
     "livekit-client": "^2.5.0",
     "livekit-server-sdk": "^2.10.0",
     "lucide-react": "^0.453.0",

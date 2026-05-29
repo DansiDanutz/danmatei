@@ -14,6 +14,7 @@
  */
 import { z } from "zod";
 import { createHmac } from "node:crypto";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { serviceClient } from "../_lib/supabase.js";
 import { sendWhatsappText } from "../_lib/whatsapp.js";
 
@@ -40,10 +41,24 @@ type Res = {
 
 const PUBLIC_BASE_URL =
   process.env.PUBLIC_BASE_URL ?? "https://danmatei.vercel.app";
-const SIGNING_SECRET =
-  process.env.LEAD_LINK_SIGNING_SECRET ??
-  process.env.SUPABASE_SERVICE_ROLE ??
-  "danmatei-dev";
+
+// Fail-closed signing secret. In production the env var MUST be set; in
+// dev/preview we fall back to a clearly-marked dev-only value with a warn.
+const IS_PROD =
+  process.env.NODE_ENV === "production" ||
+  process.env.VERCEL_ENV === "production";
+function resolveSigningSecret(): string {
+  const fromEnv = process.env.LEAD_LINK_SIGNING_SECRET;
+  if (fromEnv) return fromEnv;
+  if (IS_PROD) {
+    throw new Error("LEAD_LINK_SIGNING_SECRET required in production");
+  }
+  console.warn(
+    "[lead/create] LEAD_LINK_SIGNING_SECRET not set — using dev-only fallback",
+  );
+  return "danmatei-dev-only";
+}
+const SIGNING_SECRET = resolveSigningSecret();
 
 function trainerForAge(age: number): string {
   if (age >= 5 && age <= 9) return "t-sopi";
@@ -51,12 +66,15 @@ function trainerForAge(age: number): string {
   return "t-dan";
 }
 
-function normalizePhone(raw: string): string {
-  const trimmed = raw.replace(/[\s()-]/g, "");
-  if (trimmed.startsWith("+")) return trimmed;
-  // Assume Romanian if a 10-digit local number was provided (e.g., 07XX XXX XXX)
-  if (/^0\d{9}$/.test(trimmed)) return `+4${trimmed}`;
-  return `+${trimmed.replace(/^0+/, "")}`;
+function normalizePhone(input: string): string {
+  const cleaned = input.trim();
+  const parsed = parsePhoneNumberFromString(cleaned, "RO");
+  if (parsed?.isValid()) return parsed.format("E.164");
+  // Fallback to manual normalization for resilience.
+  const stripped = cleaned.replace(/[\s()-]+/g, "");
+  if (stripped.startsWith("+")) return stripped;
+  if (/^0\d{9}$/.test(stripped)) return `+4${stripped}`;
+  return `+${stripped.replace(/^0+/, "")}`;
 }
 
 function signToken(leadId: string): string {
@@ -144,6 +162,23 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
+  // Per-phone rate limit: reject if the same phone has already created 5+
+  // leads in the last hour. Uses the existing leads table — no new schema.
+  {
+    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount, error: rlErr } = await supabase
+      .from("leads")
+      .select("id", { head: true, count: "exact" })
+      .eq("parent_phone_e164", phoneE164)
+      .gte("created_at", since);
+    if (!rlErr && (recentCount ?? 0) >= 5) {
+      return res.status(429).json({
+        error: "rate_limited",
+        detail: "too many requests from this phone",
+      });
+    }
+  }
+
   const { data: leadRow, error: insErr } = await supabase
     .from("leads")
     .insert({
@@ -155,7 +190,9 @@ export default async function handler(req: Req, res: Res) {
       child_position: input.childPosition ?? null,
       source: input.source,
       assigned_trainer_id: trainerId,
-      cc_trainer_ids: trainerId === "t-dan" ? ["t-dan"] : ["t-dan"],
+      // Dan is CC'd on every lead EXCEPT when he is already the primary
+      // trainer (avoids duplicate notifications to himself).
+      cc_trainer_ids: trainerId === "t-dan" ? [] : ["t-dan"],
       consent_at: new Date().toISOString(),
       status: "new",
     })
@@ -192,6 +229,9 @@ export default async function handler(req: Req, res: Res) {
 
   return res.status(200).json({
     ok: true,
+    // Mirrors `whatsapp.sent` so callers (LeadForm) can branch on a single
+    // top-level flag and render a fallback CTA when delivery failed.
+    success: waResult.sent,
     leadId,
     trainerId,
     callLink: link,
