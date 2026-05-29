@@ -63,6 +63,31 @@ export default function Notificari() {
     };
   }, [profile, authLoading]);
 
+  // Realtime: append new INSERTs as they arrive. Mirrors NotificationBell.
+  // Depends on the `notifications` table being in the supabase_realtime
+  // publication (PR-A migration). Without that, this is a no-op.
+  useEffect(() => {
+    if (!profile?.id) return;
+    const channel = supabase
+      .channel("notifications-page")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "fotbal",
+          table: "notifications",
+          filter: `recipient_id=eq.${profile.id}`,
+        },
+        (payload) => {
+          setItems((prev) => [payload.new as NotificationRow, ...prev].slice(0, 60));
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [profile?.id]);
+
   const markRead = async (id: string): Promise<void> => {
     const { error } = await supabase
       .from("notifications")
