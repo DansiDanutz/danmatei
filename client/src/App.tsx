@@ -9,6 +9,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { PublicOnly, RequireAuth, RequireRole } from "./components/RouteGuards";
 import FloatingProgramareCTA from "./components/FloatingProgramareCTA";
+import UpdatePrompt from "./components/UpdatePrompt";
 import Home from "./pages/Home";
 import Cunoaste from "./pages/Cunoaste";
 import Login from "./pages/Login";
@@ -224,6 +225,7 @@ function App() {
             <Router />
             <PasswordSetupRedirect />
             <FloatingProgramareCTA />
+            <UpdatePrompt />
           </TooltipProvider>
         </AuthProvider>
       </ThemeProvider>

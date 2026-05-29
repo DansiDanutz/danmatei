@@ -1,6 +1,7 @@
 import { jsxLocPlugin } from "@builder.io/vite-plugin-jsx-loc";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
@@ -150,16 +151,52 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
+// App version stamped into the build, used by the in-app "update available"
+// prompt (client/src/lib/use-app-update.ts). Prefer Vercel's commit SHA, fall
+// back to the local git HEAD, finally a build timestamp.
+const APP_VERSION =
+  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+  (() => {
+    try {
+      return execSync("git rev-parse --short HEAD").toString().trim();
+    } catch {
+      return `dev-${Date.now()}`;
+    }
+  })();
+
+/**
+ * Emits `version.json` ({ version }) into the build output so the running app
+ * can poll it and detect when a newer build has shipped. Build-only — there is
+ * no version.json in dev (the watcher no-ops there).
+ */
+function appVersionPlugin(): Plugin {
+  return {
+    name: "app-version",
+    apply: "build",
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "version.json",
+        source: `${JSON.stringify({ version: APP_VERSION })}\n`,
+      });
+    },
+  };
+}
+
 const plugins = [
   react(),
   tailwindcss(),
   jsxLocPlugin(),
   vitePluginManusRuntime(),
   vitePluginManusDebugCollector(),
+  appVersionPlugin(),
 ];
 
 export default defineConfig({
   plugins,
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
