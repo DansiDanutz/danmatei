@@ -13,10 +13,10 @@
  * See docs/AI_CALL_FLOW.md for the full design.
  */
 import { z } from "zod";
-import { createHmac } from "node:crypto";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { serviceClient } from "../_lib/supabase.js";
 import { sendWhatsappText } from "../_lib/whatsapp.js";
+import { signToken } from "../_lib/sign-token.js";
 
 const Body = z.object({
   parentName: z.string().trim().min(2).max(120),
@@ -42,24 +42,6 @@ type Res = {
 const PUBLIC_BASE_URL =
   process.env.PUBLIC_BASE_URL ?? "https://danmatei.vercel.app";
 
-// Fail-closed signing secret. In production the env var MUST be set; in
-// dev/preview we fall back to a clearly-marked dev-only value with a warn.
-const IS_PROD =
-  process.env.NODE_ENV === "production" ||
-  process.env.VERCEL_ENV === "production";
-function resolveSigningSecret(): string {
-  const fromEnv = process.env.LEAD_LINK_SIGNING_SECRET;
-  if (fromEnv) return fromEnv;
-  if (IS_PROD) {
-    throw new Error("LEAD_LINK_SIGNING_SECRET required in production");
-  }
-  console.warn(
-    "[lead/create] LEAD_LINK_SIGNING_SECRET not set — using dev-only fallback",
-  );
-  return "danmatei-dev-only";
-}
-const SIGNING_SECRET = resolveSigningSecret();
-
 function trainerForAge(age: number): string {
   if (age >= 5 && age <= 9) return "t-sopi";
   if (age >= 10 && age <= 13) return "t-kelemen";
@@ -75,15 +57,6 @@ function normalizePhone(input: string): string {
   if (stripped.startsWith("+")) return stripped;
   if (/^0\d{9}$/.test(stripped)) return `+4${stripped}`;
   return `+${stripped.replace(/^0+/, "")}`;
-}
-
-function signToken(leadId: string): string {
-  const expiresAt = Date.now() + 1000 * 60 * 60 * 24; // 24h
-  const payload = `${leadId}.${expiresAt}`;
-  const sig = createHmac("sha256", SIGNING_SECRET)
-    .update(payload)
-    .digest("base64url");
-  return `${Buffer.from(payload).toString("base64url")}.${sig}`;
 }
 
 function callLink(leadId: string): string {

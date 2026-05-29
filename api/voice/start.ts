@@ -27,9 +27,9 @@
  * In dev/preview without these vars, returns 503 and the page falls back
  * to a "voice agent not configured" message.
  */
-import { createHmac } from "node:crypto";
 import { AccessToken } from "livekit-server-sdk";
 import { serviceClient } from "../_lib/supabase.js";
+import { verifyToken } from "../_lib/sign-token.js";
 
 type Req = {
   method?: string;
@@ -41,45 +41,6 @@ type Res = {
   status: (n: number) => Res;
   json: (body: unknown) => Res;
 };
-
-// Fail-closed signing secret. Must match api/lead/create.ts. In production
-// the env var is REQUIRED; in dev/preview we fall back to a clearly-marked
-// dev-only value with a warn so we don't accidentally ship the forgeable
-// "danmatei-dev" literal.
-const IS_PROD =
-  process.env.NODE_ENV === "production" ||
-  process.env.VERCEL_ENV === "production";
-function resolveSigningSecret(): string {
-  const fromEnv = process.env.LEAD_LINK_SIGNING_SECRET;
-  if (fromEnv) return fromEnv;
-  if (IS_PROD) {
-    throw new Error("LEAD_LINK_SIGNING_SECRET required in production");
-  }
-  console.warn(
-    "[voice/start] LEAD_LINK_SIGNING_SECRET not set — using dev-only fallback",
-  );
-  return "danmatei-dev-only";
-}
-const SIGNING_SECRET = resolveSigningSecret();
-
-function verifyToken(token: string): { leadId: string } | null {
-  const [payloadB64, sig] = token.split(".");
-  if (!payloadB64 || !sig) return null;
-  let payload: string;
-  try {
-    payload = Buffer.from(payloadB64, "base64url").toString("utf-8");
-  } catch {
-    return null;
-  }
-  const expected = createHmac("sha256", SIGNING_SECRET)
-    .update(payload)
-    .digest("base64url");
-  if (expected !== sig) return null;
-  const [leadId, expiresAtStr] = payload.split(".");
-  const expiresAt = Number(expiresAtStr);
-  if (!leadId || !expiresAt || Date.now() > expiresAt) return null;
-  return { leadId };
-}
 
 function readBody(req: Req): Record<string, unknown> {
   if (typeof req.body === "object" && req.body) return req.body as Record<string, unknown>;

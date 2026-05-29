@@ -11,9 +11,9 @@
  * See docs/AI_CALL_FLOW.md.
  */
 import { z } from "zod";
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { serviceClient } from "../_lib/supabase.js";
 import { sendWhatsappText } from "../_lib/whatsapp.js";
+import { verifyHmac } from "../_lib/webhook-hmac.js";
 
 const TranscriptTurn = z.object({
   role: z.enum(["agent", "parent", "system"]),
@@ -70,13 +70,7 @@ type Res = {
   json: (body: unknown) => Res;
 };
 
-function readHeader(req: Req, key: string): string | undefined {
-  const v = req.headers?.[key.toLowerCase()] ?? req.headers?.[key];
-  return Array.isArray(v) ? v[0] : v;
-}
-
 const MAX_BODY_BYTES = 256 * 1024; // 256 KiB
-const MAX_TIMESTAMP_SKEW_MS = 5 * 60 * 1000; // 5 minutes
 
 class PayloadTooLargeError extends Error {
   constructor() {
@@ -95,39 +89,6 @@ async function readRawBody(req: Req): Promise<Buffer> {
     chunks.push(buf);
   }
   return Buffer.concat(chunks);
-}
-
-// Tighter than the original: ONLY allow the no-secret bypass on local dev
-// (NODE_ENV !== 'production' AND VERCEL_ENV is neither 'production' nor
-// 'preview'). Preview deploys must fail closed.
-function bypassAllowed(): boolean {
-  return (
-    process.env.NODE_ENV !== "production" &&
-    process.env.VERCEL_ENV !== "production" &&
-    process.env.VERCEL_ENV !== "preview"
-  );
-}
-
-function verifySignature(
-  rawBody: Buffer,
-  headerSig: string | undefined,
-  timestamp: string | undefined,
-): boolean {
-  const secret = process.env.PIPECAT_WEBHOOK_SECRET;
-  if (!secret) return bypassAllowed();
-  if (!headerSig || !timestamp) return false;
-  // Bind the timestamp into the HMAC payload so a captured signature can't
-  // be replayed with a different timestamp.
-  const expected = createHmac("sha256", secret)
-    .update(timestamp + ".")
-    .update(rawBody)
-    .digest("hex");
-  if (headerSig.length !== expected.length) return false;
-  try {
-    return timingSafeEqual(Buffer.from(headerSig), Buffer.from(expected));
-  } catch {
-    return false;
-  }
 }
 
 function toTimestamp(value: number | string | undefined): string | null {
@@ -157,31 +118,24 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
-  // Replay protection: require X-Pipecat-Timestamp (unix ms) within 5min of
-  // server clock. The timestamp is HMAC'd alongside the body so it can't be
-  // swapped out post-sign.
+  // Replay protection + signature verification. See _lib/webhook-hmac.ts.
   // TODO(PR-F): services/voice-agent/agent.py:474-485 (post_webhook) needs
   // to send X-Pipecat-Timestamp and HMAC `${ts}.${body}` to match. This PR
   // intentionally does NOT change agent.py.
-  const tsHeader = readHeader(req, "x-pipecat-timestamp");
-  const tsMs = tsHeader ? Number(tsHeader) : NaN;
-  if (process.env.PIPECAT_WEBHOOK_SECRET) {
-    if (!Number.isFinite(tsMs)) {
-      return res.status(401).json({ error: "missing_timestamp" });
-    }
-    if (Math.abs(Date.now() - tsMs) > MAX_TIMESTAMP_SKEW_MS) {
-      return res.status(401).json({ error: "timestamp_skew" });
-    }
-  }
-
-  if (
-    !verifySignature(
-      rawBody,
-      readHeader(req, "x-pipecat-signature"),
-      tsHeader,
-    )
-  ) {
-    return res.status(401).json({ error: "invalid_signature" });
+  const verifyResult = verifyHmac(
+    rawBody,
+    req.headers ?? {},
+    "PIPECAT_WEBHOOK_SECRET",
+    {
+      signatureHeaders: ["x-pipecat-signature"],
+      timestampHeaders: ["x-pipecat-timestamp"],
+    },
+  );
+  if (!verifyResult.ok) {
+    // Preserve the original 401 error codes (missing_timestamp / timestamp_skew /
+    // invalid_signature / secret_unset / missing_signature) so existing
+    // observability and the agent's retry logic don't change.
+    return res.status(401).json({ error: verifyResult.reason });
   }
 
   let bodyJson: unknown;
