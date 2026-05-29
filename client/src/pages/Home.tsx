@@ -38,7 +38,7 @@ const MENU_ITEMS: Array<{
   { label: "Academia", href: "/academie", icon: Trophy },
   { label: "Grupe", href: "/grupe", icon: Users },
   { label: "Turnee", href: "/turnee", icon: CalendarClock },
-  { label: "Stiri", href: "/stiri", icon: Newspaper },
+  { label: "Știri", href: "/stiri", icon: Newspaper },
   { label: "Contact", href: "/contact", icon: Phone },
   { label: "Cont", href: "/login", icon: LogIn },
   ];

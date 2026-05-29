@@ -209,7 +209,7 @@ export default function PlayerStatsHeader({ child }: { child: Child }) {
       return;
     }
     supabase.storage
-      .from("media")
+      .from("fotbal-media-private")
       .createSignedUrl(child.photo_path, 60 * 60 * 4)
       .then(({ data }) => {
         if (!cancelled) setPhotoUrl(data?.signedUrl ?? null);

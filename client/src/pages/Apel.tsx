@@ -117,7 +117,9 @@ export default function Apel() {
             audio
             video={false}
             connect
-            onDisconnected={() => setPhase("ended")}
+            onDisconnected={() =>
+              setPhase((p) => (p === "error" ? "error" : "ended"))
+            }
             onError={(e) => {
               setError(e.message || "Conexiune întreruptă.");
               setPhase("error");
@@ -129,13 +131,18 @@ export default function Apel() {
               legacySpawnFailed={
                 session.agentSpawned === false && !session.agentDispatch
               }
+              onAgentNoShow={() => {
+                setError(
+                  "Andra nu a putut intra în apel. Antrenorul tău va primi notificare și te va contacta direct. Mulțumim pentru încercare.",
+                );
+                setPhase("error");
+              }}
             />
           </LiveKitRoom>
         ) : (
           <CallShell
             phase={phase}
             error={error}
-            tokenPreview={token.slice(0, 12)}
             onStart={start}
           />
         )}
@@ -147,12 +154,10 @@ export default function Apel() {
 function CallShell({
   phase,
   error,
-  tokenPreview,
   onStart,
 }: {
   phase: Phase;
   error: string | null;
-  tokenPreview: string;
   onStart: () => void;
 }) {
   return (
@@ -215,10 +220,6 @@ function CallShell({
           ← Înapoi la pagina principală
         </a>
       )}
-
-      <p className="mt-8 text-[10px] uppercase tracking-[0.22em] text-white/35">
-        Token · {tokenPreview}…
-      </p>
     </>
   );
 }
@@ -230,9 +231,11 @@ function CallShell({
 function CallStage({
   autoDispatch,
   legacySpawnFailed,
+  onAgentNoShow,
 }: {
   autoDispatch: boolean;
   legacySpawnFailed: boolean;
+  onAgentNoShow: () => void;
 }) {
   const connection = useConnectionState();
   const room = useRoomContext();
@@ -292,6 +295,19 @@ function CallStage({
   useEffect(() => {
     if (agentTrack && !agentSeen) setAgentSeen(true);
   }, [agentTrack, agentSeen]);
+
+  // Once we've connected to LiveKit and 20s have passed without the agent
+  // track appearing, surface a clean error and disconnect the room so the
+  // parent isn't left waiting forever on auto-dispatch failures.
+  useEffect(() => {
+    if (connection !== ConnectionState.Connected) return;
+    if (agentSeen) return;
+    const t = window.setTimeout(() => {
+      onAgentNoShow();
+      room.disconnect().catch(() => {});
+    }, 20_000);
+    return () => window.clearTimeout(t);
+  }, [connection, agentSeen, room, onAgentNoShow]);
 
   // Auto-disconnect when Andra leaves the room. The server-side hard-cap
   // disconnects only the agent participant; without this hook the parent
@@ -379,7 +395,11 @@ function CallStage({
         />
       </div>
 
-      <p className="text-white/75 text-sm sm:text-base leading-relaxed mb-6 min-h-[3em]">
+      <p
+        aria-live="polite"
+        aria-atomic="true"
+        className="text-white/75 text-sm sm:text-base leading-relaxed mb-6 min-h-[3em]"
+      >
         {statusLine}
       </p>
 
