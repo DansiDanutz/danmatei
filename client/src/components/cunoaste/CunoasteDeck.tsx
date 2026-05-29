@@ -199,7 +199,7 @@ export default function CunoasteDeck() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="pointer-events-auto mx-auto flex max-w-3xl items-center justify-between gap-4 rounded-full border border-white/10 bg-[oklch(0.10_0.02_250)]/80 px-4 py-2.5 backdrop-blur-xl sm:px-5 sm:py-3"
+          className="pointer-events-auto mx-auto flex max-w-3xl items-center justify-between gap-4 rounded-full border border-white/12 bg-[oklch(0.14_0.02_250)]/35 px-4 py-2.5 shadow-[0_8px_40px_-12px_oklch(0.05_0.02_250/0.6)] backdrop-blur-2xl sm:px-5 sm:py-3"
         >
           <button
             type="button"

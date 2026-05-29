@@ -27,6 +27,25 @@ type GroupRow = {
   trainer: { profile: { full_name: string } | null } | null;
 };
 
+// How many children to surface per card (the rest show as "+ N alți copii").
+const SAMPLE_SIZE = 4;
+
+function birthYear(dob: string): number {
+  return new Date(dob).getFullYear();
+}
+
+/**
+ * "Andrei Mureșan" → "Andrei M." — this is a public page showing minors, so we
+ * surface the first name + last initial only; the full surname never leaves
+ * the server.
+ */
+function maskName(full: string): string {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return parts[0] ?? "";
+  const last = parts[parts.length - 1];
+  return `${parts[0]} ${last.charAt(0).toUpperCase()}.`;
+}
+
 export default async function handler(req: Req, res: Res) {
   if (req.method && req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -47,32 +66,46 @@ export default async function handler(req: Req, res: Res) {
 
     const groups = (data ?? []) as unknown as GroupRow[];
 
-    // Active head-count per group. `children.group_id` is populated when a
-    // child is assigned to a year-matched group (see Admin → Grupe).
-    const counts = new Map<string, number>();
-    if (groups.length > 0) {
-      const { data: kids } = await svc
-        .from("children")
-        .select("group_id")
-        .eq("status", "active")
-        .in(
-          "group_id",
-          groups.map((g) => g.id)
-        );
-      for (const c of (kids ?? []) as Array<{ group_id: string | null }>) {
-        if (c.group_id)
-          counts.set(c.group_id, (counts.get(c.group_id) ?? 0) + 1);
-      }
-    }
+    // Pull the active roster once and match children to groups in JS. A child
+    // belongs to a group's card if it is explicitly assigned (group_id) or —
+    // the common case, since group_id is often left unset — if its birth year
+    // falls inside the group's range (the same rule Admin → Grupe uses).
+    const { data: kidsRaw } = await svc
+      .from("children")
+      .select("id, full_name, dob, group_id")
+      .eq("status", "active");
+    const kids = (kidsRaw ?? []) as Array<{
+      id: string;
+      full_name: string;
+      dob: string;
+      group_id: string | null;
+    }>;
 
-    const payload = groups.map((g) => ({
-      id: g.id,
-      label: g.label,
-      birthYearMin: g.birth_year_min,
-      birthYearMax: g.birth_year_max,
-      trainerName: g.trainer?.profile?.full_name ?? null,
-      childCount: counts.get(g.id) ?? 0,
-    }));
+    const payload = groups.map((g) => {
+      const matched = kids
+        .filter(
+          (c) =>
+            c.group_id === g.id ||
+            (c.group_id == null &&
+              birthYear(c.dob) >= g.birth_year_min &&
+              birthYear(c.dob) <= g.birth_year_max)
+        )
+        .sort((a, b) => birthYear(b.dob) - birthYear(a.dob)); // youngest first
+
+      return {
+        id: g.id,
+        label: g.label,
+        birthYearMin: g.birth_year_min,
+        birthYearMax: g.birth_year_max,
+        trainerName: g.trainer?.profile?.full_name ?? null,
+        childCount: matched.length,
+        players: matched.slice(0, SAMPLE_SIZE).map((c) => ({
+          id: c.id,
+          name: maskName(c.full_name),
+          yearOfBirth: birthYear(c.dob),
+        })),
+      };
+    });
 
     if (res.setHeader) {
       res.setHeader(

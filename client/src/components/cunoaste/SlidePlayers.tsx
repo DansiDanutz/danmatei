@@ -52,7 +52,12 @@ type DisplayGroup = {
   description: string;
   schedule?: string;
   highlights: string[];
-  players: { id: string; name: string; position: string; yearOfBirth: number }[];
+  players: {
+    id: string;
+    name: string;
+    position?: string;
+    yearOfBirth: number;
+  }[];
   childCount: number;
   trainers: { initials: string; name: string }[];
 };
@@ -64,6 +69,7 @@ type ApiGroup = {
   birthYearMax: number;
   trainerName: string | null;
   childCount: number;
+  players: { id: string; name: string; yearOfBirth: number }[];
 };
 
 function trainersFromEditorial(ed?: AgeGroup) {
@@ -86,7 +92,10 @@ function fromApi(g: ApiGroup): DisplayGroup {
       `Grupă de pregătire pentru copii născuți între ${g.birthYearMin} și ${g.birthYearMax}.`,
     schedule: ed?.schedule,
     highlights: ed?.highlights ?? [],
-    players: ed?.players ?? [],
+    // Real, live roster from the DB (first name + last initial). Editorial
+    // sample players are intentionally NOT used here — only on the offline
+    // fallback path (fromStatic).
+    players: g.players ?? [],
     childCount: g.childCount ?? 0,
     trainers: g.trainerName
       ? [{ initials: initialsOf(g.trainerName), name: g.trainerName }]
@@ -373,8 +382,14 @@ export default function SlidePlayers() {
                                     {p.name}
                                   </div>
                                   <div className="truncate font-heading text-[10px] uppercase tracking-[0.14em] text-white/50">
-                                    {p.position}
-                                    <span className="mx-1.5 text-white/25">·</span>
+                                    {p.position && (
+                                      <>
+                                        {p.position}
+                                        <span className="mx-1.5 text-white/25">
+                                          ·
+                                        </span>
+                                      </>
+                                    )}
                                     <span className="tabular-nums text-white/70">
                                       {p.yearOfBirth}
                                     </span>
