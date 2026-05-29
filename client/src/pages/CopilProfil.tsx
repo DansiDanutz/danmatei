@@ -25,6 +25,7 @@ import {
   Loader2,
   MessageSquare,
   Newspaper,
+  Receipt,
   Send,
   Sparkles,
   Trophy,
@@ -35,9 +36,17 @@ import {
 import { toast } from "sonner";
 import MemberShell from "@/components/MemberShell";
 import PlayerStatsHeader from "@/components/player/PlayerStatsHeader";
+import { PaymentStatusInfo } from "@/components/payment-status-info";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
 import { currentAge, formatTimelineDate } from "@/lib/age";
 import { useAuth } from "@/lib/auth";
+import {
+  computePaymentStatus,
+  statusColorClass,
+  statusLabel,
+} from "@/lib/payment-status";
 
 type Child = {
   id: string;
@@ -50,7 +59,7 @@ type Child = {
   medical_notes: string | null;
   trainer_id: string | null;
   age_group_label: string | null;
-  status: "active" | "paused" | "left";
+  status: "active" | "paused" | "left" | "closed_unpaid" | "transferred";
   created_at: string;
 };
 
@@ -544,6 +553,9 @@ export default function CopilProfil() {
           <Trigger value="mesaje" icon={<MessageSquare className="size-3.5" />}>
             Mesaje
           </Trigger>
+          <Trigger value="plati" icon={<Receipt className="size-3.5" />}>
+            Plăți
+          </Trigger>
           <Trigger value="istoric" icon={<Activity className="size-3.5" />}>
             Istoric
           </Trigger>
@@ -747,6 +759,10 @@ export default function CopilProfil() {
               }}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="plati" className="mt-5">
+          <ParentPaymentsTab childId={child.id} />
         </TabsContent>
 
         <TabsContent value="istoric" className="mt-5">
@@ -1194,5 +1210,340 @@ function ReplyForm({
         </button>
       </div>
     </form>
+  );
+}
+
+// ─── Parent payments tab ─────────────────────────────────────────────────────
+
+type ParentChargeRow = {
+  id: string;
+  kind: "monthly_fee" | "custom";
+  label: string | null;
+  amount_ron: number | string;
+  period_year: number | null;
+  period_month: number | null;
+  due_date: string;
+};
+
+type ParentPaymentRow = {
+  id: string;
+  amount_ron: number | string;
+  paid_at: string;
+  method: "cash" | "bank_transfer" | "card" | "other" | null;
+  note: string | null;
+};
+
+const PARENT_RO_MONTHS = [
+  "Ianuarie",
+  "Februarie",
+  "Martie",
+  "Aprilie",
+  "Mai",
+  "Iunie",
+  "Iulie",
+  "August",
+  "Septembrie",
+  "Octombrie",
+  "Noiembrie",
+  "Decembrie",
+];
+
+const PARENT_METHOD_LABEL: Record<
+  NonNullable<ParentPaymentRow["method"]>,
+  string
+> = {
+  cash: "Cash",
+  bank_transfer: "Transfer bancar",
+  card: "Card",
+  other: "Altă metodă",
+};
+
+/**
+ * Parent-facing payment statement. Pure read-only — the parent sees their
+ * child's monthly fee charges, any custom one-off charges, and the payments
+ * the academy has recorded. Status badge (+ info popover) lets them see at
+ * a glance whether they're still on time. The same FIFO match used by the
+ * status helper drives the per-row Plătit/Restant chip so the explanation
+ * stays consistent.
+ */
+function ParentPaymentsTab({ childId }: { childId: string }) {
+  const [charges, setCharges] = useState<ParentChargeRow[]>([]);
+  const [payments, setPayments] = useState<ParentPaymentRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      const [chRes, pmRes] = await Promise.all([
+        supabase
+          .from("child_charges")
+          .select(
+            "id, kind, label, amount_ron, period_year, period_month, due_date"
+          )
+          .eq("child_id", childId)
+          .order("due_date", { ascending: false }),
+        supabase
+          .from("child_payments")
+          .select("id, amount_ron, paid_at, method, note")
+          .eq("child_id", childId)
+          .order("paid_at", { ascending: false }),
+      ]);
+      if (cancelled) return;
+      if (chRes.error || pmRes.error) {
+        setError(chRes.error?.message ?? pmRes.error?.message ?? "Eroare.");
+        setLoading(false);
+        return;
+      }
+      setCharges((chRes.data ?? []) as ParentChargeRow[]);
+      setPayments((pmRes.data ?? []) as ParentPaymentRow[]);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [childId]);
+
+  const result = useMemo(() => {
+    return computePaymentStatus(
+      charges.map(c => ({
+        amount_ron: Number(c.amount_ron),
+        due_date: c.due_date,
+        kind: c.kind,
+        period_year: c.period_year,
+        period_month: c.period_month,
+      })),
+      payments.map(p => ({
+        amount_ron: Number(p.amount_ron),
+        paid_at: p.paid_at,
+      })),
+      new Date()
+    );
+  }, [charges, payments]);
+
+  // Same FIFO walk the helper uses so the per-charge chip matches the badge.
+  const annotated = useMemo(() => {
+    const sorted = [...charges].sort((a, b) =>
+      a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0
+    );
+    const totalPaid = payments.reduce(
+      (s, p) => s + Number(p.amount_ron),
+      0
+    );
+    let pool = totalPaid;
+    return sorted.map(c => {
+      const amount = Number(c.amount_ron);
+      if (pool >= amount) {
+        pool -= amount;
+        return { ...c, paid: true as const, partial: 0 };
+      }
+      const partial = pool;
+      pool = 0;
+      return { ...c, paid: false as const, partial };
+    });
+  }, [charges, payments]);
+
+  const monthlyCharges = annotated.filter(c => c.kind === "monthly_fee");
+  const customCharges = annotated.filter(c => c.kind === "custom");
+
+  if (loading) {
+    return (
+      <div className="grid gap-3">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 py-2 font-body text-sm text-rose-200">
+        {error}
+      </p>
+    );
+  }
+
+  if (charges.length === 0 && payments.length === 0) {
+    return (
+      <EmptyState
+        icon={<Receipt className="size-6" />}
+        title="Nicio taxă încă"
+        description="După ce copilul tău e repartizat la o grupă, taxele lunare vor apărea aici în primele zile ale lunii."
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {/* Status header */}
+      <section className="rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span
+              className={`rounded-full border px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] ${statusColorClass(result.status)}`}
+            >
+              {statusLabel(result.status)}
+              {result.monthsOverdue > 0 &&
+                result.monthsOverdue <= 3 &&
+                ` · ${result.monthsOverdue} ${result.monthsOverdue === 1 ? "lună" : "luni"}`}
+            </span>
+            <PaymentStatusInfo />
+          </div>
+          <div className="text-right">
+            <p className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/55">
+              De plată
+            </p>
+            <p className="font-heading text-2xl font-bold tabular-nums text-white">
+              {result.outstandingRon.toLocaleString("ro-RO", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })}{" "}
+              RON
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Monthly + custom charges */}
+      <section className="rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5">
+        <h3 className="font-heading text-[11px] uppercase tracking-[0.2em] text-white/55">
+          Taxe lunare
+        </h3>
+        {monthlyCharges.length === 0 ? (
+          <p className="mt-2 font-body text-sm text-white/45">
+            Nu există taxe lunare încă.
+          </p>
+        ) : (
+          <ul className="mt-3 grid gap-2">
+            {monthlyCharges.map(c => {
+              const label =
+                c.label ??
+                (c.period_month && c.period_year
+                  ? `${PARENT_RO_MONTHS[c.period_month - 1]} ${c.period_year}`
+                  : "Taxă lunară");
+              return (
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-[oklch(0.10_0.02_250)] px-3 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-body text-sm text-white/85">{label}</p>
+                    <p className="font-body text-xs text-white/45">
+                      Scadent{" "}
+                      {new Date(c.due_date).toLocaleDateString("ro-RO", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <span className="font-body text-sm text-white/75 tabular-nums">
+                    {Number(c.amount_ron).toLocaleString("ro-RO")} RON
+                  </span>
+                  <span
+                    className={`rounded-full border px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.14em] ${
+                      c.paid
+                        ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
+                        : c.partial > 0
+                          ? "border-amber-300/30 bg-amber-300/10 text-amber-200"
+                          : "border-rose-300/30 bg-rose-300/10 text-rose-200"
+                    }`}
+                  >
+                    {c.paid ? "✓ Plătit" : c.partial > 0 ? "Parțial" : "Restant"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {customCharges.length > 0 && (
+          <>
+            <h3 className="mt-5 font-heading text-[11px] uppercase tracking-[0.2em] text-white/55">
+              Alte cheltuieli
+            </h3>
+            <ul className="mt-3 grid gap-2">
+              {customCharges.map(c => (
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-[oklch(0.10_0.02_250)] px-3 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-body text-sm text-white/85">
+                      {c.label ?? "Cheltuială"}
+                    </p>
+                    <p className="font-body text-xs text-white/45">
+                      Scadent{" "}
+                      {new Date(c.due_date).toLocaleDateString("ro-RO", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <span className="font-body text-sm text-white/75 tabular-nums">
+                    {Number(c.amount_ron).toLocaleString("ro-RO")} RON
+                  </span>
+                  <span
+                    className={`rounded-full border px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.14em] ${
+                      c.paid
+                        ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
+                        : c.partial > 0
+                          ? "border-amber-300/30 bg-amber-300/10 text-amber-200"
+                          : "border-rose-300/30 bg-rose-300/10 text-rose-200"
+                    }`}
+                  >
+                    {c.paid ? "✓ Plătit" : c.partial > 0 ? "Parțial" : "Restant"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
+      {/* Payments */}
+      <section className="rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5">
+        <h3 className="font-heading text-[11px] uppercase tracking-[0.2em] text-white/55">
+          Plăți efectuate
+        </h3>
+        {payments.length === 0 ? (
+          <p className="mt-2 font-body text-sm text-white/45">
+            Încă nu am înregistrat plăți.
+          </p>
+        ) : (
+          <ul className="mt-3 grid gap-2">
+            {payments.map(p => (
+              <li
+                key={p.id}
+                className="grid gap-1 rounded-xl border border-white/8 bg-[oklch(0.10_0.02_250)] px-3 py-2.5"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-body text-sm text-white/85 tabular-nums">
+                    {Number(p.amount_ron).toLocaleString("ro-RO")} RON
+                  </span>
+                  <span className="font-body text-xs text-white/55">
+                    {new Date(p.paid_at).toLocaleDateString("ro-RO", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                    {p.method && ` · ${PARENT_METHOD_LABEL[p.method]}`}
+                  </span>
+                </div>
+                {p.note && (
+                  <p className="font-body text-xs italic text-white/55">
+                    {p.note}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }
