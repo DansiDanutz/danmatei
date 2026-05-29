@@ -21,6 +21,7 @@ import {
   ListOrdered,
   Phone,
   ArrowUpRight,
+  LogIn,
   LogOut,
   UserPlus,
 } from "lucide-react";
@@ -271,6 +272,17 @@ export default function PublicShell({
                 <span>Ieși</span>
               </button>
             )}
+
+            {/* Mobile login/account: phones hide the desktop "Cont" button,
+                so surface a clear one-tap entry next to the menu. */}
+            <Link
+              href={profile ? "/dashboard" : "/login"}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3.5 py-2 font-heading text-[11px] uppercase tracking-[0.14em] text-brand-cyan transition-colors hover:bg-brand-cyan/20 sm:hidden"
+              aria-label={profile ? "Contul meu" : "Autentificare"}
+            >
+              <LogIn className="size-4" />
+              {profile ? "Cont" : "Log in"}
+            </Link>
 
             <button
               type="button"

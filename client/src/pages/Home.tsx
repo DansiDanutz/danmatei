@@ -24,10 +24,9 @@ import { OWNER } from "@/data/landing";
 
 const expoOut: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-// Primary navigation surfaced from the landing page. Order matches the
-// information hierarchy: news first, then alerts, then performance, then
-// community, then ops, then media. Login sits at the end with primary
-// styling so visitors who already have an account can jump in fast.
+// Primary navigation surfaced from the landing page (content links only).
+// Login lives in its own labelled "Cont" button in the top-right corner so
+// it's obvious to visitors who already have an account.
 const MENU_ITEMS: Array<{
   label: string;
   href: string;
@@ -40,7 +39,6 @@ const MENU_ITEMS: Array<{
   { label: "Turnee", href: "/turnee", icon: CalendarClock },
   { label: "Știri", href: "/stiri", icon: Newspaper },
   { label: "Contact", href: "/contact", icon: Phone },
-  { label: "Cont", href: "/login", icon: LogIn },
   ];
 
 // Deterministic starfield — 20 dots (reduced from 60 for performance).
@@ -269,6 +267,14 @@ export default function Home() {
       </motion.nav>
 
       <section className="relative z-10 flex min-h-[100dvh] items-center justify-center px-4 pb-10 pt-4 sm:pb-14 sm:pt-6">
+        {/* Always-available login entry on the landing screen */}
+        <Link
+          href="/login"
+          className="absolute right-4 top-4 z-20 inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/80 backdrop-blur transition-colors hover:border-brand-cyan/40 hover:text-brand-cyan"
+        >
+          <LogIn className="size-3.5" />
+          Cont
+        </Link>
         <div className="w-full max-w-md">
           {/* Top brand mark */}
           <motion.div
