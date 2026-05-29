@@ -231,6 +231,18 @@ export default defineConfig({
     port: process.env.PORT ? Number(process.env.PORT) : 3030,
     strictPort: false, // Will find next available port if the chosen one is busy
     host: true,
+    // The /api/* serverless functions don't run under `vite dev`, so proxy
+    // them to the deployed app. This makes the local dev site behave like
+    // production — e.g. /api/groups returns the REAL groups, so the deck shows
+    // the real count instead of an empty/unavailable state. Override the
+    // target with VITE_API_PROXY (e.g. a `vercel dev` URL) when needed.
+    proxy: {
+      "/api": {
+        target: process.env.VITE_API_PROXY || "https://danmatei.vercel.app",
+        changeOrigin: true,
+        secure: true,
+      },
+    },
     allowedHosts: [
       ".manuspre.computer",
       ".manus.computer",
