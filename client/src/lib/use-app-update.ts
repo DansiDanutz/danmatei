@@ -56,28 +56,39 @@ export function useAppUpdate() {
     startedRef.current = true;
 
     let cancelled = false;
+    let pending = false; // a newer build has been detected
     const check = async () => {
       if (cancelled || document.hidden) return;
       const latest = await fetchLatestVersion();
-      if (!cancelled && latest && latest !== CURRENT) setUpdateReady(true);
+      if (!cancelled && latest && latest !== CURRENT) {
+        pending = true;
+        setUpdateReady(true);
+      }
     };
 
-    // Settle after load, then poll on an interval + whenever the tab is
-    // brought back to the foreground (the most common "I left it open" case).
+    // Settle after load, then poll on an interval. When the tab regains focus
+    // we re-check; when it's sent to the background WITH an update pending we
+    // silently reload, so a stale tab heals itself (next view is the new
+    // build) without the user having to do anything.
     const initial = window.setTimeout(check, 4000);
     const interval = window.setInterval(check, POLL_MS);
-    const onVisible = () => {
-      if (!document.hidden) void check();
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (pending) window.location.reload();
+      } else {
+        void check();
+      }
     };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
+    const onFocus = () => void check();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
 
     return () => {
       cancelled = true;
       window.clearTimeout(initial);
       window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 

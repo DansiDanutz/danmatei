@@ -1,18 +1,16 @@
 /**
  * SlidePlayers — third slide. Bento grid of the academy's age groups.
  *
- * Fully DYNAMIC: groups come from the owner's real configuration in
- * Admin → Grupe (the `fotbal.groups` table) via the public `/api/groups`
- * endpoint, so the public site always shows exactly the groups that exist.
+ * Strictly DYNAMIC: the cards are the owner's real groups from Admin → Grupe
+ * (the `fotbal.groups` table) via the public `/api/groups` endpoint. There is
+ * NO hardcoded list — if there are 4 groups you see 4 cards, if 3 you see 3.
+ * If the API is briefly unreachable we retry and otherwise show a small
+ * "indisponibil" state; we never invent placeholder groups.
  *
- * Each card is built from data EVERY group has (code, age range, head-count,
- * trainer, live roster) so cards stay uniform whether or not a group has
- * matching editorial copy — a custom code like U17 looks just as intentional
- * as U9. A group with no children yet shows a positive "înscrieri deschise"
- * state instead of an empty hole.
- *
- * When the API is unreachable (local dev server, missing env) we fall back to
- * the static `AGE_GROUPS` set so the page is never empty.
+ * Each card is built from data every group has (code, age range, head-count,
+ * trainer, live roster) and a fixed-height header zone, so the cards stay
+ * uniform and the rosters line up across the row on tablet/desktop. A group
+ * with no children yet shows a positive "înscrieri deschise" state.
  */
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
@@ -23,9 +21,11 @@ import SlideShell from "./SlideShell";
 
 const expoOut: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const ROSTER_PREVIEW = 4;
+const MAX_ATTEMPTS = 3;
 
-// Editorial copy library, keyed by group code (U7, U9, …). Used only to give a
-// live group a nicer one-line description + age label when its code matches.
+// Editorial copy library, keyed by group code (U7, U9, …). Used ONLY to give a
+// live group a nicer description + age label when its code matches — never to
+// fabricate a group that doesn't exist in the DB.
 const EDITORIAL: Record<string, AgeGroup> = Object.fromEntries(
   AGE_GROUPS.map((g) => [g.code, g])
 );
@@ -50,11 +50,11 @@ function normCode(label: string): string {
 type DisplayGroup = {
   key: string;
   code: string; // big card number, e.g. "U9"
-  subtitle: string; // age range line, e.g. "U8 – U9" or "Născuți 2018–2019"
+  subtitle: string; // age range line, e.g. "U8 – U9" or "2018–2019"
   description: string;
   players: { id: string; name: string; yearOfBirth: number }[];
   childCount: number;
-  trainers: { initials: string; name: string }[];
+  trainer: { initials: string; name: string } | null;
 };
 
 type ApiGroup = {
@@ -67,12 +67,10 @@ type ApiGroup = {
   players: { id: string; name: string; yearOfBirth: number }[];
 };
 
-function trainersFromEditorial(ed?: AgeGroup) {
-  if (!ed) return [];
-  return ed.trainerIds
-    .map((id) => trainerById[id])
-    .filter(Boolean)
-    .map((t) => ({ initials: t.initials, name: t.name }));
+function trainerFromEditorial(ed?: AgeGroup): { initials: string; name: string } | null {
+  if (!ed) return null;
+  const t = ed.trainerIds.map((id) => trainerById[id]).find(Boolean);
+  return t ? { initials: t.initials, name: t.name } : null;
 }
 
 function fromApi(g: ApiGroup): DisplayGroup {
@@ -81,67 +79,59 @@ function fromApi(g: ApiGroup): DisplayGroup {
   return {
     key: g.id,
     code,
-    subtitle: ed?.label ?? `Născuți ${g.birthYearMin}–${g.birthYearMax}`,
+    subtitle: ed?.label ?? `${g.birthYearMin}–${g.birthYearMax}`,
     description:
       ed?.description ??
       `Antrenamente pe vârstă pentru copii născuți între ${g.birthYearMin} și ${g.birthYearMax}.`,
-    // Real, live roster from the DB (first name + last initial).
     players: g.players ?? [],
     childCount: g.childCount ?? 0,
-    trainers: g.trainerName
-      ? [{ initials: initialsOf(g.trainerName), name: g.trainerName }]
-      : trainersFromEditorial(ed),
+    trainer: g.trainerName
+      ? { initials: initialsOf(g.trainerName), name: g.trainerName }
+      : trainerFromEditorial(ed),
   };
 }
 
-function fromStatic(g: AgeGroup): DisplayGroup {
-  return {
-    key: g.code,
-    code: g.code,
-    subtitle: g.label,
-    description: g.description,
-    players: (g.players ?? []).map((p) => ({
-      id: p.id,
-      name: p.name,
-      yearOfBirth: p.yearOfBirth,
-    })),
-    childCount: g.childCount ?? 0,
-    trainers: trainersFromEditorial(g),
-  };
+// ── Data loading ───────────────────────────────────────────────────────────
+// Returns DisplayGroup[] on success (possibly empty = "no groups defined"),
+// or null when the API can't be reached after retries. NEVER a fake list.
+async function fetchGroupsOnce(): Promise<DisplayGroup[] | null> {
+  try {
+    const res = await fetch("/api/groups", {
+      headers: { accept: "application/json" },
+      cache: "no-store",
+    });
+    // Local dev / SPA fallback answers /api/* with index.html — treat as miss.
+    const ct = res.headers.get("content-type") ?? "";
+    if (!res.ok || !ct.includes("application/json")) return null;
+    const data = (await res.json()) as { groups?: ApiGroup[] };
+    return (Array.isArray(data.groups) ? data.groups : []).map(fromApi);
+  } catch {
+    return null;
+  }
 }
 
-// Module-level cache so the two SlidePlayers instances (mobile single-slide +
-// hidden desktop deck) and repeat visits share a single network call.
-let groupsCache: Promise<DisplayGroup[]> | null = null;
+// Cache only successful results so transient failures can recover on remount.
+let groupsCache: Promise<DisplayGroup[] | null> | null = null;
 
-function loadGroups(): Promise<DisplayGroup[]> {
+function loadGroups(): Promise<DisplayGroup[] | null> {
   if (groupsCache) return groupsCache;
-  groupsCache = (async () => {
-    try {
-      const res = await fetch("/api/groups", {
-        headers: { accept: "application/json" },
-      });
-      // In local dev there is no serverless runtime — the dev server answers
-      // /api/* with the SPA's index.html. Guard against that so we fall back.
-      const ct = res.headers.get("content-type") ?? "";
-      if (!res.ok || !ct.includes("application/json")) {
-        throw new Error(`groups api ${res.status}`);
-      }
-      const data = (await res.json()) as { groups?: ApiGroup[] };
-      const list = Array.isArray(data.groups) ? data.groups : [];
-      if (list.length === 0) throw new Error("no groups");
-      return list.map(fromApi);
-    } catch {
-      // Resilient fallback — keep the marketing page populated.
-      return AGE_GROUPS.map(fromStatic);
+  const run = (async () => {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const result = await fetchGroupsOnce();
+      if (result !== null) return result;
+      await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
+    return null;
   })();
-  return groupsCache;
+  groupsCache = run;
+  run.then((r) => {
+    if (r === null) groupsCache = null; // allow a later retry
+  });
+  return run;
 }
 
-// Per-group accent — every group stays in the academy's blue family. Variation
-// is a hue shift WITHIN the blue/cyan spectrum; a single warm gold spark is
-// reserved for the youngest group.
+// Per-group accent — every group stays in the academy's blue family; a single
+// warm gold spark is reserved for the youngest group.
 const GROUP_THEMES: Record<
   string,
   { glow: string; accent: string; chip: string; spark?: string }
@@ -173,13 +163,10 @@ const GROUP_THEMES: Record<
     chip: "from-[oklch(0.28_0.12_260)]/45 to-[oklch(0.16_0.07_265)]/45",
   },
 };
-
-// Unknown / custom codes (e.g. U17) get the deepest navy theme — fits older,
-// more advanced groups better than the youngest group's bright/gold accent.
 const FALLBACK_THEME = GROUP_THEMES.U15;
 
 // Tailwind-safe literal column classes so the desktop row width tracks the real
-// group count instead of a hardcoded 5 (dynamic class strings would be purged).
+// group count instead of a hardcoded value (dynamic class strings get purged).
 const LG_COLS: Record<number, string> = {
   1: "lg:grid-cols-1",
   2: "lg:grid-cols-2",
@@ -192,7 +179,6 @@ function GroupCard({ g, i }: { g: DisplayGroup; i: number }) {
   const theme = GROUP_THEMES[g.code] ?? FALLBACK_THEME;
   const preview = g.players.slice(0, ROSTER_PREVIEW);
   const more = Math.max(0, g.childCount - preview.length);
-  const trainer = g.trainers[0];
 
   return (
     <motion.article
@@ -201,7 +187,6 @@ function GroupCard({ g, i }: { g: DisplayGroup; i: number }) {
       transition={{ duration: 0.5, delay: 0.25 + i * 0.07, ease: expoOut }}
       className="relative"
     >
-      {/* Animated cyan rim — same language as Owner + Trainer cards */}
       <span
         aria-hidden="true"
         className="card-rim-glow pointer-events-none absolute -inset-[3px] rounded-[calc(1.5rem+3px)] opacity-70"
@@ -232,7 +217,7 @@ function GroupCard({ g, i }: { g: DisplayGroup; i: number }) {
           />
         )}
 
-        {/* Header: code + age range */}
+        {/* Header: code + age range (fixed height) */}
         <div className="relative flex items-start justify-between gap-3">
           <span
             className="font-heading text-5xl font-bold leading-none tabular-nums tracking-tight sm:text-6xl"
@@ -241,33 +226,37 @@ function GroupCard({ g, i }: { g: DisplayGroup; i: number }) {
             {g.code}
           </span>
           <div className="flex flex-col items-end gap-1.5 pt-1">
-            <span className="font-heading text-[11px] uppercase tracking-[0.2em] text-white/55">
+            <span className="whitespace-nowrap font-heading text-[11px] uppercase tracking-[0.2em] text-white/55">
               {g.subtitle}
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.14em] text-white/70">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.14em] text-white/70">
               <Users className="size-3" style={{ color: theme.accent }} />
               {g.childCount} {g.childCount === 1 ? "copil" : "copii"}
             </span>
           </div>
         </div>
 
-        {/* Trainer */}
-        {trainer && (
-          <div className="relative mt-4 flex items-center gap-2">
-            <span
-              title={trainer.name}
-              className={`grid size-7 place-items-center rounded-full border border-white/10 bg-gradient-to-br ${theme.chip} font-heading text-[10px] font-bold text-white/90`}
-            >
-              {trainer.initials}
-            </span>
-            <span className="font-heading text-[11px] uppercase tracking-[0.14em] text-white/55">
-              {trainer.name}
-            </span>
-          </div>
-        )}
+        {/* Trainer — row is ALWAYS rendered (fixed height) so cards align even
+            when a group has no trainer assigned yet. */}
+        <div className="relative mt-4 flex h-7 items-center gap-2">
+          {g.trainer && (
+            <>
+              <span
+                title={g.trainer.name}
+                className={`grid size-7 shrink-0 place-items-center rounded-full border border-white/10 bg-gradient-to-br ${theme.chip} font-heading text-[10px] font-bold text-white/90`}
+              >
+                {g.trainer.initials}
+              </span>
+              <span className="min-w-0 truncate font-heading text-[11px] uppercase tracking-[0.14em] text-white/55">
+                {g.trainer.name}
+              </span>
+            </>
+          )}
+        </div>
 
-        {/* Description — clamped to 2 lines so every card stays the same shape */}
-        <p className="relative mt-3 line-clamp-2 font-body text-[13px] leading-relaxed text-white/65 sm:text-sm">
+        {/* Description — clamped AND min-height = 2 lines, so every card's
+            roster starts at the same Y. */}
+        <p className="relative mt-3 line-clamp-2 min-h-[2.65rem] font-body text-[13px] leading-relaxed text-white/65 sm:min-h-[2.85rem] sm:text-sm">
           {g.description}
         </p>
 
@@ -323,17 +312,16 @@ function GroupCard({ g, i }: { g: DisplayGroup; i: number }) {
           )}
         </div>
 
-        {/* CTA — pinned to the bottom so every card aligns */}
+        {/* CTA — one line, pinned to the bottom so every card aligns */}
         <Link
           href={`/grupe#${g.code}`}
-          aria-label={`Vezi grupa ${g.code}`}
-          className="touch-target group/cta relative mt-5 inline-flex items-center justify-center gap-2 rounded-full border border-brand-cyan/40 bg-brand-cyan/15 px-4 py-2.5 font-heading text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-cyan transition-all hover:border-brand-cyan/70 hover:bg-brand-cyan/25 hover:text-white"
+          aria-label={`Vezi echipa ${g.code}`}
+          className="touch-target group/cta relative mt-5 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-brand-cyan/40 bg-brand-cyan/15 px-4 py-2.5 font-heading text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-cyan transition-all hover:border-brand-cyan/70 hover:bg-brand-cyan/25 hover:text-white"
         >
-          Vezi grupa
+          Vezi echipa
           <ArrowRight className="size-3.5 transition-transform group-hover/cta:translate-x-0.5" />
         </Link>
 
-        {/* Hover sweep */}
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-brand-cyan/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100"
@@ -344,7 +332,10 @@ function GroupCard({ g, i }: { g: DisplayGroup; i: number }) {
 }
 
 export default function SlidePlayers() {
-  const [groups, setGroups] = useState<DisplayGroup[] | null>(null);
+  // undefined = loading · null = API unavailable · [] = no groups defined
+  const [groups, setGroups] = useState<DisplayGroup[] | null | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     let active = true;
@@ -356,7 +347,7 @@ export default function SlidePlayers() {
     };
   }, []);
 
-  const lgColsClass = groups
+  const lgColsClass = groups?.length
     ? LG_COLS[Math.min(groups.length, 5)] ?? "lg:grid-cols-5"
     : "lg:grid-cols-3";
 
@@ -374,9 +365,21 @@ export default function SlidePlayers() {
       }
       subtitle="Selectează grupa în funcție de data nașterii. Sistemul îl ghidează automat la antrenorul potrivit la momentul înscrierii."
     >
-      {groups === null ? (
+      {groups === undefined ? (
         <div className="grid min-h-[40vh] place-items-center">
           <div className="size-5 animate-spin rounded-full border-2 border-brand-cyan/30 border-t-brand-cyan" />
+        </div>
+      ) : groups === null ? (
+        <div className="grid min-h-[40vh] place-items-center text-center">
+          <p className="font-body text-sm text-white/55">
+            Grupele nu pot fi încărcate momentan. Reîncarcă pagina.
+          </p>
+        </div>
+      ) : groups.length === 0 ? (
+        <div className="grid min-h-[40vh] place-items-center text-center">
+          <p className="font-body text-sm text-white/55">
+            Grupele vor apărea aici imediat ce sunt create în panou.
+          </p>
         </div>
       ) : (
         <div
