@@ -183,6 +183,7 @@ export default defineConfig({
             "@radix-ui/react-popover",
             "@radix-ui/react-tooltip",
           ],
+          livekit: ["livekit-client", "@livekit/components-react"],
         },
       },
     },
