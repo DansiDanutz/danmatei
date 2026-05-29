@@ -131,7 +131,8 @@ export default function Admin() {
       </header>
 
       <Tabs value={tab} onValueChange={setTab} className="mt-6">
-        <TabsList className="relative flex w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x">
+        <div className="relative">
+        <TabsList className="flex h-12 w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x md:h-9">
           <Trigger value="antrenori" icon={<UserPlus className="size-3.5" />}>
             Antrenori
           </Trigger>
@@ -163,6 +164,16 @@ export default function Admin() {
             Pagina publică
           </Trigger>
         </TabsList>
+          {/* Mobile-only scroll affordance: fade tabs into the bar at each edge */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-1 left-0.5 z-10 w-8 rounded-l-full bg-gradient-to-r from-[oklch(0.10_0.02_250)] to-transparent md:hidden"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-1 right-0.5 z-10 w-8 rounded-r-full bg-gradient-to-l from-[oklch(0.10_0.02_250)] to-transparent md:hidden"
+          />
+        </div>
 
         <TabsContent value="antrenori" className="mt-5">
           <LazyTab active={tab === "antrenori"}>
@@ -231,7 +242,7 @@ const Trigger = ({
 }) => (
   <TabsTrigger
     value={value}
-    className="flex-1 snap-center rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan"
+    className="flex-none snap-center rounded-full px-4 font-heading text-[13px] uppercase tracking-[0.1em] text-white/65 transition-colors data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan md:flex-1 md:px-3 md:py-2 md:text-[11px] md:tracking-[0.16em]"
   >
     <span className="inline-flex items-center gap-1.5">
       {icon}
