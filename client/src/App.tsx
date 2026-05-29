@@ -1,18 +1,19 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrandSpinner } from "@/components/ui/brand-spinner";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { AuthProvider } from "./lib/auth";
+import { AuthProvider, useAuth } from "./lib/auth";
 import { PublicOnly, RequireAuth, RequireRole } from "./components/RouteGuards";
 import FloatingProgramareCTA from "./components/FloatingProgramareCTA";
 import Home from "./pages/Home";
 import Cunoaste from "./pages/Cunoaste";
 import Login from "./pages/Login";
 import Inregistrare from "./pages/Inregistrare";
+import SeteazaParola from "./pages/SeteazaParola";
 
 // Lazy-load heavy member pages (each is 200-800 lines)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -121,6 +122,11 @@ function Router() {
           <Apel />
         </SuspenseWrap>
       </Route>
+      {/* Invited trainers / password recovery land here. No guard: the
+          invite link itself carries the session, and the page handles the
+          expired-link case. */}
+      <Route path={"/seteaza-parola"} component={SeteazaParola} />
+      <Route path={"/set-password"} component={SeteazaParola} />
       <Route path={"/login"}>
         <PublicOnly>
           <Login />
@@ -179,6 +185,35 @@ function Router() {
   );
 }
 
+/**
+ * Safety net for invited trainers + password-recovery links. index.html sets a
+ * sessionStorage flag when the load carried an invite/recovery token in the URL
+ * hash. Once the session is established, make sure the user lands on
+ * /seteaza-parola to choose a password — even if Supabase redirected to the
+ * site root because the redirect URL wasn't allow-listed.
+ */
+function PasswordSetupRedirect() {
+  const { session } = useAuth();
+  const [location, navigate] = useLocation();
+  useEffect(() => {
+    if (!session) return;
+    let pending = false;
+    try {
+      pending = sessionStorage.getItem("pw-setup-pending") === "1";
+    } catch {
+      // sessionStorage unavailable — nothing to do
+    }
+    if (
+      pending &&
+      location !== "/seteaza-parola" &&
+      location !== "/set-password"
+    ) {
+      navigate("/seteaza-parola");
+    }
+  }, [session, location, navigate]);
+  return null;
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -187,6 +222,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <Router />
+            <PasswordSetupRedirect />
             <FloatingProgramareCTA />
           </TooltipProvider>
         </AuthProvider>
