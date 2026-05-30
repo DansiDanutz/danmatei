@@ -58,6 +58,7 @@ import {
   type MobileSection,
 } from "@/components/MobileSectionNav";
 import { useIsMobile } from "@/hooks/useMobile";
+import { cn } from "@/lib/utils";
 
 const GroupsTab = lazy(() => import("@/components/admin/GroupsTab"));
 const NewsManager = lazy(() => import("@/components/admin/NewsManager"));
@@ -308,7 +309,7 @@ export default function Admin() {
         className={showMobileHome ? "hidden md:block" : "mt-6"}
       >
         <div className="relative hidden md:block">
-          <TabsList className="flex h-12 w-full justify-start gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x md:h-9">
+          <TabsList className="grid h-auto w-full grid-cols-4 gap-1 rounded-2xl border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 lg:grid-cols-6">
             <Trigger
               value="antrenori"
               tone="cyan"
@@ -473,10 +474,13 @@ const Trigger = ({
   tone?: MobileSection["tone"];
   children: React.ReactNode;
 }) => (
-  <TabsTrigger value={value} className={sectionTriggerClass(tone)}>
-    <span className="inline-flex items-center gap-1.5">
+  <TabsTrigger
+    value={value}
+    className={cn(sectionTriggerClass(tone), "w-full justify-center px-2")}
+  >
+    <span className="inline-flex min-w-0 items-center gap-1.5">
       {icon}
-      {children}
+      <span className="truncate">{children}</span>
     </span>
   </TabsTrigger>
 );
