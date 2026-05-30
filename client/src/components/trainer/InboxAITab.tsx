@@ -1014,7 +1014,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
                     type="button"
                     onClick={() => requestDraft(lead.id)}
                     disabled={draftBusy === lead.id}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-brand-cyan/35 bg-brand-cyan/[0.08] text-brand-cyan px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] transition-colors hover:bg-brand-cyan/15 disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/45 bg-emerald-400/15 px-3 py-1.5 font-heading text-[11px] uppercase tracking-[0.16em] text-emerald-200 transition-colors hover:bg-emerald-400/25 disabled:opacity-60"
                   >
                     {draftBusy === lead.id ? (
                       <Loader2 className="size-3.5 animate-spin" />
