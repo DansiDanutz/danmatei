@@ -109,9 +109,11 @@ export default function SlideShell({
       >
         <Link
           href={ctaHref}
-          className="touch-target group inline-flex max-w-full min-w-0 items-center justify-center gap-2 rounded-full bg-brand-cyan px-5 py-3.5 text-center font-heading text-xs font-semibold uppercase leading-tight tracking-[0.14em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:bg-[oklch(0.82_0.13_220)] xs:px-6 xs:tracking-[0.18em]"
+          className="touch-target group box-border inline-flex max-w-full min-w-0 items-center justify-center gap-2 overflow-hidden rounded-full bg-brand-cyan px-4 py-3.5 text-center font-heading text-[11px] font-semibold uppercase leading-tight tracking-[0.1em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:bg-[oklch(0.82_0.13_220)] xs:px-5 xs:text-xs xs:tracking-[0.14em]"
         >
-          <span className="min-w-0">{ctaLabel}</span>
+          <span className="min-w-0 max-w-full text-center [overflow-wrap:anywhere]">
+            {ctaLabel}
+          </span>
           <ArrowRight className="size-4 shrink-0" />
         </Link>
       </motion.div>
@@ -125,9 +127,11 @@ export default function SlideShell({
       >
         <Link
           href={ctaHref}
-          className="touch-target pointer-events-auto group inline-flex max-w-[calc(100vw-2.5rem)] min-w-0 items-center justify-center gap-2 rounded-full bg-brand-cyan px-6 py-3.5 text-center font-heading text-xs font-semibold uppercase leading-tight tracking-[0.16em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:-translate-y-0.5 hover:bg-[oklch(0.82_0.13_220)] lg:max-w-[calc(100vw-10rem)] lg:tracking-[0.18em]"
+          className="touch-target pointer-events-auto group box-border inline-flex max-w-[calc(100vw-2.5rem)] min-w-0 items-center justify-center gap-2 overflow-hidden rounded-full bg-brand-cyan px-5 py-3.5 text-center font-heading text-xs font-semibold uppercase leading-tight tracking-[0.12em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:-translate-y-0.5 hover:bg-[oklch(0.82_0.13_220)] lg:max-w-[calc(100vw-10rem)] lg:px-6 lg:tracking-[0.16em]"
         >
-          <span className="min-w-0">{ctaLabel}</span>
+          <span className="min-w-0 max-w-full text-center [overflow-wrap:anywhere]">
+            {ctaLabel}
+          </span>
           <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </motion.div>
