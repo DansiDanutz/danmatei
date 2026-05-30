@@ -42,6 +42,7 @@ import { TRAINING_BASES, OTHER_LOCATION } from "@/lib/locations";
 import { Link } from "wouter";
 import { toast } from "sonner";
 import MemberShell from "@/components/MemberShell";
+import CoachingTips from "@/components/trainer/CoachingTips";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { currentAge } from "@/lib/age";
@@ -262,6 +263,10 @@ export default function Antrenor() {
           </div>
         </div>
       </section>
+
+      <div className="mt-6">
+        <CoachingTips recipientId={profile?.id ?? ""} />
+      </div>
 
       <Tabs value={tab} onValueChange={setTab} className="mt-6">
         <TabsList className="relative flex w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x">
