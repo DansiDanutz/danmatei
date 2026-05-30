@@ -27,6 +27,8 @@ import {
   UserCog,
   Users,
   UsersRound,
+  Megaphone,
+  CheckCircle2,
 } from "lucide-react";
 import TrainerAIPanel from "@/components/TrainerAIPanel";
 import AtribuiriTab from "@/components/trainer/AtribuiriTab";
@@ -34,6 +36,9 @@ import InboxAITab from "@/components/trainer/InboxAITab";
 import MatchesTab from "@/components/trainer/MatchesTab";
 import AttendanceTab from "@/components/trainer/AttendanceTab";
 import TrainingRecapDialog from "@/components/trainer/TrainingRecapDialog";
+import ScheduleCalendar from "@/components/trainer/ScheduleCalendar";
+import WeeklyScheduleEditor from "@/components/trainer/WeeklyScheduleEditor";
+import { TRAINING_BASES, OTHER_LOCATION } from "@/lib/locations";
 import { Link } from "wouter";
 import { toast } from "sonner";
 import MemberShell from "@/components/MemberShell";
@@ -88,9 +93,13 @@ type ScheduleRow = {
   kind: "training" | "match" | "tournament" | "other";
   title: string;
   starts_at: string;
+  ends_at: string | null;
   location: string | null;
   opponent: string | null;
   notes: string | null;
+  call_time: string | null;
+  fee_ron: number | null;
+  group_notified_at: string | null;
   recap_md: string | null;
   recap_published_at: string | null;
   cancelled_at: string | null;
@@ -160,7 +169,7 @@ export default function Antrenor() {
         supabase
           .from("schedule_events")
           .select(
-            "id, kind, title, starts_at, location, opponent, notes, recap_md, recap_published_at, cancelled_at, cancelled_reason"
+            "id, kind, title, starts_at, ends_at, location, opponent, notes, call_time, fee_ron, group_notified_at, recap_md, recap_published_at, cancelled_at, cancelled_reason"
           )
           .eq("trainer_id", trainerRow.id)
           .order("starts_at", { ascending: false })
@@ -339,11 +348,25 @@ export default function Antrenor() {
         {/* PROGRAM */}
         <TabsContent value="program" className="mt-5">
           <LazyTab active={tab === "program"}>
-            <div className="grid gap-5 lg:grid-cols-3">
-              <ScheduleForm
+            <div className="space-y-5">
+              <WeeklyScheduleEditor
                 trainerId={trainer.id}
-                onCreated={() => refresh()}
+                onChanged={() => refresh()}
               />
+              <ScheduleCalendar
+                events={schedule.map(e => ({
+                  id: e.id,
+                  kind: e.kind,
+                  title: e.title,
+                  starts_at: e.starts_at,
+                  cancelled_at: e.cancelled_at,
+                }))}
+              />
+              <div className="grid gap-5 lg:grid-cols-3">
+                <ScheduleForm
+                  trainerId={trainer.id}
+                  onCreated={() => refresh()}
+                />
 
               <div className="lg:col-span-2">
                 {schedule.length === 0 && (
@@ -384,6 +407,26 @@ export default function Antrenor() {
                         })}
                         {e.location && ` · ${e.location}`}
                       </p>
+                      {(e.call_time ||
+                        (e.fee_ron != null && e.fee_ron > 0)) && (
+                        <p className="mt-1 font-heading text-[10.5px] uppercase tracking-[0.16em] text-brand-cyan/70">
+                          {e.call_time &&
+                            `Prezență la ${new Date(
+                              e.call_time
+                            ).toLocaleTimeString("ro-RO", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              timeZone: "Europe/Bucharest",
+                            })}`}
+                          {e.call_time &&
+                            e.fee_ron != null &&
+                            e.fee_ron > 0 &&
+                            " · "}
+                          {e.fee_ron != null &&
+                            e.fee_ron > 0 &&
+                            `Taxă ${e.fee_ron} RON`}
+                        </p>
+                      )}
                       {e.notes && (
                         <p className="mt-2 font-body text-sm text-white/70">
                           {e.notes}
@@ -406,7 +449,14 @@ export default function Antrenor() {
 
                       {/* Cancel / Reactivate — only on future events */}
                       {new Date(e.starts_at) > new Date() && (
-                        <div className="mt-3 flex justify-end">
+                        <div className="mt-3 flex flex-wrap justify-end gap-2">
+                          {!e.cancelled_at && (
+                            <NotifyGroupButton
+                              eventId={e.id}
+                              notified={!!e.group_notified_at}
+                              onChanged={() => refresh()}
+                            />
+                          )}
                           <CancelEventButton
                             eventId={e.id}
                             cancelled={!!e.cancelled_at}
@@ -446,6 +496,7 @@ export default function Antrenor() {
                     </article>
                   ))}
                 </div>
+              </div>
               </div>
             </div>
           </LazyTab>
@@ -715,8 +766,9 @@ const scheduleSchema = z.object({
   kind: z.enum(["training", "match", "tournament", "other"]),
   title: z.string().min(2, "Titlu prea scurt").max(120),
   startsAt: z.string().min(1, "Dată/oră"),
-  location: z.string().max(120).optional().or(z.literal("")),
   opponent: z.string().max(120).optional().or(z.literal("")),
+  callTime: z.string().optional().or(z.literal("")),
+  feeRon: z.string().optional().or(z.literal("")),
   notes: z.string().max(500).optional().or(z.literal("")),
 });
 type ScheduleValues = z.infer<typeof scheduleSchema>;
@@ -848,6 +900,89 @@ function CancelEventButton({
   );
 }
 
+// ─── Notify group of an event (trainer's approval) ──────────────────────────
+
+function NotifyGroupButton({
+  eventId,
+  notified,
+  onChanged,
+}: {
+  eventId: string;
+  notified: boolean;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  if (notified) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-300/[0.08] px-3 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.16em] text-emerald-300">
+        <CheckCircle2 className="size-3.5" />
+        Notificat
+      </span>
+    );
+  }
+
+  const send = async () => {
+    setBusy(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        toast.error("Sesiune expirată — autentifică-te din nou.");
+        return;
+      }
+      const r = await fetch("/api/schedule/notify", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ eventId }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean;
+        notified?: number;
+        error?: string;
+      };
+      if (!r.ok || !j.ok) {
+        toast.error("Nu am putut notifica", {
+          description: j.error ?? `HTTP ${r.status}`,
+        });
+        return;
+      }
+      const sent = j.notified ?? 0;
+      toast.success(
+        sent > 0
+          ? `Notificat ${sent} ${sent === 1 ? "părinte" : "părinți"}`
+          : "Trimis (niciun părinte cu copil activ în grupă)"
+      );
+      onChanged();
+    } catch (err) {
+      toast.error("Eroare de rețea", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={send}
+      disabled={busy}
+      className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/20 disabled:opacity-60"
+    >
+      {busy ? (
+        <Loader2 className="size-3.5 animate-spin" />
+      ) : (
+        <Megaphone className="size-3.5" />
+      )}
+      Notifică grupa
+    </button>
+  );
+}
+
 function ScheduleForm({
   trainerId,
   onCreated,
@@ -856,6 +991,8 @@ function ScheduleForm({
   onCreated: () => void;
 }) {
   const [serverError, setServerError] = useState<string | null>(null);
+  const [locChoice, setLocChoice] = useState<string>(TRAINING_BASES[0]);
+  const [customLoc, setCustomLoc] = useState("");
   const {
     register,
     handleSubmit,
@@ -867,16 +1004,26 @@ function ScheduleForm({
     defaultValues: { kind: "training" },
   });
   const kind = watch("kind");
+  const isTraining = kind === "training";
 
   const onSubmit = handleSubmit(async v => {
     setServerError(null);
+    const location =
+      locChoice === OTHER_LOCATION ? customLoc.trim() || null : locChoice;
+    const fee = v.feeRon ? Number(v.feeRon) : null;
     const { error } = await supabase.from("schedule_events").insert({
       trainer_id: trainerId,
       kind: v.kind,
       title: v.title,
       starts_at: new Date(v.startsAt).toISOString(),
-      location: v.location || null,
+      location,
       opponent: v.kind === "match" ? v.opponent || null : null,
+      call_time:
+        v.kind !== "training" && v.callTime
+          ? new Date(v.callTime).toISOString()
+          : null,
+      fee_ron:
+        v.kind !== "training" && fee != null && !Number.isNaN(fee) ? fee : null,
       notes: v.notes || null,
     });
     if (error) {
@@ -884,6 +1031,7 @@ function ScheduleForm({
       return;
     }
     reset({ kind: v.kind });
+    setCustomLoc("");
     onCreated();
   });
 
@@ -937,15 +1085,36 @@ function ScheduleForm({
           className={LOCAL_INPUT_CLS}
         />
       </BrandedField>
-      <BrandedField htmlFor="schedule-location" label="Locație (opțional)" error={errors.location?.message}>
-        <input
+      <div>
+        <label
+          htmlFor="schedule-location"
+          className="mb-1.5 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55"
+        >
+          Locație
+        </label>
+        <select
           id="schedule-location"
-          type="text"
-          {...register("location")}
-          placeholder="Baza Sportivă Mănăștur"
+          value={locChoice}
+          onChange={e => setLocChoice(e.target.value)}
           className={LOCAL_INPUT_CLS}
-        />
-      </BrandedField>
+        >
+          {TRAINING_BASES.map(b => (
+            <option key={b} value={b}>
+              {b}
+            </option>
+          ))}
+          <option value={OTHER_LOCATION}>{OTHER_LOCATION}</option>
+        </select>
+        {locChoice === OTHER_LOCATION && (
+          <input
+            type="text"
+            value={customLoc}
+            onChange={e => setCustomLoc(e.target.value)}
+            placeholder="Scrie locația…"
+            className={`${LOCAL_INPUT_CLS} mt-2`}
+          />
+        )}
+      </div>
       {kind === "match" && (
         <BrandedField htmlFor="schedule-opponent" label="Adversar" error={errors.opponent?.message}>
           <input
@@ -956,6 +1125,37 @@ function ScheduleForm({
             className={LOCAL_INPUT_CLS}
           />
         </BrandedField>
+      )}
+      {!isTraining && (
+        <div className="grid grid-cols-2 gap-3">
+          <BrandedField
+            htmlFor="schedule-call"
+            label="Prezență la (opțional)"
+            error={errors.callTime?.message}
+          >
+            <input
+              id="schedule-call"
+              type="datetime-local"
+              {...register("callTime")}
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
+          <BrandedField
+            htmlFor="schedule-fee"
+            label="Taxă RON (opțional)"
+            error={errors.feeRon?.message}
+          >
+            <input
+              id="schedule-fee"
+              type="number"
+              step="0.01"
+              min="0"
+              {...register("feeRon")}
+              placeholder="0"
+              className={LOCAL_INPUT_CLS}
+            />
+          </BrandedField>
+        </div>
       )}
       <div>
         <label
