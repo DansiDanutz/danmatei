@@ -588,6 +588,14 @@ export default function InboxAITab({ trainerSlug }: Props) {
               Live
             </span>
           )}
+          {rtStatus === "inbox-only" && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.20em] text-white/45"
+              title="Inboxul se actualizează prin API; realtime va porni după aplicarea politicilor RLS și setarea slugurilor de antrenori"
+            >
+              Inbox
+            </span>
+          )}
           {unread > 0 && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/15 border border-brand-cyan/35 px-3 py-1 font-heading text-[11px] uppercase tracking-[0.18em] text-brand-cyan">
               <Sparkles className="size-3.5" />
