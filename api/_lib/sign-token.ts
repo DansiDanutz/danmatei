@@ -16,7 +16,7 @@
  * inputs — they read the env at *call* time so tests can stub it via
  * `vi.stubEnv`.
  */
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 const DEFAULT_TTL_MS = 1000 * 60 * 60 * 24; // 24h
 
@@ -27,6 +27,10 @@ function isProd(): boolean {
   );
 }
 
+export function isLeadLinkSigningConfigured(): boolean {
+  return Boolean(process.env.LEAD_LINK_SIGNING_SECRET) || !isProd();
+}
+
 function resolveSecret(): string {
   const fromEnv = process.env.LEAD_LINK_SIGNING_SECRET;
   if (fromEnv) return fromEnv;
@@ -34,7 +38,7 @@ function resolveSecret(): string {
     throw new Error("LEAD_LINK_SIGNING_SECRET required in production");
   }
   console.warn(
-    "[sign-token] LEAD_LINK_SIGNING_SECRET not set — using dev-only fallback",
+    "[sign-token] LEAD_LINK_SIGNING_SECRET not set — using dev-only fallback"
   );
   return "danmatei-dev-only";
 }
@@ -48,11 +52,10 @@ export interface SignTokenOptions {
 
 export function signToken(leadId: string, opts: SignTokenOptions = {}): string {
   const secret = resolveSecret();
-  const expiresAt = opts.expiresAt ?? Date.now() + (opts.ttlMs ?? DEFAULT_TTL_MS);
+  const expiresAt =
+    opts.expiresAt ?? Date.now() + (opts.ttlMs ?? DEFAULT_TTL_MS);
   const payload = `${leadId}.${expiresAt}`;
-  const sig = createHmac("sha256", secret)
-    .update(payload)
-    .digest("base64url");
+  const sig = createHmac("sha256", secret).update(payload).digest("base64url");
   return `${Buffer.from(payload).toString("base64url")}.${sig}`;
 }
 
@@ -66,10 +69,15 @@ export function verifyToken(token: string): { leadId: string } | null {
   } catch {
     return null;
   }
+  // Use timingSafeEqual so the comparison takes constant time regardless of
+  // how many leading bytes match, preventing a timing-oracle attack on the sig.
   const expected = createHmac("sha256", secret)
     .update(payload)
     .digest("base64url");
-  if (expected !== sig) return null;
+  const sigOk =
+    expected.length === sig.length &&
+    timingSafeEqual(Buffer.from(expected), Buffer.from(sig));
+  if (!sigOk) return null;
   const [leadId, expiresAtStr] = payload.split(".");
   const expiresAt = Number(expiresAtStr);
   if (!leadId || !expiresAt || Date.now() > expiresAt) return null;
