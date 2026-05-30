@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import ProposedMatchesQueue from "./ProposedMatchesQueue";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -125,6 +126,7 @@ export default function MatchesTab({
       .select("id, title, starts_at, location, opponent, notes, group_notified_at")
       .eq("trainer_id", trainerId)
       .eq("kind", "match")
+      .eq("approval_status", "approved")
       .order("starts_at", { ascending: false });
 
     if (evErr) {
@@ -173,18 +175,22 @@ export default function MatchesTab({
 
   if (events.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
-        <Swords className="mx-auto size-8 text-white/20" />
-        <p className="mt-3 font-body text-sm text-white/50">
-          Nu ai meciuri programate încă. Creează un eveniment de tip „Meci” din
-          tab-ul Program, apoi construiește echipa aici.
-        </p>
+      <div className="grid gap-4">
+        <ProposedMatchesQueue trainerId={trainerId} onChanged={load} />
+        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+          <Swords className="mx-auto size-8 text-white/20" />
+          <p className="mt-3 font-body text-sm text-white/50">
+            Nu ai meciuri programate încă. Creează un eveniment de tip „Meci” din
+            tab-ul Program, apoi construiește echipa aici.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="grid gap-4">
+      <ProposedMatchesQueue trainerId={trainerId} onChanged={load} />
       {events.map((ev) => {
         const result = resultsMap.get(ev.id);
         const isEditing = editingEventId === ev.id;

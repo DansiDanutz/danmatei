@@ -42,6 +42,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
 import { currentAge, formatTimelineDate } from "@/lib/age";
 import { useAuth } from "@/lib/auth";
+import TeamMatches from "@/components/player/TeamMatches";
 import {
   computePaymentStatus,
   statusColorClass,
@@ -647,6 +648,13 @@ export default function CopilProfil() {
         </TabsContent>
 
         <TabsContent value="program" className="mt-5">
+          <div className="grid gap-5">
+            <TeamMatches
+              childId={child.id}
+              trainerId={child.trainer_id}
+              parentId={profile?.id ?? ""}
+            />
+            <div>
           {upcoming.length === 0 && (
             <Empty hint="Nu sunt evenimente programate." />
           )}
@@ -660,6 +668,8 @@ export default function CopilProfil() {
                 busy={confirmingId === e.id}
               />
             ))}
+          </div>
+            </div>
           </div>
         </TabsContent>
 
