@@ -97,19 +97,19 @@ test("Cunoaste deck: arrow navigation cycles slides", async ({ page }) => {
     fullPage: true,
   });
 
-  // Detect slide change by reading the text content of the slide region
-  const sigBefore = await page.evaluate(() =>
-    document.body.innerText.slice(0, 600)
-  );
+  const activeDeckSlide = async () =>
+    (await page
+      .locator('footer button[aria-current="true"]')
+      .first()
+      .getAttribute("aria-label")) ?? "";
+  const sigBefore = await activeDeckSlide();
   await next.first().click();
   await page.waitForTimeout(800);
   await page.screenshot({
     path: path.join(SHOTS, "cunoaste-2.png"),
     fullPage: true,
   });
-  const sigAfter1 = await page.evaluate(() =>
-    document.body.innerText.slice(0, 600)
-  );
+  const sigAfter1 = await activeDeckSlide();
   if (sigBefore === sigAfter1) {
     issues.push(
       "/cunoaste: clicking 'Slide-ul următor' did not change visible content"
@@ -122,9 +122,7 @@ test("Cunoaste deck: arrow navigation cycles slides", async ({ page }) => {
     path: path.join(SHOTS, "cunoaste-3.png"),
     fullPage: true,
   });
-  const sigAfter2 = await page.evaluate(() =>
-    document.body.innerText.slice(0, 600)
-  );
+  const sigAfter2 = await activeDeckSlide();
   if (sigAfter1 === sigAfter2) {
     issues.push(
       "/cunoaste: second click of 'Slide-ul următor' did not change visible content"

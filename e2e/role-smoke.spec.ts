@@ -5,15 +5,15 @@ const PASSWORD = "parola123";
 const accounts = {
   owner: {
     email: "dan@scoala-dan-matei.ro",
-    landing: /\/(dashboard|completeaza-profil|admin)/,
+    landing: /\/admin(?:[/?#]|$)/,
   },
   trainer: {
     email: "andrei@scoala-dan-matei.ro",
-    landing: /\/(dashboard|completeaza-profil|antrenor)/,
+    landing: /\/antrenor(?:[/?#]|$)/,
   },
   parent: {
     email: "parinte@example.com",
-    landing: /\/(dashboard|completeaza-profil|copii|copil\/)/,
+    landing: /\/(copii|copil\/|inregistrare\/copil)(?:[/?#]|$)/,
   },
 } as const;
 
@@ -124,6 +124,7 @@ async function loginWithEmail(page: Page, account: keyof typeof accounts) {
   await page.getByPlaceholder("Parolă").fill(PASSWORD);
   await page.getByRole("button", { name: /^Conectează-te$/ }).click();
   await page.waitForURL(accounts[account].landing, { timeout: 15_000 });
+  await page.waitForLoadState("networkidle");
 }
 
 async function logout(page: Page) {
@@ -145,7 +146,6 @@ test.beforeEach(async ({ page }) => {
 test("owner can sign in and every admin tab renders", async ({ page }) => {
   await loginWithEmail(page, "owner");
   const failures = collectPageFailures(page);
-  await page.goto("/admin", { waitUntil: "networkidle" });
 
   await expect(page.getByRole("heading", { name: /admin/i })).toBeVisible();
   await expect(page.getByText("Panou proprietar")).toBeVisible();
@@ -169,7 +169,6 @@ test("owner can sign in and every admin tab renders", async ({ page }) => {
 test("trainer can sign in and every trainer tab renders", async ({ page }) => {
   await loginWithEmail(page, "trainer");
   const failures = collectPageFailures(page);
-  await page.goto("/antrenor", { waitUntil: "networkidle" });
 
   await expect(page.getByText("Panou antrenor")).toBeVisible();
 
@@ -192,7 +191,6 @@ test("trainer can sign in and every trainer tab renders", async ({ page }) => {
 test("parent can sign in and open seeded child profile", async ({ page }) => {
   await loginWithEmail(page, "parent");
   const failures = collectPageFailures(page);
-  await page.goto("/copii", { waitUntil: "networkidle" });
 
   await expect(
     page.getByRole("heading", { name: /copiii tăi/i })
