@@ -51,6 +51,30 @@ type Res = {
   end?: () => void;
 };
 
+type AuthAdminError = { message: string };
+
+type TrainerAuthAdmin = {
+  deleteUser: (
+    userId: string
+  ) => Promise<{ data: unknown; error: AuthAdminError | null }>;
+  inviteUserByEmail: (
+    email: string,
+    options: {
+      data: Record<string, unknown>;
+      redirectTo: string;
+    }
+  ) => Promise<{
+    data: { user: { id?: string } | null };
+    error: AuthAdminError | null;
+  }>;
+};
+
+function trainerAuthAdmin(
+  client: ReturnType<typeof serviceClient>
+): TrainerAuthAdmin {
+  return (client.auth as unknown as { admin: TrainerAuthAdmin }).admin;
+}
+
 export default async function handler(req: Req, res: Res) {
   if (req.method !== "POST" && req.method !== "DELETE") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -84,6 +108,7 @@ export default async function handler(req: Req, res: Res) {
     return res.status(403).json({ error: "Owner role required" });
 
   const svc = serviceClient();
+  const authAdmin = trainerAuthAdmin(svc);
 
   // ── DELETE: remove a trainer entirely. Deleting the auth user cascades
   //    profiles → trainers; the trainer's children/groups are unassigned
@@ -97,7 +122,7 @@ export default async function handler(req: Req, res: Res) {
         .status(400)
         .json({ error: "Invalid body", issues: del.error.issues });
     }
-    const result = await svc.auth.admin.deleteUser(del.data.profileId);
+    const result = await authAdmin.deleteUser(del.data.profileId);
     if (result.error) {
       const msg = result.error.message || "Delete failed";
       const isFk = /foreign key|violat|constraint|23503/i.test(msg);
@@ -131,7 +156,7 @@ export default async function handler(req: Req, res: Res) {
   // 1. Invite the user via Supabase Auth — this creates the auth.users row
   //    and emails them a setup link. The trigger on auth.users creates the
   //    fotbal.profiles row because we set raw_user_meta_data.app='fotbal'.
-  const invite = await svc.auth.admin.inviteUserByEmail(v.email, {
+  const invite = await authAdmin.inviteUserByEmail(v.email, {
     data: {
       app: "fotbal",
       role: "trainer",
