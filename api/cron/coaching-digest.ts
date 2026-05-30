@@ -49,6 +49,7 @@ type GeneratedTip = {
   body: string;
   source: string;
   theme: string;
+  fromAi: boolean;
 };
 
 const AI_TIMEOUT_MS = 6000;
@@ -185,6 +186,7 @@ export default async function handler(req: Req, res: Res) {
         title: ai?.title || seed.title,
         body: ai?.body || seed.body,
         source: ai?.source || seed.source,
+        fromAi: !!ai,
       };
     })
   );
@@ -224,12 +226,17 @@ export default async function handler(req: Req, res: Res) {
     );
   }
 
+  // Honest reporting: aiGenerated = tips the LLM actually produced;
+  // fromLibrary = curated fallbacks (LLM off, timed out, errored, or unparseable).
+  const aiGenerated = tips.filter((t) => t.fromAi).length;
   return res.status(200).json({
     ok: true,
     date: todayStr,
     recipients: recipients.length,
     delivered: tips.length,
     skipped: recipients.length - tips.length,
-    aiUsed: aiOn,
+    aiConfigured: aiOn,
+    aiGenerated,
+    fromLibrary: tips.length - aiGenerated,
   });
 }
