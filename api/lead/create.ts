@@ -16,7 +16,7 @@ import { z } from "zod";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { serviceClient } from "../_lib/supabase.js";
 import { sendWhatsappText } from "../_lib/whatsapp.js";
-import { signToken } from "../_lib/sign-token.js";
+import { isLeadLinkSigningConfigured, signToken } from "../_lib/sign-token.js";
 
 const Body = z.object({
   parentName: z.string().trim().min(2).max(120),
@@ -39,13 +39,62 @@ type Res = {
   json: (body: unknown) => Res;
 };
 
-const PUBLIC_BASE_URL =
-  process.env.PUBLIC_BASE_URL ?? "https://danmatei.vercel.app";
+const DEFAULT_PUBLIC_BASE_URL = "https://danmatei.vercel.app";
 
-function trainerForAge(age: number): string {
+function readHeader(req: Req, key: string): string | undefined {
+  const value = req.headers?.[key.toLowerCase()] ?? req.headers?.[key];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function publicBaseUrl(req: Req): string {
+  const configured = process.env.PUBLIC_BASE_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+
+  const rawHost =
+    readHeader(req, "x-forwarded-host") ?? readHeader(req, "host");
+  if (!rawHost) return DEFAULT_PUBLIC_BASE_URL;
+
+  const host = rawHost.split(",")[0].trim();
+  const rawProto = readHeader(req, "x-forwarded-proto");
+  const proto =
+    rawProto?.split(",")[0].trim() ||
+    (host.startsWith("localhost") || host.startsWith("127.")
+      ? "http"
+      : "https");
+
+  try {
+    return new URL(`${proto}://${host}`).origin;
+  } catch {
+    return DEFAULT_PUBLIC_BASE_URL;
+  }
+}
+
+/** Hardcoded fallback used only when trainers.slug has not been populated. */
+function trainerForAgeFallback(age: number): string {
   if (age >= 5 && age <= 9) return "t-sopi";
   if (age >= 10 && age <= 13) return "t-kelemen";
   return "t-dan";
+}
+
+/**
+ * Return the slug of the active trainer whose age band covers childAge.
+ * Calls trainer_slug_for_age() (from migration 0026) so routing follows the
+ * real trainer table instead of hardcoded ranges.  Falls back to the legacy
+ * heuristic when no trainer has a slug set yet (initial deploy, new academy).
+ */
+async function trainerForAge(
+  supabase: ReturnType<typeof serviceClient>,
+  childAge: number,
+): Promise<string> {
+  try {
+    const { data } = await supabase.rpc("trainer_slug_for_age", {
+      p_age: childAge,
+    });
+    if (typeof data === "string" && data.length > 0) return data;
+  } catch {
+    // Fall through to heuristic on any error (e.g. migration not yet applied).
+  }
+  return trainerForAgeFallback(childAge);
 }
 
 function normalizePhone(input: string): string {
@@ -59,8 +108,8 @@ function normalizePhone(input: string): string {
   return `+${stripped.replace(/^0+/, "")}`;
 }
 
-function callLink(leadId: string): string {
-  return `${PUBLIC_BASE_URL}/apel/${signToken(leadId)}`;
+function callLink(leadId: string, baseUrl: string): string {
+  return `${baseUrl}/apel/${signToken(leadId)}`;
 }
 
 function whatsappCopy(parentName: string, childName: string, link: string) {
@@ -81,19 +130,23 @@ function whatsappCopy(parentName: string, childName: string, link: string) {
 
 async function tryEvolution(
   to: string,
-  body: string,
+  body: string
 ): Promise<{ sent: boolean; messageId?: string; reason?: string }> {
   const base = process.env.EVOLUTION_API_URL;
   const key = process.env.EVOLUTION_API_KEY;
   const instance = process.env.EVOLUTION_API_INSTANCE;
-  if (!base || !key || !instance) return { sent: false, reason: "evolution_not_configured" };
+  if (!base || !key || !instance)
+    return { sent: false, reason: "evolution_not_configured" };
 
   try {
-    const r = await fetch(`${base.replace(/\/$/, "")}/message/sendText/${instance}`, {
-      method: "POST",
-      headers: { "content-type": "application/json", apikey: key },
-      body: JSON.stringify({ number: to.replace(/^\+/, ""), text: body }),
-    });
+    const r = await fetch(
+      `${base.replace(/\/$/, "")}/message/sendText/${instance}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", apikey: key },
+        body: JSON.stringify({ number: to.replace(/^\+/, ""), text: body }),
+      }
+    );
     if (!r.ok) return { sent: false, reason: `evolution_${r.status}` };
     const json = (await r.json()) as { key?: { id?: string } };
     return { sent: true, messageId: json.key?.id };
@@ -114,15 +167,22 @@ export default async function handler(req: Req, res: Res) {
   if (!parsed.success) {
     return res.status(400).json({
       error: "invalid_body",
-      issues: parsed.error.issues.map((i) => ({
+      issues: parsed.error.issues.map(i => ({
         path: i.path,
         message: i.message,
       })),
     });
   }
   const input = parsed.data;
+
+  if (!isLeadLinkSigningConfigured()) {
+    return res.status(503).json({
+      error: "lead_link_signing_unavailable",
+      message: "LEAD_LINK_SIGNING_SECRET is required in production.",
+    });
+  }
+
   const phoneE164 = normalizePhone(input.parentPhone);
-  const trainerId = trainerForAge(input.childAge);
 
   let supabase;
   try {
@@ -134,6 +194,10 @@ export default async function handler(req: Req, res: Res) {
       message: err instanceof Error ? err.message : "service unavailable",
     });
   }
+
+  // Route to the trainer whose DB age band covers this child. Falls back to
+  // the hardcoded heuristic until trainer slugs are seeded (migration 0026).
+  const trainerId = await trainerForAge(supabase, input.childAge);
 
   // Per-phone rate limit: reject if the same phone has already created 5+
   // leads in the last hour. Uses the existing leads table — no new schema.
@@ -179,7 +243,7 @@ export default async function handler(req: Req, res: Res) {
   }
 
   const leadId = leadRow.id as string;
-  const link = callLink(leadId);
+  const link = callLink(leadId, publicBaseUrl(req));
   const message = whatsappCopy(input.parentName, input.childName, link);
 
   // Prefer Evolution API (open source); fall back to Meta Cloud API.
