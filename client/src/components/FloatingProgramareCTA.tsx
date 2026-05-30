@@ -34,7 +34,7 @@ export default function FloatingProgramareCTA() {
     <a
       href="/programare"
       aria-label="Vorbește cu un consilier acum"
-      className={`fixed right-4 z-[60] inline-flex min-h-[44px] max-w-[calc(100vw-2rem)] min-w-0 items-center justify-center gap-2 rounded-full bg-brand-cyan px-4 py-3 text-center font-heading text-[11px] font-semibold uppercase leading-tight tracking-[0.12em] text-[oklch(0.08_0.02_250)] shadow-[0_0_0_1px_oklch(0.78_0.13_210/0.7),0_18px_40px_-10px_oklch(0.78_0.13_210/0.55),0_0_60px_-15px_oklch(0.78_0.13_210/0.6)] transition-all duration-300 sm:right-6 sm:max-w-[calc(100vw-3rem)] sm:px-5 sm:py-3.5 sm:text-xs sm:tracking-[0.14em] ${
+      className={`fixed right-3 z-[60] box-border inline-flex min-h-[44px] max-w-[calc(100vw-1.5rem)] min-w-0 items-center justify-center gap-2 overflow-hidden rounded-full bg-brand-cyan px-3.5 py-3 text-center font-heading text-[10.5px] font-semibold uppercase leading-tight tracking-[0.08em] text-[oklch(0.08_0.02_250)] shadow-[0_0_0_1px_oklch(0.78_0.13_210/0.7),0_18px_40px_-10px_oklch(0.78_0.13_210/0.55),0_0_60px_-15px_oklch(0.78_0.13_210/0.6)] transition-all duration-300 sm:right-6 sm:max-w-[calc(100vw-3rem)] sm:px-5 sm:py-3.5 sm:text-xs sm:tracking-[0.12em] ${
         onCunoaste ? "bottom-28 lg:bottom-24" : "bottom-20 sm:bottom-6"
       } ${
         show
@@ -47,7 +47,9 @@ export default function FloatingProgramareCTA() {
         className="size-2 shrink-0 rounded-full bg-[oklch(0.08_0.02_250)] animate-pulse"
       />
       <PhoneCall className="size-4 shrink-0" />
-      <span className="min-w-0 whitespace-nowrap">Programare</span>
+      <span className="min-w-0 max-w-full text-center [overflow-wrap:anywhere]">
+        Programare
+      </span>
     </a>
   );
 }
