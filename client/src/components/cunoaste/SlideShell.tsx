@@ -109,10 +109,10 @@ export default function SlideShell({
       >
         <Link
           href={ctaHref}
-          className="touch-target group inline-flex items-center gap-3 rounded-full bg-brand-cyan px-6 py-3.5 font-heading text-xs font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:bg-[oklch(0.82_0.13_220)]"
+          className="touch-target group inline-flex max-w-full min-w-0 items-center justify-center gap-2 rounded-full bg-brand-cyan px-5 py-3.5 text-center font-heading text-xs font-semibold uppercase leading-tight tracking-[0.14em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:bg-[oklch(0.82_0.13_220)] xs:px-6 xs:tracking-[0.18em]"
         >
-          {ctaLabel}
-          <ArrowRight className="size-4" />
+          <span className="min-w-0">{ctaLabel}</span>
+          <ArrowRight className="size-4 shrink-0" />
         </Link>
       </motion.div>
 
@@ -125,10 +125,10 @@ export default function SlideShell({
       >
         <Link
           href={ctaHref}
-          className="touch-target pointer-events-auto group inline-flex items-center gap-3 rounded-full bg-brand-cyan px-6 py-3.5 font-heading text-xs font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:-translate-y-0.5 hover:bg-[oklch(0.82_0.13_220)]"
+          className="touch-target pointer-events-auto group inline-flex max-w-[calc(100vw-2.5rem)] min-w-0 items-center justify-center gap-2 rounded-full bg-brand-cyan px-6 py-3.5 text-center font-heading text-xs font-semibold uppercase leading-tight tracking-[0.16em] text-[oklch(0.08_0.02_250)] shadow-[0_10px_40px_-8px_oklch(0.75_0.12_230/0.6)] transition-all hover:-translate-y-0.5 hover:bg-[oklch(0.82_0.13_220)] lg:max-w-[calc(100vw-10rem)] lg:tracking-[0.18em]"
         >
-          {ctaLabel}
-          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+          <span className="min-w-0">{ctaLabel}</span>
+          <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </motion.div>
     </section>
