@@ -89,7 +89,7 @@ async function aiTip(
 
   try {
     const text = await Promise.race([
-      generateText({ system, user, maxTokens: 320, temperature: 0.75 }),
+      generateText({ system, user, maxTokens: 600, temperature: 0.75 }),
       new Promise<string>((_, reject) =>
         setTimeout(() => reject(new Error("ai_timeout")), AI_TIMEOUT_MS)
       ),
