@@ -22,6 +22,7 @@ import {
   CheckCheck,
   Clock,
   EyeOff,
+  FileText,
   Loader2,
   MessageCircle,
   Phone,
@@ -40,11 +41,19 @@ type LeadCallSummary = {
   id: string;
   duration_seconds: number | null;
   summary: string | null;
+  transcript: TranscriptTurn[] | null;
   intent: string | null;
   next_steps: string[] | null;
   recording_url: string | null;
   status: string;
   created_at: string;
+};
+
+type TranscriptTurn = {
+  role: "agent" | "parent" | "system" | string;
+  text: string;
+  started_at_ms?: number | null;
+  ended_at_ms?: number | null;
 };
 
 type Lead = {
@@ -97,6 +106,30 @@ function formatDuration(s: number | null | undefined): string {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
+function transcriptTurns(
+  turns: LeadCallSummary["transcript"],
+): TranscriptTurn[] {
+  if (!Array.isArray(turns)) return [];
+  return turns.filter(
+    turn => typeof turn?.text === "string" && turn.text.trim().length > 0,
+  );
+}
+
+function transcriptRoleLabel(role: TranscriptTurn["role"]): string {
+  if (role === "agent") return "Andra AI";
+  if (role === "parent") return "Părinte";
+  if (role === "system") return "Sistem";
+  return role;
+}
+
+function transcriptTime(ms: number | null | undefined): string | null {
+  if (typeof ms !== "number" || !Number.isFinite(ms)) return null;
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${minutes}:${rest.toString().padStart(2, "0")}`;
 }
 
 type StatusFilter = "all" | "new" | "contacted" | "closed";
@@ -781,6 +814,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
                 tone: "muted" as const,
               })
             : null;
+          const transcript = transcriptTurns(lead.latestCall?.transcript ?? null);
           const toneClass = (t: "cyan" | "gold" | "muted") =>
             t === "cyan"
               ? "bg-brand-cyan/15 border-brand-cyan/40 text-brand-cyan"
@@ -882,6 +916,64 @@ export default function InboxAITab({ trainerSlug }: Props) {
                       ))}
                     </ul>
                   ) : null}
+
+                  <div className="mt-4 border-t border-white/8 pt-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <FileText className="size-3.5 text-brand-cyan" />
+                      <span className="font-heading text-[10px] uppercase tracking-[0.2em] text-brand-cyan">
+                        Transcript conversație
+                      </span>
+                      <span className="font-mono text-[10px] text-white/40">
+                        {transcript.length
+                          ? `${transcript.length} replici`
+                          : "indisponibil"}
+                      </span>
+                    </div>
+
+                    {transcript.length ? (
+                      <ol className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+                        {transcript.map((turn, i) => {
+                          const isAgent = turn.role === "agent";
+                          const time = transcriptTime(turn.started_at_ms);
+                          return (
+                            <li
+                              key={`${turn.role}-${i}-${turn.started_at_ms ?? "x"}`}
+                              className={`rounded-xl border px-3 py-2 ${
+                                isAgent
+                                  ? "border-brand-cyan/25 bg-brand-cyan/[0.06]"
+                                  : "border-white/10 bg-black/25"
+                              }`}
+                            >
+                              <div className="mb-1 flex items-center gap-2">
+                                <span
+                                  className={`font-heading text-[10px] uppercase tracking-[0.16em] ${
+                                    isAgent
+                                      ? "text-brand-cyan"
+                                      : "text-white/55"
+                                  }`}
+                                >
+                                  {transcriptRoleLabel(turn.role)}
+                                </span>
+                                {time && (
+                                  <span className="font-mono text-[10px] text-white/35">
+                                    {time}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="whitespace-pre-wrap font-body text-[13px] leading-relaxed text-white/85">
+                                {turn.text}
+                              </p>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    ) : (
+                      <p className="mt-2 rounded-lg border border-white/8 bg-black/20 px-3 py-2 font-body text-xs leading-relaxed text-white/55">
+                        Nu există transcript complet pentru acest apel încă.
+                        Rezumatul și înregistrarea rămân disponibile.
+                      </p>
+                    )}
+                  </div>
                 </section>
               )}
 

@@ -158,6 +158,7 @@ export default async function handler(req: Req, res: Res) {
         id,
         duration_seconds,
         summary,
+        transcript,
         intent,
         next_steps,
         recording_url,

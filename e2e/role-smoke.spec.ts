@@ -66,6 +66,50 @@ function analyticsPayload() {
   };
 }
 
+function leadInboxPayload() {
+  const now = new Date().toISOString();
+  return {
+    ok: true,
+    items: [
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        parent_name: "Maria Pop",
+        parent_phone_e164: "+40700000000",
+        child_name: "Alex Pop",
+        child_age: 8,
+        child_position: "atacant",
+        status: "routed",
+        assigned_trainer_id: "t-sopi",
+        cc_trainer_ids: ["t-dan"],
+        snoozed_until: null,
+        created_at: now,
+        latestCall: {
+          id: "22222222-2222-4222-8222-222222222222",
+          duration_seconds: 95,
+          summary: "Părintele vrea un antrenament de probă pentru Alex.",
+          transcript: [
+            {
+              role: "agent",
+              text: "Bună, sunt Andra de la Academia Dan Matei.",
+              started_at_ms: 0,
+            },
+            {
+              role: "parent",
+              text: "Bună, vreau să înscriu copilul la fotbal.",
+              started_at_ms: 3200,
+            },
+          ],
+          intent: "register",
+          next_steps: ["Sună părintele și propune un antrenament de probă."],
+          recording_url: null,
+          status: "completed",
+          created_at: now,
+        },
+      },
+    ],
+  };
+}
+
 async function installApiMocks(page: Page, unexpectedApiCalls: string[]) {
   await page.route("**/api/**", async (route: Route) => {
     const url = new URL(route.request().url());
@@ -85,7 +129,7 @@ async function installApiMocks(page: Page, unexpectedApiCalls: string[]) {
       return;
     }
     if (url.pathname === "/api/lead/list") {
-      await json({ ok: true, items: [] });
+      await json(leadInboxPayload());
       return;
     }
 
@@ -157,6 +201,13 @@ test("owner can sign in and every admin tab renders", async ({ page }) => {
       "true"
     );
     await expect(page.locator('[role="tabpanel"]:visible')).toBeVisible();
+
+    if (tab === "Lead-uri") {
+      await expect(page.getByText("Transcript conversație")).toBeVisible();
+      await expect(
+        page.getByText("Bună, vreau să înscriu copilul la fotbal.")
+      ).toBeVisible();
+    }
   }
 
   const unexpectedApiCalls =
