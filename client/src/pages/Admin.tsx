@@ -21,6 +21,7 @@ import {
   Bell,
   Calendar,
   Check,
+  Inbox,
   Loader2,
   Newspaper,
   Pencil,
@@ -49,6 +50,7 @@ import CoachingTips from "@/components/trainer/CoachingTips";
 import NotificationManager from "@/components/admin/NotificationManager";
 import AtRiskTab from "@/components/admin/AtRiskTab";
 import LeadAnalyticsTab from "@/components/admin/LeadAnalyticsTab";
+import InboxAITab from "@/components/trainer/InboxAITab";
 import PaymentsTab from "@/components/admin/PaymentsTab";
 import { BrandedField } from "@/components/ui/branded-field";
 
@@ -165,6 +167,9 @@ export default function Admin() {
           <Trigger value="funnel" icon={<TrendingUp className="size-3.5" />}>
             Funnel
           </Trigger>
+          <Trigger value="lead-uri" icon={<Inbox className="size-3.5" />}>
+            Lead-uri
+          </Trigger>
           <Trigger value="stiri" icon={<Tag className="size-3.5" />}>
             Știri
           </Trigger>
@@ -217,6 +222,11 @@ export default function Admin() {
         <TabsContent value="funnel" className="mt-5">
           <LazyTab active={tab === "funnel"}>
             <LeadAnalyticsTab />
+          </LazyTab>
+        </TabsContent>
+        <TabsContent value="lead-uri" className="mt-5">
+          <LazyTab active={tab === "lead-uri"}>
+            <InboxAITab trainerSlug={null} />
           </LazyTab>
         </TabsContent>
         <TabsContent value="stiri" className="mt-5">

@@ -66,12 +66,9 @@ function readAuthHeader(req: Req): string {
   );
 }
 
-function trainerSlugForAgeRange(ageMin: number, ageMax: number): string {
-  const mid = (ageMin + ageMax) / 2;
-  if (mid <= 9) return "t-sopi";
-  if (mid <= 13) return "t-kelemen";
-  return "t-dan";
-}
+// Lead visibility is by the trainer's real [age_min, age_max] range (see the
+// handler) — not a hardcoded slug. The old slug map dropped 14+ leads because
+// no active trainer's midpoint landed in the "t-dan" band.
 
 export default async function handler(req: Req, res: Res) {
   if (req.method !== "GET") {
@@ -123,9 +120,9 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
-  // For trainers, derive the routing slug from their own profile. Owners and
-  // super_admins skip this step and see every routed lead.
-  let trainerSlug: string | null = null;
+  // Trainers see leads whose child falls within their OWN age range; owners /
+  // super_admins see every lead.
+  let ageRange: { min: number; max: number } | null = null;
   if (role === "trainer") {
     const { data: trainer, error: trainerErr } = await supabase
       .from("trainers")
@@ -136,10 +133,7 @@ export default async function handler(req: Req, res: Res) {
     if (trainerErr || !trainer) {
       return res.status(403).json({ error: "trainer_profile_required" });
     }
-    trainerSlug = trainerSlugForAgeRange(
-      Number(trainer.age_min),
-      Number(trainer.age_max),
-    );
+    ageRange = { min: Number(trainer.age_min), max: Number(trainer.age_max) };
   }
 
   // Pull leads — trainers see only their slug; owner/super_admin see all
@@ -175,13 +169,10 @@ export default async function handler(req: Req, res: Res) {
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (trainerSlug) {
-    q = q.or(
-      `assigned_trainer_id.eq.${trainerSlug},cc_trainer_ids.cs.{${trainerSlug}}`,
-    );
-  } else {
-    q = q.not("assigned_trainer_id", "is", null);
+  if (ageRange) {
+    q = q.gte("child_age", ageRange.min).lte("child_age", ageRange.max);
   }
+  // owner / super_admin: no filter — every lead.
 
   const { data, error } = await q;
   if (error) {
@@ -201,7 +192,6 @@ export default async function handler(req: Req, res: Res) {
 
   return res.status(200).json({
     ok: true,
-    trainerSlug,
     items,
     count: items.length,
   });

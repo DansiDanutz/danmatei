@@ -121,18 +121,13 @@ export default async function handler(req: Req, res: Res) {
   ]);
   if (!prof) return res.status(401).json({ error: "no_profile" });
 
-  // Map age range → slug (mirrors api/lead/create.ts)
-  let trainerSlug: string | null = null;
-  if (trainer) {
-    const mid = (trainer.age_min + trainer.age_max) / 2;
-    trainerSlug = mid <= 9 ? "t-sopi" : mid <= 13 ? "t-kelemen" : "t-dan";
-  }
-  if (prof.role === "owner" || prof.role === "super_admin") trainerSlug = "t-dan";
+  // Authorization is by the trainer's real [age_min, age_max] range (below),
+  // not a slug — so a trainer can act on exactly the leads they can see.
 
   // Fetch all targeted leads in one query and authorize per-row.
   const { data: leads, error: leadErr } = await supabase
     .from("leads")
-    .select("id, assigned_trainer_id, cc_trainer_ids")
+    .select("id, child_age, assigned_trainer_id, cc_trainer_ids")
     .in("id", targetIds);
   if (leadErr) {
     return res.status(500).json({ error: "fetch_failed", detail: leadErr.message });
@@ -144,9 +139,9 @@ export default async function handler(req: Req, res: Res) {
   for (const lead of leads ?? []) {
     const ok =
       isAdmin ||
-      (trainerSlug != null &&
-        (lead.assigned_trainer_id === trainerSlug ||
-          (lead.cc_trainer_ids ?? []).includes(trainerSlug)));
+      (trainer != null &&
+        Number(lead.child_age) >= Number(trainer.age_min) &&
+        Number(lead.child_age) <= Number(trainer.age_max));
     if (ok) allowed.push(lead.id as string);
     else denied.push(lead.id as string);
   }
@@ -179,7 +174,7 @@ export default async function handler(req: Req, res: Res) {
     if (latestCall) {
       const existing = (latestCall.summary as string | null) ?? "";
       const stamp = new Date().toLocaleString("ro-RO");
-      const appended = `\n\n—\n[${stamp} · ${trainerSlug}]\n${note}`;
+      const appended = `\n\n—\n[${stamp} · ${isAdmin ? "admin" : "antrenor"}]\n${note}`;
       let joined = existing ? `${existing}${appended}` : note;
       // Cap the summary at 16 KB so a trainer can't grow lead_calls.summary
       // unboundedly. Truncate from the FRONT of existing so the newest

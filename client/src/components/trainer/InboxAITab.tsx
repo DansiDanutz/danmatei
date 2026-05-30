@@ -500,7 +500,7 @@ export default function InboxAITab({ trainerSlug }: Props) {
 
   const waLinkFor = (lead: Lead): string => {
     const phone = lead.parent_phone_e164.replace(/^\+/, "");
-    const opener = `Bună, ${lead.parent_name}! 👋 Sunt antrenorul ${lead.child_name} (${lead.child_age} ani) de la Academia Dan Matei. Am ascultat apelul tău și aș vrea să stabilim primul antrenament.`;
+    const opener = `Bună, ${lead.parent_name}! 👋 Vă scriu de la Academia de Fotbal Dan Matei în legătură cu ${lead.child_name} (${lead.child_age} ani). Am primit mesajul tău și aș vrea să stabilim un prim antrenament. Când v-ar fi mai ușor?`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(opener)}`;
   };
 
@@ -524,8 +524,10 @@ export default function InboxAITab({ trainerSlug }: Props) {
             <span className="text-gradient-cyan">AI</span>
           </h2>
           <p className="mt-1 text-sm text-white/60">
-            Părinți care au contactat academia prin agentul AI. Te-am pus ca
-            destinatar al transcrierilor pentru grupa ta.
+            Părinți care au contactat academia prin agentul AI.{" "}
+            {trainerSlug
+              ? "Vezi transcrierile pentru grupa ta de vârstă."
+              : "Vezi toate lead-urile academiei."}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">

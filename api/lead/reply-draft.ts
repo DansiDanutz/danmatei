@@ -141,13 +141,7 @@ export default async function handler(req: Req, res: Res) {
   ]);
   if (!prof) return res.status(401).json({ error: "no_profile" });
 
-  let trainerSlug: string | null = null;
-  if (trainerRow) {
-    const mid = (trainerRow.age_min + trainerRow.age_max) / 2;
-    trainerSlug = mid <= 9 ? "t-sopi" : mid <= 13 ? "t-kelemen" : "t-dan";
-  }
-  if (prof.role === "owner" || prof.role === "super_admin")
-    trainerSlug = "t-dan";
+  // Authorization is by the trainer's real [age_min, age_max] range (below).
 
   // Lead + latest completed call
   const { data: lead, error: leadErr } = await supabase
@@ -162,11 +156,11 @@ export default async function handler(req: Req, res: Res) {
   }
 
   const isAdmin = prof.role === "owner" || prof.role === "super_admin";
-  const isAssigned =
-    trainerSlug != null &&
-    (lead.assigned_trainer_id === trainerSlug ||
-      ((lead.cc_trainer_ids as string[]) ?? []).includes(trainerSlug));
-  if (!isAdmin && !isAssigned) {
+  const inRange =
+    trainerRow != null &&
+    Number(lead.child_age) >= Number(trainerRow.age_min) &&
+    Number(lead.child_age) <= Number(trainerRow.age_max);
+  if (!isAdmin && !inRange) {
     return res.status(403).json({ error: "forbidden" });
   }
 
