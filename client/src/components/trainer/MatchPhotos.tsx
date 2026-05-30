@@ -1,13 +1,15 @@
 /**
- * MatchPhotos — the per-match photo archive + the 24h post-match upload window.
+ * MatchPhotos — the per-match media archive + the 24h post-match upload window.
  *
  * After a match has a final score, any group member (squad/group parents,
- * trainer, owner) can add photos for 24 hours; afterwards the gallery stays as
- * the group's archive. Photos live in the private bucket and are shown via
- * short-lived signed URLs served by /api/match/photos (they never go public).
+ * trainer, owner) can add photos or short video clips for 24 hours; afterwards
+ * the gallery stays as the group's archive. Media lives in the private bucket
+ * and is shown via short-lived signed URLs served by /api/match/photos (the
+ * files are of minors — they never go public).
  *
  * The 24h window + membership are enforced server-side by add_match_photo; the
- * countdown here is only a UX hint.
+ * countdown here is only a UX hint. The server casts p_kind to fotbal.media_kind
+ * and rejects anything other than 'image'/'video'.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, ImageIcon, Loader2, Clock } from "lucide-react";
@@ -15,14 +17,18 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
 const BUCKET = "fotbal-media-private";
+// Keep clips short — the bucket holds footage of minors and signed URLs are 4h.
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
 
-type Photo = {
+type MediaItem = {
   id: string;
   url: string;
   mime: string | null;
   createdAt: string;
   mine: boolean;
 };
+
+const isVideoMime = (mime: string | null): boolean => !!mime?.startsWith("video/");
 
 async function bearer(): Promise<string> {
   const { data } = await supabase.auth.getSession();
@@ -39,7 +45,7 @@ function hoursLeft(iso: string | null): string | null {
 }
 
 export default function MatchPhotos({ eventId }: { eventId: string }) {
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photos, setPhotos] = useState<MediaItem[]>([]);
   const [canUpload, setCanUpload] = useState(false);
   const [windowEndsAt, setWindowEndsAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +61,7 @@ export default function MatchPhotos({ eventId }: { eventId: string }) {
       return;
     }
     const j = (await r.json()) as {
-      photos: Photo[];
+      photos: MediaItem[];
       canUpload: boolean;
       windowEndsAt: string | null;
     };
@@ -81,13 +87,21 @@ export default function MatchPhotos({ eventId }: { eventId: string }) {
     setUploading(true);
     let ok = 0;
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) {
-        toast.error(`${file.name}: doar imagini.`);
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      if (!isImage && !isVideo) {
+        toast.error(`${file.name}: doar imagini sau clipuri video.`);
         continue;
       }
+      if (isVideo && file.size > MAX_VIDEO_BYTES) {
+        toast.error(`${file.name}: clipul depășește 50 MB.`);
+        continue;
+      }
+      const fallbackExt = isVideo ? "mp4" : "jpg";
       const ext =
-        (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") ||
-        "jpg";
+        (file.name.split(".").pop() || fallbackExt)
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "") || fallbackExt;
       const path = `${user.id}/match/${eventId}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from(BUCKET)
@@ -101,6 +115,7 @@ export default function MatchPhotos({ eventId }: { eventId: string }) {
         p_path: path,
         p_mime: file.type,
         p_bytes: file.size,
+        p_kind: isVideo ? "video" : "image",
       });
       if (rpcErr) {
         // Don't leave an orphan object if the DB rejected the upload.
@@ -117,7 +132,7 @@ export default function MatchPhotos({ eventId }: { eventId: string }) {
     setUploading(false);
     if (inputRef.current) inputRef.current.value = "";
     if (ok > 0) {
-      toast.success(`${ok} ${ok === 1 ? "poză adăugată" : "poze adăugate"}`);
+      toast.success(`${ok} ${ok === 1 ? "fișier adăugat" : "fișiere adăugate"}`);
       await load();
     }
   };
@@ -132,7 +147,7 @@ export default function MatchPhotos({ eventId }: { eventId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="flex items-center gap-1.5 font-heading text-[10px] uppercase tracking-[0.16em] text-white/55">
           <ImageIcon className="size-3.5 text-brand-cyan" />
-          Poze ({photos.length})
+          Media ({photos.length})
         </h4>
         {canUpload && (
           <div className="flex items-center gap-2">
@@ -153,12 +168,12 @@ export default function MatchPhotos({ eventId }: { eventId: string }) {
               ) : (
                 <Camera className="size-3" />
               )}
-              Adaugă poze
+              Adaugă media
             </button>
             <input
               ref={inputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               multiple
               className="hidden"
               onChange={(e) => onPick(e.target.files)}
@@ -169,26 +184,41 @@ export default function MatchPhotos({ eventId }: { eventId: string }) {
 
       {photos.length === 0 ? (
         <p className="mt-2 font-body text-xs text-white/40">
-          Fii primul care adaugă poze de la acest meci.
+          Fii primul care adaugă poze sau clipuri video de la acest meci.
         </p>
       ) : (
         <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {photos.map((p) => (
-            <a
-              key={p.id}
-              href={p.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]"
-            >
-              <img
-                src={p.url}
-                alt="Poză meci"
-                loading="lazy"
-                className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-            </a>
-          ))}
+          {photos.map((p) =>
+            isVideoMime(p.mime) ? (
+              <div
+                key={p.id}
+                className="relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-black"
+              >
+                <video
+                  src={p.url}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="size-full object-cover"
+                />
+              </div>
+            ) : (
+              <a
+                key={p.id}
+                href={p.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]"
+              >
+                <img
+                  src={p.url}
+                  alt="Poză meci"
+                  loading="lazy"
+                  className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </a>
+            )
+          )}
         </div>
       )}
     </div>
