@@ -129,3 +129,4 @@ apps/mobile/assets/onboarding-hero.mp4
 test-results/
 playwright-report/
 .env*.local
+package-lock.json

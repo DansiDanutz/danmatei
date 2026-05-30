@@ -87,13 +87,16 @@ export default async function handler(req: Req, res: Res) {
   if (!isAdmin && !isTrainer) return res.status(403).json({ error: "forbidden" });
 
   const q = (readQuery(req, "q") ?? "").trim();
+  // Escape LIKE metacharacters so a `%`/`_`/`\` in the search box is treated as
+  // a literal, not a wildcard (otherwise `%` matches every minor in the academy).
+  const qEscaped = q.replace(/[\\%_]/g, (ch) => `\\${ch}`);
   let query = svc
     .from("children")
     .select("id, full_name, dob, age_group_label, groups:group_id(label)")
     .eq("status", "active")
     .order("full_name", { ascending: true })
     .limit(30);
-  if (q) query = query.ilike("full_name", `%${q}%`);
+  if (q) query = query.ilike("full_name", `%${qEscaped}%`);
 
   const { data, error: qErr } = await query;
   if (qErr) return res.status(500).json({ error: qErr.message });

@@ -10,6 +10,7 @@
  * is set, mismatched requests get 401.
  */
 import { serviceClient } from "../_lib/supabase.js";
+import { requireCron } from "../_lib/cron-auth.js";
 import { sendPushToUsers } from "../_lib/push.js";
 
 type Req = {
@@ -21,19 +22,12 @@ type Res = {
   json: (body: unknown) => Res;
 };
 
-function readHeader(req: Req, key: string): string | undefined {
-  const v = req.headers?.[key.toLowerCase()] ?? req.headers?.[key];
-  return Array.isArray(v) ? v[0] : v;
-}
 
 export default async function handler(req: Req, res: Res) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
   }
-  const secret = process.env.CRON_SECRET;
-  if (secret && readHeader(req, "authorization") !== `Bearer ${secret}`) {
-    return res.status(401).json({ error: "unauthorized" });
-  }
+  if (!requireCron(req, res, "cron/schedule-reminder")) return;
 
   let supabase;
   try {
