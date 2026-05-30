@@ -12,6 +12,7 @@
  * Auth: bearer JWT — caller must be owner / super_admin / active trainer.
  */
 import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
+import { escapeLike } from "../_lib/like.js";
 
 type Req = {
   method?: string;
@@ -33,7 +34,8 @@ function readQuery(req: Req, key: string): string | undefined {
   if (direct != null) return Array.isArray(direct) ? direct[0] : direct;
   if (req.url) {
     const qi = req.url.indexOf("?");
-    if (qi >= 0) return new URLSearchParams(req.url.slice(qi)).get(key) ?? undefined;
+    if (qi >= 0)
+      return new URLSearchParams(req.url.slice(qi)).get(key) ?? undefined;
   }
   return undefined;
 }
@@ -84,21 +86,25 @@ export default async function handler(req: Req, res: Res) {
       .maybeSingle();
     isTrainer = !!tr;
   }
-  if (!isAdmin && !isTrainer) return res.status(403).json({ error: "forbidden" });
+  if (!isAdmin && !isTrainer)
+    return res.status(403).json({ error: "forbidden" });
 
   const q = (readQuery(req, "q") ?? "").trim();
+  // Escape LIKE metacharacters so a `%`/`_`/`\` in the search box is treated as
+  // a literal, not a wildcard (otherwise `%` matches every minor in the academy).
+  const qEscaped = escapeLike(q);
   let query = svc
     .from("children")
     .select("id, full_name, dob, age_group_label, groups:group_id(label)")
     .eq("status", "active")
     .order("full_name", { ascending: true })
     .limit(30);
-  if (q) query = query.ilike("full_name", `%${q}%`);
+  if (q) query = query.ilike("full_name", `%${qEscaped}%`);
 
   const { data, error: qErr } = await query;
   if (qErr) return res.status(500).json({ error: qErr.message });
 
-  const players = ((data ?? []) as unknown as ChildRow[]).map((c) => ({
+  const players = ((data ?? []) as unknown as ChildRow[]).map(c => ({
     id: c.id,
     name: c.full_name,
     yearOfBirth: c.dob ? new Date(c.dob).getFullYear() : null,

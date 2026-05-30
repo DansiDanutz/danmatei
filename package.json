@@ -8,9 +8,15 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "preview": "vite preview --host",
-    "check": "tsc --noEmit",
+    "check": "pnpm check:env && pnpm check:app && pnpm check:api",
+    "check:env": "node scripts/check-env-example.mjs",
+    "check:app": "tsc --noEmit",
+    "check:api": "tsc -p tsconfig.api.json --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
+    "test:e2e": "playwright test --config=playwright.config.ts",
+    "test:e2e:audit": "playwright test --config=playwright.audit.config.ts",
+    "test:e2e:roles": "playwright test --config=playwright.roles.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

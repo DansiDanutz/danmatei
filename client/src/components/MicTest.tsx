@@ -17,7 +17,13 @@
  * drops anywhere on the page.
  */
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, CheckCircle2 } from "lucide-react";
+import {
+  ArrowDown,
+  CheckCircle2,
+  Mic,
+  MicOff,
+  MousePointerClick,
+} from "lucide-react";
 
 type State = "idle" | "requesting" | "active" | "denied";
 
@@ -182,21 +188,37 @@ export default function MicTest({ onResult }: Props = {}) {
       )}
 
       {state !== "active" && (
-        <button
-          type="button"
-          onClick={start}
-          disabled={state === "requesting"}
-          className={[
-            "mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-heading text-[11px] font-semibold uppercase tracking-[0.16em] transition-colors",
-            state === "denied"
-              ? "border border-red-400/40 bg-red-500/10 text-red-200 hover:bg-red-500/20"
-              : "border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20",
-            state === "requesting" ? "cursor-wait opacity-60" : "",
-          ].join(" ")}
-        >
-          <Mic className="size-3.5" />
-          {state === "denied" ? "Încearcă din nou" : "Testează microfonul"}
-        </button>
+        <>
+          <div
+            className={[
+              "mt-3 flex items-center justify-center gap-2 rounded-full border px-3 py-2 font-heading text-[10px] font-semibold uppercase tracking-[0.16em]",
+              state === "denied"
+                ? "border-red-300/35 bg-red-400/10 text-red-100"
+                : "border-emerald-300/35 bg-emerald-400/10 text-emerald-100",
+            ].join(" ")}
+          >
+            <ArrowDown className="size-3.5 animate-bounce" aria-hidden="true" />
+            <span>Pasul 1: apasă aici</span>
+            <MousePointerClick className="size-3.5" aria-hidden="true" />
+          </div>
+          <button
+            type="button"
+            onClick={start}
+            disabled={state === "requesting"}
+            className={[
+              "mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-heading text-[11px] font-semibold uppercase tracking-[0.16em] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_16px_36px_-22px_rgba(52,211,153,0.9)] transition-all",
+              state === "denied"
+                ? "border border-red-400/50 bg-red-500/15 text-red-100 hover:bg-red-500/25"
+                : "border border-emerald-300/65 bg-emerald-500/20 text-emerald-50 hover:-translate-y-0.5 hover:bg-emerald-500/30",
+              state === "requesting" ? "cursor-wait opacity-60" : "",
+            ].join(" ")}
+          >
+            <Mic className="size-3.5" />
+            {state === "denied"
+              ? "Apasă aici - încearcă din nou"
+              : "Apasă aici - testează microfonul"}
+          </button>
+        </>
       )}
     </div>
   );

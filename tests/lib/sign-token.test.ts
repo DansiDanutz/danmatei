@@ -8,7 +8,11 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-import { signToken, verifyToken } from "../../api/_lib/sign-token";
+import {
+  isLeadLinkSigningConfigured,
+  signToken,
+  verifyToken,
+} from "../../api/_lib/sign-token";
 
 const LEAD_ID = "11111111-2222-3333-4444-555555555555";
 
@@ -55,10 +59,13 @@ describe("sign-token", () => {
   it("verifyToken rejects a token whose payload was tampered with", () => {
     const token = signToken(LEAD_ID);
     const [payloadB64, sig] = token.split(".");
-    // Bump a char in the payload — signature won't match anymore.
-    const last = payloadB64.slice(-1);
-    const replacement = last === "a" ? "b" : "a";
-    const tampered = payloadB64.slice(0, -1) + replacement + "." + sig;
+    const payload = Buffer.from(payloadB64, "base64url").toString("utf-8");
+    const tamperedPayload = payload.replace(
+      LEAD_ID,
+      LEAD_ID.replace(/5$/, "6")
+    );
+    const tampered =
+      Buffer.from(tamperedPayload).toString("base64url") + "." + sig;
     expect(verifyToken(tampered)).toBeNull();
   });
 
@@ -77,5 +84,21 @@ describe("sign-token", () => {
   it("verifyToken rejects garbage that doesn't even split into two parts", () => {
     expect(verifyToken("")).toBeNull();
     expect(verifyToken("only-one-part")).toBeNull();
+  });
+
+  it("reports missing production signing config before handlers mutate state", () => {
+    vi.stubEnv("LEAD_LINK_SIGNING_SECRET", "");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "production");
+
+    expect(isLeadLinkSigningConfigured()).toBe(false);
+  });
+
+  it("allows the dev fallback outside production", () => {
+    vi.stubEnv("LEAD_LINK_SIGNING_SECRET", "");
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("VERCEL_ENV", "preview");
+
+    expect(isLeadLinkSigningConfigured()).toBe(true);
   });
 });

@@ -269,7 +269,7 @@ export default function Antrenor() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="mt-6">
-        <TabsList className="relative flex w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x">
+        <TabsList className="relative flex w-full justify-start gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x">
           <Trigger value="grupa" icon={<Users className="size-3.5" />}>
             Grupa
           </Trigger>
@@ -373,135 +373,135 @@ export default function Antrenor() {
                   onCreated={() => refresh()}
                 />
 
-              <div className="lg:col-span-2">
-                {schedule.length === 0 && (
-                  <Empty hint="Niciun eveniment salvat." />
-                )}
-                <div className="grid gap-3">
-                  {schedule.map(e => (
-                    <article
-                      key={e.id}
-                      className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
-                    >
-                      <div className="flex flex-wrap items-baseline justify-between gap-3">
-                        <h3 className="font-heading text-base font-semibold uppercase tracking-[0.04em] text-white">
-                          {e.title}
-                          {e.opponent && (
-                            <span className="ml-2 text-white/55">
-                              vs {e.opponent}
-                            </span>
-                          )}
-                        </h3>
-                        <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
-                          {e.kind === "match"
-                            ? "Meci"
-                            : e.kind === "training"
-                              ? "Antrenament"
-                              : e.kind === "tournament"
-                                ? "Turneu"
-                                : e.kind}
-                        </span>
-                      </div>
-                      <p className="mt-1 font-heading text-[11px] uppercase tracking-[0.18em] text-white/50">
-                        {new Date(e.starts_at).toLocaleString("ro-RO", {
-                          weekday: "short",
-                          day: "2-digit",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        {e.location && ` · ${e.location}`}
-                      </p>
-                      {(e.call_time ||
-                        (e.fee_ron != null && e.fee_ron > 0)) && (
-                        <p className="mt-1 font-heading text-[10.5px] uppercase tracking-[0.16em] text-brand-cyan/70">
-                          {e.call_time &&
-                            `Prezență la ${new Date(
-                              e.call_time
-                            ).toLocaleTimeString("ro-RO", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              timeZone: "Europe/Bucharest",
-                            })}`}
-                          {e.call_time &&
-                            e.fee_ron != null &&
-                            e.fee_ron > 0 &&
-                            " · "}
-                          {e.fee_ron != null &&
-                            e.fee_ron > 0 &&
-                            `Taxă ${e.fee_ron} RON`}
-                        </p>
-                      )}
-                      {e.notes && (
-                        <p className="mt-2 font-body text-sm text-white/70">
-                          {e.notes}
-                        </p>
-                      )}
-
-                      {/* Cancellation banner — visible to trainer when set */}
-                      {e.cancelled_at && (
-                        <div className="mt-3 rounded-xl border border-rose-300/35 bg-rose-300/[0.08] px-3 py-2">
-                          <div className="font-heading text-[10.5px] uppercase tracking-[0.18em] text-rose-300">
-                            Anulat
-                          </div>
-                          {e.cancelled_reason && (
-                            <p className="mt-0.5 font-body text-sm text-rose-200/85">
-                              {e.cancelled_reason}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Cancel / Reactivate — only on future events */}
-                      {new Date(e.starts_at) > new Date() && (
-                        <div className="mt-3 flex flex-wrap justify-end gap-2">
-                          {!e.cancelled_at && (
-                            <NotifyGroupButton
-                              eventId={e.id}
-                              notified={!!e.group_notified_at}
-                              onChanged={() => refresh()}
-                            />
-                          )}
-                          <CancelEventButton
-                            eventId={e.id}
-                            cancelled={!!e.cancelled_at}
-                            onChanged={() => refresh()}
-                          />
-                        </div>
-                      )}
-
-                      {/* Recap controls — only for past training events.
-                       *  Match recaps live in match_results; tournaments &
-                       *  others don't use the recap surface. */}
-                      {e.kind === "training" &&
-                        new Date(e.starts_at) <= new Date() && (
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/8 pt-3">
-                            {e.recap_published_at ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/30 bg-brand-cyan/[0.08] px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.16em] text-brand-cyan">
-                                <Sparkles className="size-3" />
-                                Recap trimis părinților
-                              </span>
-                            ) : (
-                              <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
-                                Niciun recap încă
+                <div className="lg:col-span-2">
+                  {schedule.length === 0 && (
+                    <Empty hint="Niciun eveniment salvat." />
+                  )}
+                  <div className="grid gap-3">
+                    {schedule.map(e => (
+                      <article
+                        key={e.id}
+                        className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-5"
+                      >
+                        <div className="flex flex-wrap items-baseline justify-between gap-3">
+                          <h3 className="font-heading text-base font-semibold uppercase tracking-[0.04em] text-white">
+                            {e.title}
+                            {e.opponent && (
+                              <span className="ml-2 text-white/55">
+                                vs {e.opponent}
                               </span>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => setRecapEvent(e)}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/20"
-                            >
-                              <Sparkles className="size-3.5" />
-                              {e.recap_published_at
-                                ? "Editează recap"
-                                : "Recap cu AI"}
-                            </button>
+                          </h3>
+                          <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-0.5 font-heading text-[10px] uppercase tracking-[0.18em] text-brand-cyan">
+                            {e.kind === "match"
+                              ? "Meci"
+                              : e.kind === "training"
+                                ? "Antrenament"
+                                : e.kind === "tournament"
+                                  ? "Turneu"
+                                  : e.kind}
+                          </span>
+                        </div>
+                        <p className="mt-1 font-heading text-[11px] uppercase tracking-[0.18em] text-white/50">
+                          {new Date(e.starts_at).toLocaleString("ro-RO", {
+                            weekday: "short",
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                          {e.location && ` · ${e.location}`}
+                        </p>
+                        {(e.call_time ||
+                          (e.fee_ron != null && e.fee_ron > 0)) && (
+                          <p className="mt-1 font-heading text-[10.5px] uppercase tracking-[0.16em] text-brand-cyan/70">
+                            {e.call_time &&
+                              `Prezență la ${new Date(
+                                e.call_time
+                              ).toLocaleTimeString("ro-RO", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                timeZone: "Europe/Bucharest",
+                              })}`}
+                            {e.call_time &&
+                              e.fee_ron != null &&
+                              e.fee_ron > 0 &&
+                              " · "}
+                            {e.fee_ron != null &&
+                              e.fee_ron > 0 &&
+                              `Taxă ${e.fee_ron} RON`}
+                          </p>
+                        )}
+                        {e.notes && (
+                          <p className="mt-2 font-body text-sm text-white/70">
+                            {e.notes}
+                          </p>
+                        )}
+
+                        {/* Cancellation banner — visible to trainer when set */}
+                        {e.cancelled_at && (
+                          <div className="mt-3 rounded-xl border border-rose-300/35 bg-rose-300/[0.08] px-3 py-2">
+                            <div className="font-heading text-[10.5px] uppercase tracking-[0.18em] text-rose-300">
+                              Anulat
+                            </div>
+                            {e.cancelled_reason && (
+                              <p className="mt-0.5 font-body text-sm text-rose-200/85">
+                                {e.cancelled_reason}
+                              </p>
+                            )}
                           </div>
                         )}
-                    </article>
-                  ))}
+
+                        {/* Cancel / Reactivate — only on future events */}
+                        {new Date(e.starts_at) > new Date() && (
+                          <div className="mt-3 flex flex-wrap justify-end gap-2">
+                            {!e.cancelled_at && (
+                              <NotifyGroupButton
+                                eventId={e.id}
+                                notified={!!e.group_notified_at}
+                                onChanged={() => refresh()}
+                              />
+                            )}
+                            <CancelEventButton
+                              eventId={e.id}
+                              cancelled={!!e.cancelled_at}
+                              onChanged={() => refresh()}
+                            />
+                          </div>
+                        )}
+
+                        {/* Recap controls — only for past training events.
+                         *  Match recaps live in match_results; tournaments &
+                         *  others don't use the recap surface. */}
+                        {e.kind === "training" &&
+                          new Date(e.starts_at) <= new Date() && (
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/8 pt-3">
+                              {e.recap_published_at ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/30 bg-brand-cyan/[0.08] px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.16em] text-brand-cyan">
+                                  <Sparkles className="size-3" />
+                                  Recap trimis părinților
+                                </span>
+                              ) : (
+                                <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
+                                  Niciun recap încă
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setRecapEvent(e)}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-1.5 font-heading text-[10.5px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/20"
+                              >
+                                <Sparkles className="size-3.5" />
+                                {e.recap_published_at
+                                  ? "Editează recap"
+                                  : "Recap cu AI"}
+                              </button>
+                            </div>
+                          )}
+                      </article>
+                    ))}
+                  </div>
                 </div>
-              </div>
               </div>
             </div>
           </LazyTab>
@@ -700,7 +700,7 @@ const Trigger = ({
 }) => (
   <TabsTrigger
     value={value}
-    className="flex-1 snap-center rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan"
+    className="flex-none snap-center rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan md:flex-1"
   >
     <span className="inline-flex items-center gap-1.5">
       {icon}
@@ -1073,7 +1073,11 @@ function ScheduleForm({
           </label>
         ))}
       </div>
-      <BrandedField htmlFor="schedule-title" label="Titlu" error={errors.title?.message}>
+      <BrandedField
+        htmlFor="schedule-title"
+        label="Titlu"
+        error={errors.title?.message}
+      >
         <input
           id="schedule-title"
           type="text"
@@ -1082,7 +1086,11 @@ function ScheduleForm({
           className={LOCAL_INPUT_CLS}
         />
       </BrandedField>
-      <BrandedField htmlFor="schedule-starts" label="Dată / oră" error={errors.startsAt?.message}>
+      <BrandedField
+        htmlFor="schedule-starts"
+        label="Dată / oră"
+        error={errors.startsAt?.message}
+      >
         <input
           id="schedule-starts"
           type="datetime-local"
@@ -1121,7 +1129,11 @@ function ScheduleForm({
         )}
       </div>
       {kind === "match" && (
-        <BrandedField htmlFor="schedule-opponent" label="Adversar" error={errors.opponent?.message}>
+        <BrandedField
+          htmlFor="schedule-opponent"
+          label="Adversar"
+          error={errors.opponent?.message}
+        >
           <input
             id="schedule-opponent"
             type="text"
@@ -1456,7 +1468,11 @@ function TrainerProfileForm({
       <h2 className="font-heading text-[11px] uppercase tracking-[0.2em] text-white/55">
         Profil antrenor
       </h2>
-      <BrandedField htmlFor="profile-position" label="Funcție" error={errors.position?.message}>
+      <BrandedField
+        htmlFor="profile-position"
+        label="Funcție"
+        error={errors.position?.message}
+      >
         <input
           id="profile-position"
           type="text"
@@ -1480,7 +1496,11 @@ function TrainerProfileForm({
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <BrandedField htmlFor="profile-min" label="Vârstă min" error={errors.ageMin?.message}>
+        <BrandedField
+          htmlFor="profile-min"
+          label="Vârstă min"
+          error={errors.ageMin?.message}
+        >
           <input
             id="profile-min"
             type="number"
@@ -1490,7 +1510,11 @@ function TrainerProfileForm({
             className={LOCAL_INPUT_CLS}
           />
         </BrandedField>
-        <BrandedField htmlFor="profile-max" label="Vârstă max" error={errors.ageMax?.message}>
+        <BrandedField
+          htmlFor="profile-max"
+          label="Vârstă max"
+          error={errors.ageMax?.message}
+        >
           <input
             id="profile-max"
             type="number"
@@ -1501,7 +1525,11 @@ function TrainerProfileForm({
           />
         </BrandedField>
       </div>
-      <BrandedField htmlFor="profile-certs" label="Certificări (separă prin virgulă)" error={errors.certifications?.message}>
+      <BrandedField
+        htmlFor="profile-certs"
+        label="Certificări (separă prin virgulă)"
+        error={errors.certifications?.message}
+      >
         <input
           id="profile-certs"
           type="text"
@@ -1536,4 +1564,3 @@ function TrainerProfileForm({
     </form>
   );
 }
-

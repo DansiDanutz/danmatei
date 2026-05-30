@@ -9,7 +9,7 @@ alter type fotbal.user_role add value if not exists 'super_admin';
 --    (this automatically grants full visibility to both roles)
 create or replace function fotbal.is_owner() returns boolean
 language sql stable security definer set search_path = fotbal, public as $$
-  select coalesce((select role in ('owner'::fotbal.user_role, 'super_admin'::fotbal.user_role) from fotbal.profiles where id = auth.uid()), false);
+  select coalesce((select role::text in ('owner', 'super_admin') from fotbal.profiles where id = auth.uid()), false);
 $$;
 
 -- 3. Helper: does current user have a trainer row?

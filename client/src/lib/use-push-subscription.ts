@@ -1,9 +1,10 @@
 /**
- * usePushSubscription — Web Push for the current user, ENABLED BY DEFAULT.
+ * usePushSubscription — Web Push for the current user.
  *
- * Once signed in, the device auto-subscribes unless the user previously turned
- * it off (opt-out, persisted in localStorage) or the browser blocked push. The
- * bell's PushToggle lets the user disable / re-enable it on this device.
+ * Once signed in, the device auto-restores push when the browser permission was
+ * already granted unless the user previously turned it off (opt-out, persisted
+ * in localStorage). If permission is still undecided, the bell's PushToggle asks
+ * only after a user click; we do not fire the native browser prompt on page load.
  *
  * Lifecycle:
  *  1. On mount, checks browser support, current Notification permission, and
@@ -15,8 +16,8 @@
  *     the row server-side via /api/push/unsubscribe.
  *
  * Server-side gracefully degrades when VAPID isn't configured (vapid-key
- * returns 503). In that case `supported = false` so the UI can show a clear
- * "push not available" state instead of a confusing crash.
+ * returns `{ configured: false }`). In that case `supported = false` so the UI
+ * can show a clear "push not available" state instead of a confusing crash.
  *
  * Distinct from `use-browser-notification.ts`, which uses the in-page
  * Notification API only (visible only while a tab is open). This hook gives
@@ -45,7 +46,6 @@ const UNSUBSCRIBE_ENDPOINT = "/api/push/unsubscribe";
 
 // Per-device flags backing the "enabled by default" behaviour.
 const OPT_OUT_KEY = "push-opt-out"; // set when the user turns push off
-const AUTO_PROMPT_KEY = "push-auto-prompted"; // set after the first auto prompt
 
 function lsGet(key: string): string | null {
   try {
@@ -90,11 +90,12 @@ async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
 async function fetchVapidKey(): Promise<string | null> {
   try {
     const r = await fetch(VAPID_KEY_ENDPOINT);
-    if (r.status === 503) return null;
     if (!r.ok) return null;
     const j = (await r.json().catch(() => null)) as {
+      configured?: boolean;
       publicKey?: string;
     } | null;
+    if (j?.configured === false) return null;
     return j?.publicKey ?? null;
   } catch {
     return null;
@@ -252,20 +253,16 @@ export function usePushSubscription() {
     setState({ status: "subscribed", loading: false, error: null });
   }, []);
 
-  // Default-on: when the initial check resolves to "unsubscribed", auto-enable
-  // push for this signed-in device — unless the user opted out or the browser
-  // blocked it. If permission is still "default" we prompt only once per device
-  // so we never nag on repeat visits.
+  // Default-on without surprising prompts: if the user already granted browser
+  // permission, restore the subscription automatically. If permission is still
+  // "default", wait for a click on the bell popover's PushToggle.
   useEffect(() => {
     if (autoTriedRef.current) return;
     if (state.status !== "unsubscribed") return;
     if (typeof Notification === "undefined") return;
     if (Notification.permission === "denied") return;
     if (isOptedOut()) return;
-    if (Notification.permission === "default") {
-      if (lsGet(AUTO_PROMPT_KEY) === "1") return;
-      lsSet(AUTO_PROMPT_KEY, "1");
-    }
+    if (Notification.permission !== "granted") return;
     autoTriedRef.current = true;
     void subscribe();
   }, [state.status, subscribe]);

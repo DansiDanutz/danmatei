@@ -13,6 +13,7 @@
  * fotbal.profiles row. Verified server-side using userClient(jwt).
  */
 import { z } from "zod";
+import { configuredPublicBaseUrl } from "./_lib/public-url.js";
 import {
   serviceClient,
   userClient,
@@ -96,7 +97,6 @@ export default async function handler(req: Req, res: Res) {
         .status(400)
         .json({ error: "Invalid body", issues: del.error.issues });
     }
-    // @ts-expect-error auth.admin exists on the service-role client but TS types hide it
     const result = await svc.auth.admin.deleteUser(del.data.profileId);
     if (result.error) {
       const msg = result.error.message || "Delete failed";
@@ -126,16 +126,11 @@ export default async function handler(req: Req, res: Res) {
   // the /seteaza-parola page, which captures the invite session and lets them
   // set a password. Must be in Supabase Auth → URL Configuration → Redirect
   // URLs (a `<origin>/**` wildcard covers it). Falls back to the SiteURL if not.
-  const appUrl = (
-    process.env.VITE_APP_URL ||
-    process.env.PUBLIC_BASE_URL ||
-    "https://danmatei.vercel.app"
-  ).replace(/\/+$/, "");
+  const appUrl = configuredPublicBaseUrl();
 
   // 1. Invite the user via Supabase Auth — this creates the auth.users row
   //    and emails them a setup link. The trigger on auth.users creates the
   //    fotbal.profiles row because we set raw_user_meta_data.app='fotbal'.
-  // @ts-expect-error auth.admin exists on service-role client but TS types hide it
   const invite = await svc.auth.admin.inviteUserByEmail(v.email, {
     data: {
       app: "fotbal",

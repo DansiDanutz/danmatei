@@ -1,5 +1,5 @@
 name: danmatei-voice
-# Self-hosted voice + WhatsApp stack for Academia Dan Matei.
+# Self-hosted LiveKit voice-agent + WhatsApp stack for Academia Dan Matei.
 # See docs/OPERATIONALIZE.md for full deployment instructions.
 #
 # Bring up: docker compose --env-file .env up -d
@@ -8,40 +8,6 @@ name: danmatei-voice
 
 services:
   # ─────────────────────────────────────────────────────────────────────
-  # Ollama — local LLM. Pulls llama3.1:8b on first start (see init service).
-  # ─────────────────────────────────────────────────────────────────────
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:11434/api/tags"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-    # If you have a GPU, uncomment:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - capabilities: [gpu]
-
-  ollama-pull:
-    image: ollama/ollama:latest
-    depends_on:
-      ollama:
-        condition: service_healthy
-    entrypoint: ["sh", "-c"]
-    command:
-      - >
-        OLLAMA_HOST=http://ollama:11434 ollama pull ${OLLAMA_MODEL:-llama3.1:8b-instruct-q4_K_M} &&
-        echo "model pulled"
-    restart: "no"
-
-  # ─────────────────────────────────────────────────────────────────────
   # LiveKit — open-source WebRTC media server
   # ─────────────────────────────────────────────────────────────────────
   livekit:
@@ -49,38 +15,46 @@ services:
     restart: unless-stopped
     command: ["--config", "/etc/livekit.yaml"]
     ports:
-      - "7880:7880"     # WebSocket signalling
-      - "7881:7881"     # TCP fallback
-      - "50000-50100:50000-50100/udp"  # RTC media
+      - "7880:7880" # WebSocket signalling
+      - "7881:7881" # TCP fallback
+      - "50000-50100:50000-50100/udp" # RTC media
     volumes:
       - ./services/livekit/livekit.yaml:/etc/livekit.yaml:ro
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
 
   # ─────────────────────────────────────────────────────────────────────
-  # Voice agent — Pipecat pipeline (Whisper + Ollama + Piper + LiveKit)
+  # Voice agent — LiveKit Agents worker with direct cloud providers
   # ─────────────────────────────────────────────────────────────────────
   voice-agent:
     build: ./services/voice-agent
     restart: unless-stopped
     depends_on:
-      ollama:
-        condition: service_healthy
       livekit:
         condition: service_started
     ports:
-      - "8080:8080"
+      - "8082:8081" # LiveKit Agents health/debug server
     environment:
-      VOICE_AGENT_AUTH_TOKEN: ${VOICE_AGENT_AUTH_TOKEN}
+      LIVEKIT_URL: ${LIVEKIT_URL:-ws://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_AGENT_NAME: ${LIVEKIT_AGENT_NAME:-danmatei-voice-agent}
       API_BASE: ${API_BASE:-https://danmatei.vercel.app}
       PIPECAT_WEBHOOK_SECRET: ${PIPECAT_WEBHOOK_SECRET}
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b-instruct-q4_K_M}
-      WHISPER_MODEL: ${WHISPER_MODEL:-medium}
-      PIPER_VOICE: ${PIPER_VOICE:-ro_RO-mihai-medium}
       MAX_CALL_SECONDS: ${MAX_CALL_SECONDS:-360}
-    volumes:
-      - whisper_cache:/root/.cache/huggingface
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
+      LIVEKIT_LLM_BASE_URL: ${LIVEKIT_LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
+      LIVEKIT_LLM_API_KEY: ${LIVEKIT_LLM_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LIVEKIT_LLM_MODEL: ${LIVEKIT_LLM_MODEL:-gemini-2.0-flash}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVEN_API_KEY: ${ELEVEN_API_KEY:-}
+      LIVEKIT_STT_MODEL: ${LIVEKIT_STT_MODEL:-deepgram/nova-3}
+      LIVEKIT_STT_LANGUAGE: ${LIVEKIT_STT_LANGUAGE:-ro}
+      LIVEKIT_STT_ENDPOINTING_MS: ${LIVEKIT_STT_ENDPOINTING_MS:-300}
+      LIVEKIT_TTS_MODEL: ${LIVEKIT_TTS_MODEL:-elevenlabs/eleven_turbo_v2_5}
+      LIVEKIT_TTS_VOICE: ${LIVEKIT_TTS_VOICE:-hpp4J3VqNfWAUOO0d1Us}
 
   # ─────────────────────────────────────────────────────────────────────
   # Evolution API — open-source WhatsApp gateway (Baileys based)
@@ -108,12 +82,12 @@ services:
   # ─────────────────────────────────────────────────────────────────────
   # Caddy — TLS termination + a stable public entrypoint.
   # Optional. If you point a domain at the host, this gives you HTTPS for
-  # both LiveKit (wss://) and the agent's /spawn.
+  # LiveKit (wss://) and the Evolution API admin UI.
   # ─────────────────────────────────────────────────────────────────────
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    profiles: ["public"]    # only starts with `docker compose --profile public up`
+    profiles: ["public"] # only starts with `docker compose --profile public up`
     ports:
       - "80:80"
       - "443:443"
@@ -125,8 +99,6 @@ services:
       PUBLIC_HOST: ${PUBLIC_HOST}
 
 volumes:
-  ollama_data:
-  whisper_cache:
   evolution_data:
   evolution_store:
   caddy_data:

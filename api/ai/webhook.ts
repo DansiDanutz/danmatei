@@ -24,13 +24,18 @@ export const config = { api: { bodyParser: false } };
 
 const MAX_BODY_BYTES = 256 * 1024; // 256 KiB
 
-// Fail-closed: require the secret at module-load time in production. ElevenLabs
-// signs delivery with it, and we will not accept unsigned bodies in prod.
-const IS_PROD =
-  process.env.NODE_ENV === "production" ||
-  process.env.VERCEL_ENV === "production";
-if (IS_PROD && !process.env.ELEVENLABS_WEBHOOK_SECRET) {
-  throw new Error("ELEVENLABS_WEBHOOK_SECRET required in production");
+function requiresWebhookSecret(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview"
+  );
+}
+
+function isWebhookConfigured(): boolean {
+  return (
+    Boolean(process.env.ELEVENLABS_WEBHOOK_SECRET) || !requiresWebhookSecret()
+  );
 }
 
 const Payload = z.object({
@@ -84,6 +89,12 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+  if (!isWebhookConfigured()) {
+    return res.status(503).json({
+      error: "elevenlabs_webhook_secret_unset",
+      message: "ELEVENLABS_WEBHOOK_SECRET is required in production.",
+    });
+  }
 
   let rawBody: Buffer;
   try {
@@ -110,14 +121,16 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
       signatureHeaders: ["x-elevenlabs-signature", "elevenlabs-signature"],
       timestampHeaders: ["x-elevenlabs-timestamp", "elevenlabs-timestamp"],
       bindTimestamp: false,
-    },
+    }
   );
   if (!verifyResult.ok) {
     // The original returned a capitalised "Invalid signature" for bad
     // signatures specifically — keep that for back-compat. Map the other
     // reasons to the same shape used by voice/webhook.
     const error =
-      verifyResult.reason === "invalid_signature" ? "Invalid signature" : verifyResult.reason;
+      verifyResult.reason === "invalid_signature"
+        ? "Invalid signature"
+        : verifyResult.reason;
     return res.status(401).json({ error });
   }
 
@@ -139,21 +152,39 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
     return res.status(400).json({ error: "Missing conversation_id" });
   }
 
-  const transcript = await fetchTranscript(conversationId);
-
-  const svc = serviceClient();
+  let svc;
+  try {
+    svc = serviceClient();
+  } catch (err) {
+    return res.status(503).json({
+      error: "supabase_unavailable",
+      message: err instanceof Error ? err.message : "service unavailable",
+    });
+  }
 
   // Match by conversation id first, then by share token if present.
   const { data: existing, error: findErr } = await svc
     .from("ai_conversations")
-    .select("id, parent_id, trainer_id, child_id")
+    .select(
+      "id, parent_id, trainer_id, child_id, status, ended_at, transcript_md"
+    )
     .eq("elevenlabs_conversation_id", conversationId)
     .maybeSingle();
   if (findErr) {
     return res.status(500).json({ error: findErr.message });
   }
 
-  let rowId = existing?.id ?? null;
+  let row =
+    (existing as {
+      id: string;
+      parent_id: string | null;
+      trainer_id: string | null;
+      child_id: string | null;
+      status: string | null;
+      ended_at: string | null;
+      transcript_md: string | null;
+    } | null) ?? null;
+  let rowId = row?.id ?? null;
 
   // If we couldn't match on conversation id, optionally accept a token
   // delivered through a custom field. This keeps the integration robust.
@@ -162,10 +193,22 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
     if (token) {
       const { data: byToken } = await svc
         .from("ai_conversations")
-        .select("id, parent_id, trainer_id, child_id")
+        .select(
+          "id, parent_id, trainer_id, child_id, status, ended_at, transcript_md"
+        )
         .eq("share_token", token)
         .maybeSingle();
-      rowId = byToken?.id ?? null;
+      row =
+        (byToken as {
+          id: string;
+          parent_id: string | null;
+          trainer_id: string | null;
+          child_id: string | null;
+          status: string | null;
+          ended_at: string | null;
+          transcript_md: string | null;
+        } | null) ?? null;
+      rowId = row?.id ?? null;
     }
   }
 
@@ -173,9 +216,24 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
     return res.status(202).json({ ok: true, matched: false });
   }
 
+  if (row?.status === "completed" && row.ended_at && row.transcript_md) {
+    return res.status(200).json({
+      ok: true,
+      matched: true,
+      duplicate: true,
+    });
+  }
+
+  const transcript = await fetchTranscript(conversationId);
+
   const update: Record<string, unknown> = {
     elevenlabs_conversation_id: conversationId,
-    status: status === "completed" ? "completed" : status === "failed" ? "failed" : "in_progress",
+    status:
+      status === "completed"
+        ? "completed"
+        : status === "failed"
+          ? "failed"
+          : "in_progress",
     ended_at: new Date().toISOString(),
   };
   if (transcript) {
@@ -190,13 +248,10 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
     return res.status(500).json({ error: upd.error.message });
   }
 
-  // Notify trainer
-  const { data: row } = await svc
-    .from("ai_conversations")
-    .select("trainer_id, parent_id")
-    .eq("id", rowId)
-    .single();
-  if (row?.trainer_id) {
+  // Notify trainer only on the first meaningful completion. Webhook providers
+  // retry aggressively; repeated completed payloads must not spam the inbox.
+  const shouldNotify = row?.status !== "completed" || !row?.ended_at;
+  if (shouldNotify && row?.trainer_id) {
     const { data: trainer } = await svc
       .from("trainers")
       .select("profile_id")

@@ -12,6 +12,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="canonical" href="https://www.danmatei.ro/" />
     <meta name="theme-color" content="#08091a" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,34 +22,24 @@
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://danmatei.vercel.app/" />
+    <meta property="og:url" content="https://www.danmatei.ro/" />
     <meta property="og:title" content="Școala de Fotbal Dan Matei" />
     <meta property="og:description" content="ACS Școala de Fotbal Dan Matei - Academie de fotbal pentru copii și tineri în Cluj-Napoca. Antrenamente profesionale, pasiune și fair-play." />
-    <meta property="og:image" content="https://danmatei.vercel.app/logo-official.jpg" />
+    <meta property="og:image" content="https://www.danmatei.ro/logo-official.jpg" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://danmatei.vercel.app/" />
+    <meta property="twitter:url" content="https://www.danmatei.ro/" />
     <meta property="twitter:title" content="Școala de Fotbal Dan Matei" />
     <meta property="twitter:description" content="ACS Școala de Fotbal Dan Matei - Academie de fotbal pentru copii și tineri în Cluj-Napoca. Antrenamente profesionale, pasiune și fair-play." />
-    <meta property="twitter:image" content="https://danmatei.vercel.app/logo-official.jpg" />
+    <meta property="twitter:image" content="https://www.danmatei.ro/logo-official.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <script>
-      // Supabase invite / password-recovery links arrive with a one-time token
-      // in the URL hash. Capture that intent here — before the JS bundle and
-      // supabase-js load and consume the hash — so the app can route the user
-      // to /seteaza-parola even if Supabase fell back to the site root because
-      // the redirect URL wasn't allow-listed.
-      (function () {
-        try {
-          if (/[#&]type=(invite|recovery)(\b|=)/.test(location.hash)) {
-            sessionStorage.setItem("pw-setup-pending", "1");
-          }
-        } catch (e) {}
-      })();
-    </script>
+    <!-- Runs before the module bundle to capture Supabase invite/recovery hash
+         intent. External (not inline) so the production CSP can use
+         script-src 'self' with no inline allowance. -->
+    <script src="/boot.js"></script>
   </head>
 
   <body>

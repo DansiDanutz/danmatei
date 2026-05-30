@@ -7,4 +7,4 @@ Disallow: /dashboard
 Disallow: /completeaza-profil
 Disallow: /inregistrare/copil
 
-Sitemap: https://danmatei.vercel.app/sitemap.xml
+Sitemap: https://www.danmatei.ro/sitemap.xml

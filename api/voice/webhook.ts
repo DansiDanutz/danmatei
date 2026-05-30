@@ -1,7 +1,7 @@
 /**
  * POST /api/voice/webhook
  *
- * Pipecat agent posts end-of-call payload here. We:
+ * The LiveKit voice agent posts end-of-call payloads here. We:
  *   1. Verify the HMAC signature.
  *   2. Insert a `lead_calls` row (transcript + summary + intent + recording).
  *   3. Update the parent `leads` row → status='transcribed' → 'routed'.
@@ -10,6 +10,7 @@
  *
  * See docs/AI_CALL_FLOW.md.
  */
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { serviceClient } from "../_lib/supabase.js";
 import { sendWhatsappText } from "../_lib/whatsapp.js";
@@ -29,7 +30,7 @@ const TranscriptTurn = z.object({
 // failed schema validation with HTTP 400 (observed live on 2026-05-12).
 const Body = z.object({
   leadId: z.string().uuid(),
-  vendor_call_id: z.string().nullish(),
+  vendor_call_id: z.string().min(1).max(200).nullish(),
   started_at: z.union([z.number(), z.string()]).nullish(),
   ended_at: z.union([z.number(), z.string()]).nullish(),
   duration_seconds: z.number().int().nonnegative().nullish(),
@@ -100,6 +101,19 @@ function toTimestamp(value: number | string | undefined): string | null {
   return new Date(value * 1000).toISOString();
 }
 
+function fallbackVendorCallId(rawBody: Buffer): string {
+  return `payload-sha256:${createHash("sha256").update(rawBody).digest("hex")}`;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "23505"
+  );
+}
+
 export default async function handler(req: Req, res: Res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
@@ -119,9 +133,8 @@ export default async function handler(req: Req, res: Res) {
   }
 
   // Replay protection + signature verification. See _lib/webhook-hmac.ts.
-  // TODO(PR-F): services/voice-agent/agent.py:474-485 (post_webhook) needs
-  // to send X-Pipecat-Timestamp and HMAC `${ts}.${body}` to match. This PR
-  // intentionally does NOT change agent.py.
+  // services/voice-agent/agent.py sends X-Pipecat-Timestamp and signs
+  // `${ts}.${body}` to match this verifier.
   const verifyResult = verifyHmac(
     rawBody,
     req.headers ?? {},
@@ -129,7 +142,7 @@ export default async function handler(req: Req, res: Res) {
     {
       signatureHeaders: ["x-pipecat-signature"],
       timestampHeaders: ["x-pipecat-timestamp"],
-    },
+    }
   );
   if (!verifyResult.ok) {
     // Preserve the original 401 error codes (missing_timestamp / timestamp_skew /
@@ -156,6 +169,8 @@ export default async function handler(req: Req, res: Res) {
     });
   }
   const data = parsed.data;
+  const vendorCallId =
+    data.vendor_call_id?.trim() || fallbackVendorCallId(rawBody);
 
   let supabase;
   try {
@@ -170,7 +185,9 @@ export default async function handler(req: Req, res: Res) {
   // Pull the lead so we know who to notify.
   const { data: lead, error: leadErr } = await supabase
     .from("leads")
-    .select("id, parent_name, parent_phone_e164, child_name, child_age, assigned_trainer_id, cc_trainer_ids")
+    .select(
+      "id, parent_name, parent_phone_e164, child_name, child_age, assigned_trainer_id, cc_trainer_ids"
+    )
     .eq("id", data.leadId)
     .single();
   if (leadErr || !lead) {
@@ -179,15 +196,41 @@ export default async function handler(req: Req, res: Res) {
       .json({ error: "lead_not_found", detail: leadErr?.message });
   }
 
+  const recipients = Array.from(
+    new Set([lead.assigned_trainer_id, ...(lead.cc_trainer_ids ?? [])]).values()
+  );
+
+  const { data: existingCall, error: existingCallErr } = await supabase
+    .from("lead_calls")
+    .select("id")
+    .eq("vendor", "pipecat")
+    .eq("vendor_call_id", vendorCallId)
+    .maybeSingle();
+  if (existingCallErr) {
+    return res.status(500).json({
+      error: "call_lookup_failed",
+      detail: existingCallErr.message,
+    });
+  }
+  if (existingCall) {
+    return res.status(200).json({
+      ok: true,
+      duplicate: true,
+      leadId: data.leadId,
+      callId: existingCall.id,
+      recipients,
+    });
+  }
+
   // Insert the call record.
   const { data: callRow, error: callErr } = await supabase
     .from("lead_calls")
     .insert({
       lead_id: data.leadId,
       vendor: "pipecat",
-      vendor_call_id: data.vendor_call_id ?? null,
-      started_at: toTimestamp(data.started_at),
-      ended_at: toTimestamp(data.ended_at),
+      vendor_call_id: vendorCallId,
+      started_at: toTimestamp(data.started_at ?? undefined),
+      ended_at: toTimestamp(data.ended_at ?? undefined),
       duration_seconds: data.duration_seconds ?? null,
       status: data.status,
       recording_url: data.recording_url ?? null,
@@ -200,6 +243,23 @@ export default async function handler(req: Req, res: Res) {
     .select("id")
     .single();
   if (callErr || !callRow) {
+    if (isUniqueViolation(callErr)) {
+      const { data: duplicate } = await supabase
+        .from("lead_calls")
+        .select("id")
+        .eq("vendor", "pipecat")
+        .eq("vendor_call_id", vendorCallId)
+        .maybeSingle();
+      if (duplicate) {
+        return res.status(200).json({
+          ok: true,
+          duplicate: true,
+          leadId: data.leadId,
+          callId: duplicate.id,
+          recipients,
+        });
+      }
+    }
     return res
       .status(500)
       .json({ error: "call_insert_failed", detail: callErr?.message });
@@ -212,10 +272,6 @@ export default async function handler(req: Req, res: Res) {
     .eq("id", data.leadId);
 
   // Notification fanout — push/WhatsApp/email/inapp.
-  const recipients = Array.from(
-    new Set([lead.assigned_trainer_id, ...(lead.cc_trainer_ids ?? [])])
-      .values(),
-  );
   const summary = data.summary ?? "Apel nou — vezi transcrierea în aplicație.";
 
   for (const trainerId of recipients) {
@@ -234,21 +290,46 @@ export default async function handler(req: Req, res: Res) {
 
     // In-app + push (rows in lead_notifications drive both).
     await supabase.from("lead_notifications").insert([
-      { recipient_trainer_id: trainerId, channel: "inapp", type: "new_lead_transcript", payload },
-      { recipient_trainer_id: trainerId, channel: "push",  type: "new_lead_transcript", payload },
-      { recipient_trainer_id: trainerId, channel: "email", type: "new_lead_transcript", payload },
-      { recipient_trainer_id: trainerId, channel: "whatsapp", type: "new_lead_transcript", payload },
+      {
+        recipient_trainer_id: trainerId,
+        channel: "inapp",
+        type: "new_lead_transcript",
+        payload,
+      },
+      {
+        recipient_trainer_id: trainerId,
+        channel: "push",
+        type: "new_lead_transcript",
+        payload,
+      },
+      {
+        recipient_trainer_id: trainerId,
+        channel: "email",
+        type: "new_lead_transcript",
+        payload,
+      },
+      {
+        recipient_trainer_id: trainerId,
+        channel: "whatsapp",
+        type: "new_lead_transcript",
+        payload,
+      },
     ]);
 
     // Best-effort WhatsApp summary to the trainer (skipped silently if no creds).
-    const trainerPhoneEnv = process.env[`TRAINER_PHONE_${trainerId.replace(/-/g, "_").toUpperCase()}`];
+    const trainerPhoneEnv =
+      process.env[
+        `TRAINER_PHONE_${trainerId.replace(/-/g, "_").toUpperCase()}`
+      ];
     if (trainerPhoneEnv) {
       const body = [
         `🆕 Lead nou pentru ${trainerLabel}`,
         `${lead.parent_name} (${lead.parent_phone_e164}) — copil: ${lead.child_name}, ${lead.child_age} ani`,
         "",
         summary,
-        data.next_steps.length ? `\nPași: ${data.next_steps.map((s) => `• ${s}`).join("\n")}` : "",
+        data.next_steps.length
+          ? `\nPași: ${data.next_steps.map(s => `• ${s}`).join("\n")}`
+          : "",
       ].join("\n");
       await sendWhatsappText(trainerPhoneEnv, body);
     }

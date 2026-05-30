@@ -163,6 +163,7 @@ export default async function handler(req: Req, res: Res) {
   // Build rows for kids whose group has a fee. Insert one at a time so a
   // duplicate (already-generated this month) doesn't poison the whole batch.
   let generated = 0;
+  const failures: { childId: string; error: string }[] = [];
   for (const k of allKids) {
     const amount = latestFeeByGroup.get(k.group_id);
     if (amount === undefined) continue; // group has no fee yet
@@ -179,16 +180,24 @@ export default async function handler(req: Req, res: Res) {
     if (!insErr) {
       generated += 1;
     } else {
-      // 23505 = unique_violation — expected on re-runs, log everything else.
+      // 23505 = unique_violation — expected on re-runs, ignore. Anything else is
+      // a real under-charge: surface it (count + 207 + non-ok) so a monitored run
+      // doesn't look healthy while a child silently goes unbilled for the month.
       const msg = insErr.message ?? "";
       const code = (insErr as { code?: string }).code;
       if (code !== "23505" && !msg.includes("duplicate")) {
-        console.warn(
+        console.error(
           `[cron/generate-monthly-charges] insert failed for child ${k.id}: ${msg}`
         );
+        failures.push({ childId: k.id, error: msg });
       }
     }
   }
 
+  if (failures.length > 0) {
+    return res
+      .status(207)
+      .json({ ok: false, ranAt, generated, failed: failures.length, failures });
+  }
   return res.status(200).json({ ok: true, ranAt, generated });
 }

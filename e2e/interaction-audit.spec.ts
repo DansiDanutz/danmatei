@@ -5,7 +5,7 @@
  * walks the most-trafficked flows and reports where the URL or the
  * visible content stays stale after a click.
  *
- *  - Home grid tiles (Programează / Academia / Grupe / Turnee / Stiri /
+ *  - Home grid tiles (Programează / Academia / Grupe / Turnee / Știri /
  *    Contact / Cont) — clicking each must change the URL.
  *  - Cunoaste swipe deck — pager arrows, dot indicators, slide content.
  *  - Programare submit — empty submit must show validation messages.
@@ -30,7 +30,12 @@ test.beforeAll(() => {
 test.afterAll(() => {
   fs.writeFileSync(
     path.join(SHOTS, "report.md"),
-    [`# Interaction audit — ${BASE}`, `Issues: ${issues.length}`, "", ...issues.map((s) => `- ${s}`)].join("\n"),
+    [
+      `# Interaction audit — ${BASE}`,
+      `Issues: ${issues.length}`,
+      "",
+      ...issues.map(s => `- ${s}`),
+    ].join("\n")
   );
 });
 
@@ -40,14 +45,16 @@ const HOME_TILES: Array<{ label: RegExp; expectPath: RegExp }> = [
   { label: /academia/i, expectPath: /\/academie/ },
   { label: /grupe/i, expectPath: /\/grupe/ },
   { label: /turnee/i, expectPath: /\/turnee/ },
-  { label: /^stiri$/i, expectPath: /\/stiri/ },
+  { label: /^știri$/i, expectPath: /\/stiri/ },
   { label: /contact/i, expectPath: /\/contact/ },
   { label: /^cont$/i, expectPath: /\/login/ },
 ];
 
 test.describe("Home grid", () => {
   for (const tile of HOME_TILES) {
-    test(`clicking "${tile.label}" tile lands on a page matching ${tile.expectPath}`, async ({ page }) => {
+    test(`clicking "${tile.label}" tile lands on a page matching ${tile.expectPath}`, async ({
+      page,
+    }) => {
       await page.goto(`${BASE}/?stay=1`, { waitUntil: "networkidle" });
       // The landing page normally auto-redirects; ?stay=1 keeps this test
       // focused on whether the home nav link itself works.
@@ -61,7 +68,9 @@ test.describe("Home grid", () => {
       expect(count).toBeGreaterThan(0);
       // Take the first matching link (some labels appear in nav too)
       await link.first().click();
-      await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
+      await page
+        .waitForLoadState("networkidle", { timeout: 10_000 })
+        .catch(() => {});
       await page.waitForTimeout(500);
       const url = page.url();
       if (!tile.expectPath.test(url)) {
@@ -83,24 +92,43 @@ test("Cunoaste deck: arrow navigation cycles slides", async ({ page }) => {
     issues.push("/cunoaste: 'Slide-ul următor' arrow button not found");
     return;
   }
-  await page.screenshot({ path: path.join(SHOTS, "cunoaste-1.png"), fullPage: true });
+  await page.screenshot({
+    path: path.join(SHOTS, "cunoaste-1.png"),
+    fullPage: true,
+  });
 
   // Detect slide change by reading the text content of the slide region
-  const sigBefore = await page.evaluate(() => document.body.innerText.slice(0, 600));
+  const sigBefore = await page.evaluate(() =>
+    document.body.innerText.slice(0, 600)
+  );
   await next.first().click();
   await page.waitForTimeout(800);
-  await page.screenshot({ path: path.join(SHOTS, "cunoaste-2.png"), fullPage: true });
-  const sigAfter1 = await page.evaluate(() => document.body.innerText.slice(0, 600));
+  await page.screenshot({
+    path: path.join(SHOTS, "cunoaste-2.png"),
+    fullPage: true,
+  });
+  const sigAfter1 = await page.evaluate(() =>
+    document.body.innerText.slice(0, 600)
+  );
   if (sigBefore === sigAfter1) {
-    issues.push("/cunoaste: clicking 'Slide-ul următor' did not change visible content");
+    issues.push(
+      "/cunoaste: clicking 'Slide-ul următor' did not change visible content"
+    );
   }
 
   await next.first().click();
   await page.waitForTimeout(800);
-  await page.screenshot({ path: path.join(SHOTS, "cunoaste-3.png"), fullPage: true });
-  const sigAfter2 = await page.evaluate(() => document.body.innerText.slice(0, 600));
+  await page.screenshot({
+    path: path.join(SHOTS, "cunoaste-3.png"),
+    fullPage: true,
+  });
+  const sigAfter2 = await page.evaluate(() =>
+    document.body.innerText.slice(0, 600)
+  );
   if (sigAfter1 === sigAfter2) {
-    issues.push("/cunoaste: second click of 'Slide-ul următor' did not change visible content");
+    issues.push(
+      "/cunoaste: second click of 'Slide-ul următor' did not change visible content"
+    );
   }
 });
 
@@ -112,9 +140,13 @@ test("Programare: empty submit shows validation errors", async ({ page }) => {
   await expect(submit).toBeVisible();
   await submit.click();
   await page.waitForTimeout(500);
-  const validationMessages = await page.getByText(/obligatori|invalid|minim|consimț/i).count();
+  const validationMessages = await page
+    .getByText(/obligatori|invalid|minim|consimț/i)
+    .count();
   if (validationMessages === 0) {
-    issues.push("Programare: empty submit did not surface any visible validation message");
+    issues.push(
+      "Programare: empty submit did not surface any visible validation message"
+    );
   }
   expect(validationMessages).toBeGreaterThan(0);
 });
@@ -132,7 +164,9 @@ test("Login: Google sign-in button is present", async ({ page }) => {
 });
 
 // ---------- Floating CTA shows after scroll on /cunoaste ----------
-test("Floating CTA: shows on /cunoaste after scroll, hidden on /programare", async ({ page }) => {
+test("Floating CTA: shows on /cunoaste after scroll, hidden on /programare", async ({
+  page,
+}) => {
   await page.goto(`${BASE}/cunoaste`, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
   const cta = page.locator('a[aria-label="Vorbește cu un consilier acum"]');
@@ -140,7 +174,9 @@ test("Floating CTA: shows on /cunoaste after scroll, hidden on /programare", asy
   await page.evaluate(() => window.scrollTo(0, 1500));
   await page.waitForTimeout(700);
   if ((await cta.count()) === 0 || !(await cta.first().isVisible())) {
-    issues.push("/cunoaste: floating CTA did not appear after scrolling 1500px");
+    issues.push(
+      "/cunoaste: floating CTA did not appear after scrolling 1500px"
+    );
   }
   await expect(cta.first()).toBeVisible();
 
@@ -148,27 +184,39 @@ test("Floating CTA: shows on /cunoaste after scroll, hidden on /programare", asy
   await page.evaluate(() => window.scrollTo(0, 1500));
   await page.waitForTimeout(500);
   if ((await cta.count()) > 0) {
-    issues.push("/programare: floating CTA should be hidden on the page itself but is rendered");
+    issues.push(
+      "/programare: floating CTA should be hidden on the page itself but is rendered"
+    );
   }
   await expect(cta).toHaveCount(0);
 });
 
 // ---------- Navbar phone numbers consistent ----------
-test("Phone numbers are consistent across visible tel: links", async ({ page }) => {
+test("Phone numbers are consistent across visible tel: links", async ({
+  page,
+}) => {
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
   const numbers = await page.evaluate(() => {
-    const links = Array.from(document.querySelectorAll('a[href^="tel:"]')) as HTMLAnchorElement[];
-    return Array.from(new Set(links.map((a) => a.getAttribute("href")?.replace(/\D/g, "") || "")));
+    const links = Array.from(
+      document.querySelectorAll('a[href^="tel:"]')
+    ) as HTMLAnchorElement[];
+    return Array.from(
+      new Set(links.map(a => a.getAttribute("href")?.replace(/\D/g, "") || ""))
+    );
   });
   // We expect 1 unique phone number on the landing page
   if (numbers.length > 1) {
-    issues.push(`Multiple phone numbers found on landing: ${numbers.join(", ")}`);
+    issues.push(
+      `Multiple phone numbers found on landing: ${numbers.join(", ")}`
+    );
   }
 });
 
 // ---------- Mobile-preview swipe with arrow keys ----------
-test("Mobile preview: keyboard arrow walks the trainer carousel", async ({ page }) => {
+test("Mobile preview: keyboard arrow walks the trainer carousel", async ({
+  page,
+}) => {
   await page.goto(`${BASE}/mobile-preview.html`, { waitUntil: "networkidle" });
   await page.waitForTimeout(2500);
   // Skip intro splash if present
@@ -190,7 +238,9 @@ test("Mobile preview: keyboard arrow walks the trainer carousel", async ({ page 
   }
   for (let i = 1; i < seq.length; i++) {
     if (seq[i] === seq[i - 1]) {
-      issues.push(`Mobile preview keyboard arrow did not advance carousel: ${seq.join(" → ")}`);
+      issues.push(
+        `Mobile preview keyboard arrow did not advance carousel: ${seq.join(" → ")}`
+      );
       break;
     }
   }

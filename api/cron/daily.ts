@@ -115,13 +115,18 @@ export default async function handler(req: Req, res: Res) {
   };
   const allKids = (kids ?? []) as unknown as KidRow[];
 
-  // Leap-day handling: Feb 29 birthdays celebrate on Mar 1 in non-leap years.
+  // Parse DOB strings as-is (YYYY-MM-DD) — no timezone conversion needed
+  // because the date components are stored literally in the DB. Only the
+  // "today" values need a timezone, and todayMonthDay() already returns them
+  // in Europe/Bucharest. Using new Date(dob) would interpret the string as
+  // midnight UTC and shift the day in EET (UTC+2/+3), causing an off-by-one
+  // near midnight for any birthday.
   const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
   const todaysBirthdays = allKids.filter(k => {
     if (!k.dob) return false;
-    const d = new Date(k.dob);
-    let m = d.getUTCMonth() + 1;
-    let dy = d.getUTCDate();
+    let m = parseInt(k.dob.slice(5, 7), 10);
+    let dy = parseInt(k.dob.slice(8, 10), 10);
+    // Leap-day handling: Feb 29 birthdays celebrate on Mar 1 in non-leap years.
     if (m === 2 && dy === 29 && !isLeap) {
       m = 3;
       dy = 1;
@@ -150,7 +155,7 @@ export default async function handler(req: Req, res: Res) {
 
   for (const k of todaysBirthdays) {
     const firstName = k.full_name.split(/\s+/)[0] ?? k.full_name;
-    const ageNow = year - new Date(k.dob).getUTCFullYear();
+    const ageNow = year - parseInt(k.dob.slice(0, 4), 10);
     const link = `/copil/${k.id}`;
     const title = `La mulți ani, ${firstName}!`;
     const body = `Astăzi ${firstName} împlinește ${ageNow} ani. Trimite-i un mesaj de felicitare.`;
@@ -194,7 +199,7 @@ export default async function handler(req: Req, res: Res) {
   let pushRemoved = 0;
   for (const k of todaysBirthdays) {
     const firstName = k.full_name.split(/\s+/)[0] ?? k.full_name;
-    const ageNow = year - new Date(k.dob).getUTCFullYear();
+    const ageNow = year - parseInt(k.dob.slice(0, 4), 10);
     const recipients: string[] = [];
     if (k.parent_id) recipients.push(k.parent_id);
     if (k.trainer?.profile_id) recipients.push(k.trainer.profile_id);
@@ -298,17 +303,20 @@ async function sendTomorrowRsvpChecks(
       ((existingAtt ?? []) as { child_id: string }[]).map(r => r.child_id)
     );
 
-    // Skip parents who already received an attendance_check for this event
+    // Skip parents who already received an attendance_check for this event.
+    // Filter by the event's confirm link at the DB level (not a JS substring
+    // scan of all academy notifications) to avoid an unbounded read.
     const link = (childId: string) => `/copil/${childId}?confirm=${ev.id}`;
     const { data: priorChecks } = await supabase
       .from("notifications")
-      .select("recipient_id, link")
+      .select("recipient_id")
       .eq("kind", "attendance_check")
-      .gte("created_at", dedupeWindowIso);
+      .gte("created_at", dedupeWindowIso)
+      .like("link", `%confirm=${ev.id}%`);
     const priorTargets = new Set(
-      ((priorChecks ?? []) as { recipient_id: string; link: string | null }[])
-        .filter(n => (n.link ?? "").includes(`confirm=${ev.id}`))
-        .map(n => n.recipient_id)
+      ((priorChecks ?? []) as { recipient_id: string }[]).map(
+        n => n.recipient_id
+      )
     );
 
     const dateRO = new Date(ev.starts_at).toLocaleString("ro-RO", {

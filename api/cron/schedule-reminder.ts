@@ -10,6 +10,7 @@
  * is set, mismatched requests get 401.
  */
 import { serviceClient } from "../_lib/supabase.js";
+import { requireCron } from "../_lib/cron-auth.js";
 import { sendPushToUsers } from "../_lib/push.js";
 
 type Req = {
@@ -21,19 +22,11 @@ type Res = {
   json: (body: unknown) => Res;
 };
 
-function readHeader(req: Req, key: string): string | undefined {
-  const v = req.headers?.[key.toLowerCase()] ?? req.headers?.[key];
-  return Array.isArray(v) ? v[0] : v;
-}
-
 export default async function handler(req: Req, res: Res) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
   }
-  const secret = process.env.CRON_SECRET;
-  if (secret && readHeader(req, "authorization") !== `Bearer ${secret}`) {
-    return res.status(401).json({ error: "unauthorized" });
-  }
+  if (!requireCron(req, res, "cron/schedule-reminder")) return;
 
   let supabase;
   try {
@@ -52,7 +45,9 @@ export default async function handler(req: Req, res: Res) {
     await Promise.all([
       supabase
         .from("trainers")
-        .select("id, profile_id, profile:profiles!trainers_profile_id_fkey(full_name)")
+        .select(
+          "id, profile_id, profile:profiles!trainers_profile_id_fkey(full_name)"
+        )
         .eq("active", true),
       supabase
         .from("schedule_events")
@@ -61,21 +56,26 @@ export default async function handler(req: Req, res: Res) {
         .is("cancelled_at", null)
         .gte("starts_at", now.toISOString())
         .lte("starts_at", in7.toISOString()),
-      supabase.from("profiles").select("id").in("role", ["owner", "super_admin"]),
+      supabase
+        .from("profiles")
+        .select("id")
+        .in("role", ["owner", "super_admin"]),
     ]);
 
   const trainersWithUpcoming = new Set(
     ((events ?? []) as { trainer_id: string | null }[])
-      .map((e) => e.trainer_id)
+      .map(e => e.trainer_id)
       .filter(Boolean) as string[]
   );
-  const ownerIds = ((owners ?? []) as { id: string }[]).map((o) => o.id);
+  const ownerIds = ((owners ?? []) as { id: string }[]).map(o => o.id);
 
-  const missing = ((trainers ?? []) as Array<{
-    id: string;
-    profile_id: string | null;
-    profile: { full_name: string } | null;
-  }>).filter((t) => !trainersWithUpcoming.has(t.id));
+  const missing = (
+    (trainers ?? []) as unknown as Array<{
+      id: string;
+      profile_id: string | null;
+      profile: { full_name: string } | null;
+    }>
+  ).filter(t => !trainersWithUpcoming.has(t.id));
 
   let notifiedTrainers = 0;
   for (const t of missing) {
@@ -89,7 +89,7 @@ export default async function handler(req: Req, res: Res) {
     const body = `${trainerName} nu are niciun antrenament programat în următoarele 7 zile.`;
     const link = "/antrenor";
 
-    const rows = recipients.map((rid) => ({
+    const rows = recipients.map(rid => ({
       recipient_id: rid,
       kind: "schedule_missing",
       title,

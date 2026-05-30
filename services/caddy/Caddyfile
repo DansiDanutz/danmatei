@@ -1,10 +1,6 @@
-# Public TLS proxy in front of LiveKit + the voice-agent.
+# Public TLS proxy in front of LiveKit + Evolution API.
 # Replace `{$PUBLIC_HOST}` via the PUBLIC_HOST env var:
-#   PUBLIC_HOST=voice.danmatei.example.com docker compose --profile public up -d caddy
-
-voice.{$PUBLIC_HOST} {
-    reverse_proxy voice-agent:8080
-}
+#   PUBLIC_HOST=danmatei.example.com docker compose --profile public up -d caddy
 
 livekit.{$PUBLIC_HOST} {
     reverse_proxy livekit:7880

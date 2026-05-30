@@ -67,7 +67,7 @@ ROOT = Path(__file__).resolve().parent
 SYSTEM_PROMPT_BASE = (ROOT / "prompt.ro.md").read_text(encoding="utf-8")
 
 AGENT_NAME = os.environ.get("LIVEKIT_AGENT_NAME", "danmatei-voice-agent")
-API_BASE = os.environ.get("API_BASE", "https://danmatei.vercel.app")
+API_BASE = os.environ.get("API_BASE", "https://www.danmatei.ro")
 WEBHOOK_SECRET = os.environ.get("PIPECAT_WEBHOOK_SECRET", "")
 MAX_CALL_SECONDS = int(os.environ.get("MAX_CALL_SECONDS", "180"))  # 3 min hard cap
 WRAPUP_AT_SECONDS = max(MAX_CALL_SECONDS - 30, MAX_CALL_SECONDS // 2)  # 150s if cap=180
@@ -118,10 +118,12 @@ class CallState:
         parent_name: str,
         child_name: str,
         child_age: int | None,
+        call_id: str,
         is_existing_parent: bool = False,
         previous_calls_count: int = 0,
     ) -> None:
         self.lead_id = lead_id
+        self.call_id = call_id
         self.parent_name = parent_name
         self.child_name = child_name
         self.child_age = child_age
@@ -302,6 +304,7 @@ async def entrypoint(ctx: JobContext) -> None:
         parent_name=str(meta.get("parentName") or meta.get("parent_name") or ""),
         child_name=str(meta.get("childName") or meta.get("child_name") or ""),
         child_age=int(meta["childAge"]) if meta.get("childAge") else None,
+        call_id=str(meta.get("callId") or ctx.room.name or ""),
         is_existing_parent=bool(meta.get("isExistingParent", False)),
         previous_calls_count=int(meta.get("previousCallsCount") or 0),
     )
@@ -571,6 +574,7 @@ async def entrypoint(ctx: JobContext) -> None:
         )
         payload = {
             "leadId": state.lead_id,
+            "vendor_call_id": state.call_id,
             "started_at": state.started_at,
             "ended_at": time.time(),
             "duration_seconds": int(time.time() - state.started_at),

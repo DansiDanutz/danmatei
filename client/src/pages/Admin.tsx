@@ -9,7 +9,14 @@
  * service role to call `auth.admin.inviteUserByEmail`. Everything else is
  * direct Supabase JS calls limited by RLS.
  */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -42,17 +49,26 @@ import MemberShell from "@/components/MemberShell";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { currentAge } from "@/lib/age";
-import GroupsTab from "@/components/admin/GroupsTab";
-import NewsManager from "@/components/admin/NewsManager";
-import ScheduleOversight from "@/components/admin/ScheduleOversight";
-import ProposedMatchesQueue from "@/components/trainer/ProposedMatchesQueue";
 import CoachingTips from "@/components/trainer/CoachingTips";
-import NotificationManager from "@/components/admin/NotificationManager";
-import AtRiskTab from "@/components/admin/AtRiskTab";
-import LeadAnalyticsTab from "@/components/admin/LeadAnalyticsTab";
-import InboxAITab from "@/components/trainer/InboxAITab";
-import PaymentsTab from "@/components/admin/PaymentsTab";
 import { BrandedField } from "@/components/ui/branded-field";
+
+const GroupsTab = lazy(() => import("@/components/admin/GroupsTab"));
+const NewsManager = lazy(() => import("@/components/admin/NewsManager"));
+const ScheduleOversight = lazy(
+  () => import("@/components/admin/ScheduleOversight")
+);
+const ProposedMatchesQueue = lazy(
+  () => import("@/components/trainer/ProposedMatchesQueue")
+);
+const NotificationManager = lazy(
+  () => import("@/components/admin/NotificationManager")
+);
+const AtRiskTab = lazy(() => import("@/components/admin/AtRiskTab"));
+const LeadAnalyticsTab = lazy(
+  () => import("@/components/admin/LeadAnalyticsTab")
+);
+const InboxAITab = lazy(() => import("@/components/trainer/InboxAITab"));
+const PaymentsTab = lazy(() => import("@/components/admin/PaymentsTab"));
 
 const LOCAL_INPUT_CLS =
   "touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-4 py-3 font-body text-base text-white placeholder:text-white/25 focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20";
@@ -148,41 +164,41 @@ export default function Admin() {
 
       <Tabs value={tab} onValueChange={setTab} className="mt-6">
         <div className="relative">
-        <TabsList className="flex h-12 w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x md:h-9">
-          <Trigger value="antrenori" icon={<UserPlus className="size-3.5" />}>
-            Antrenori
-          </Trigger>
-          <Trigger value="grupe" icon={<UsersRound className="size-3.5" />}>
-            Grupe
-          </Trigger>
-          <Trigger value="membri" icon={<Users className="size-3.5" />}>
-            Membri
-          </Trigger>
-          <Trigger value="risc" icon={<AlertTriangle className="size-3.5" />}>
-            Risc
-          </Trigger>
-          <Trigger value="plati" icon={<Receipt className="size-3.5" />}>
-            Plăți
-          </Trigger>
-          <Trigger value="funnel" icon={<TrendingUp className="size-3.5" />}>
-            Funnel
-          </Trigger>
-          <Trigger value="lead-uri" icon={<Inbox className="size-3.5" />}>
-            Lead-uri
-          </Trigger>
-          <Trigger value="stiri" icon={<Tag className="size-3.5" />}>
-            Știri
-          </Trigger>
-          <Trigger value="program" icon={<Calendar className="size-3.5" />}>
-            Program
-          </Trigger>
-          <Trigger value="notificari" icon={<Bell className="size-3.5" />}>
-            Notificări
-          </Trigger>
-          <Trigger value="pagina" icon={<Newspaper className="size-3.5" />}>
-            Pagina publică
-          </Trigger>
-        </TabsList>
+          <TabsList className="flex h-12 w-full justify-start gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x md:h-9">
+            <Trigger value="antrenori" icon={<UserPlus className="size-3.5" />}>
+              Antrenori
+            </Trigger>
+            <Trigger value="grupe" icon={<UsersRound className="size-3.5" />}>
+              Grupe
+            </Trigger>
+            <Trigger value="membri" icon={<Users className="size-3.5" />}>
+              Membri
+            </Trigger>
+            <Trigger value="risc" icon={<AlertTriangle className="size-3.5" />}>
+              Risc
+            </Trigger>
+            <Trigger value="plati" icon={<Receipt className="size-3.5" />}>
+              Plăți
+            </Trigger>
+            <Trigger value="funnel" icon={<TrendingUp className="size-3.5" />}>
+              Funnel
+            </Trigger>
+            <Trigger value="lead-uri" icon={<Inbox className="size-3.5" />}>
+              Lead-uri
+            </Trigger>
+            <Trigger value="stiri" icon={<Tag className="size-3.5" />}>
+              Știri
+            </Trigger>
+            <Trigger value="program" icon={<Calendar className="size-3.5" />}>
+              Program
+            </Trigger>
+            <Trigger value="notificari" icon={<Bell className="size-3.5" />}>
+              Notificări
+            </Trigger>
+            <Trigger value="pagina" icon={<Newspaper className="size-3.5" />}>
+              Pagina publică
+            </Trigger>
+          </TabsList>
           {/* Mobile-only scroll affordance: fade tabs into the bar at each edge */}
           <div
             aria-hidden="true"
@@ -475,7 +491,11 @@ function TrainersTab() {
         <h2 className="font-heading text-[11px] uppercase tracking-[0.2em] text-white/55">
           Antrenor nou
         </h2>
-        <BrandedField htmlFor="t-email" label="Email" error={errors.email?.message}>
+        <BrandedField
+          htmlFor="t-email"
+          label="Email"
+          error={errors.email?.message}
+        >
           <input
             id="t-email"
             type="email"
@@ -484,7 +504,11 @@ function TrainersTab() {
             className={LOCAL_INPUT_CLS}
           />
         </BrandedField>
-        <BrandedField htmlFor="t-name" label="Nume complet" error={errors.fullName?.message}>
+        <BrandedField
+          htmlFor="t-name"
+          label="Nume complet"
+          error={errors.fullName?.message}
+        >
           <input
             id="t-name"
             type="text"
@@ -493,7 +517,11 @@ function TrainersTab() {
             className={LOCAL_INPUT_CLS}
           />
         </BrandedField>
-        <BrandedField htmlFor="t-phone" label="Telefon (opțional)" error={errors.phone?.message}>
+        <BrandedField
+          htmlFor="t-phone"
+          label="Telefon (opțional)"
+          error={errors.phone?.message}
+        >
           <input
             id="t-phone"
             type="text"
@@ -502,7 +530,11 @@ function TrainersTab() {
             className={LOCAL_INPUT_CLS}
           />
         </BrandedField>
-        <BrandedField htmlFor="t-whatsapp" label="WhatsApp (E.164)" error={errors.whatsappNumber?.message}>
+        <BrandedField
+          htmlFor="t-whatsapp"
+          label="WhatsApp (E.164)"
+          error={errors.whatsappNumber?.message}
+        >
           <input
             id="t-whatsapp"
             type="text"
@@ -511,7 +543,11 @@ function TrainersTab() {
             className={LOCAL_INPUT_CLS}
           />
         </BrandedField>
-        <BrandedField htmlFor="t-position" label="Funcție" error={errors.position?.message}>
+        <BrandedField
+          htmlFor="t-position"
+          label="Funcție"
+          error={errors.position?.message}
+        >
           <input
             id="t-position"
             type="text"
@@ -520,7 +556,11 @@ function TrainersTab() {
             className={LOCAL_INPUT_CLS}
           />
         </BrandedField>
-        <BrandedField htmlFor="t-agent" label="ElevenLabs Agent ID (opțional)" error={errors.elevenlabsAgentId?.message}>
+        <BrandedField
+          htmlFor="t-agent"
+          label="ElevenLabs Agent ID (opțional)"
+          error={errors.elevenlabsAgentId?.message}
+        >
           <input
             id="t-agent"
             type="text"
@@ -544,7 +584,11 @@ function TrainersTab() {
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <BrandedField htmlFor="t-min" label="Vârstă min" error={errors.ageMin?.message}>
+          <BrandedField
+            htmlFor="t-min"
+            label="Vârstă min"
+            error={errors.ageMin?.message}
+          >
             <input
               id="t-min"
               type="number"
@@ -554,7 +598,11 @@ function TrainersTab() {
               className={LOCAL_INPUT_CLS}
             />
           </BrandedField>
-          <BrandedField htmlFor="t-max" label="Vârstă max" error={errors.ageMax?.message}>
+          <BrandedField
+            htmlFor="t-max"
+            label="Vârstă max"
+            error={errors.ageMax?.message}
+          >
             <input
               id="t-max"
               type="number"
@@ -565,7 +613,11 @@ function TrainersTab() {
             />
           </BrandedField>
         </div>
-        <BrandedField htmlFor="t-certs" label="Certificări (separă prin virgulă)" error={errors.certifications?.message}>
+        <BrandedField
+          htmlFor="t-certs"
+          label="Certificări (separă prin virgulă)"
+          error={errors.certifications?.message}
+        >
           <input
             id="t-certs"
             type="text"
@@ -708,7 +760,9 @@ function TrainerCard({
       .from("trainers")
       .update({
         position: v.position?.trim() ? v.position.trim() : null,
-        whatsapp_number: v.whatsappNumber?.trim() ? v.whatsappNumber.trim() : null,
+        whatsapp_number: v.whatsappNumber?.trim()
+          ? v.whatsappNumber.trim()
+          : null,
         elevenlabs_agent_id: v.elevenlabsAgentId?.trim()
           ? v.elevenlabsAgentId.trim()
           : null,
@@ -1076,7 +1130,9 @@ function MembersTab() {
     const q = search.trim().toLowerCase();
     if (!q) return children;
     return children.filter(c => {
-      const trainerName = c.trainer_id ? (trainerNames[c.trainer_id] ?? "") : "";
+      const trainerName = c.trainer_id
+        ? (trainerNames[c.trainer_id] ?? "")
+        : "";
       return (
         c.full_name.toLowerCase().includes(q) ||
         (c.parent?.full_name ?? "").toLowerCase().includes(q) ||
@@ -1116,7 +1172,9 @@ function MembersTab() {
   );
 
   const updateChildLocally = (id: string, patch: Partial<ChildRow>) => {
-    setChildren(prev => prev.map(ch => (ch.id === id ? { ...ch, ...patch } : ch)));
+    setChildren(prev =>
+      prev.map(ch => (ch.id === id ? { ...ch, ...patch } : ch))
+    );
   };
 
   const handleStatusChange = async (
@@ -1129,7 +1187,9 @@ function MembersTab() {
       .eq("id", id);
     if (upErr) {
       setError(upErr.message);
-      toast.error("Nu am putut actualiza statusul", { description: upErr.message });
+      toast.error("Nu am putut actualiza statusul", {
+        description: upErr.message,
+      });
     } else {
       updateChildLocally(id, { status: newStatus });
     }
@@ -1203,7 +1263,9 @@ function MembersTab() {
     });
     if (rpcErr) {
       setError(rpcErr.message);
-      toast.error("Atribuirea în grupă a eșuat", { description: rpcErr.message });
+      toast.error("Atribuirea în grupă a eșuat", {
+        description: rpcErr.message,
+      });
       return;
     }
     const grp = groups.find(g => g.id === groupId);
@@ -1255,7 +1317,8 @@ function MembersTab() {
           className="touch-target w-full flex-1 rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-4 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60 sm:w-auto"
         />
         <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-white/70">
-          {filtered.length} {filtered.length === 1 ? "copil afișat" : "copii afișați"}
+          {filtered.length}{" "}
+          {filtered.length === 1 ? "copil afișat" : "copii afișați"}
         </span>
         <button
           type="button"
@@ -1339,7 +1402,9 @@ function MembersTab() {
             <X className="size-3" />
             Anulează selecția
           </button>
-          {bulkBusy && <Loader2 className="size-3.5 animate-spin text-brand-cyan" />}
+          {bulkBusy && (
+            <Loader2 className="size-3.5 animate-spin text-brand-cyan" />
+          )}
         </div>
       )}
 
@@ -1470,7 +1535,8 @@ function ChildCard({
               {child.full_name}
             </h3>
             <p className="mt-0.5 font-body text-xs text-white/55">
-              {currentAge(child.dob)} ani · {child.age_group_label ?? "Nealocat"}
+              {currentAge(child.dob)} ani ·{" "}
+              {child.age_group_label ?? "Nealocat"}
               {child.parent && ` · Părinte: ${child.parent.full_name}`}
               {child.parent?.phone && ` · ${child.parent.phone}`}
             </p>
@@ -1533,7 +1599,10 @@ function ChildCard({
       </div>
 
       {editing && (
-        <form onSubmit={onSubmit} className="mt-4 grid gap-3 border-t border-white/8 pt-4">
+        <form
+          onSubmit={onSubmit}
+          className="mt-4 grid gap-3 border-t border-white/8 pt-4"
+        >
           <BrandedField
             htmlFor={`edit-name-${child.id}`}
             label="Nume complet"
@@ -1781,14 +1850,19 @@ function LazyTab({
     if (active && !hasMounted) setHasMounted(true);
   }, [active, hasMounted]);
   if (!hasMounted) return null;
-  return <>{children}</>;
+  return <Suspense fallback={<TabLoader />}>{children}</Suspense>;
 }
 
 // ─── shared bits ──────────────────────────────────────────────────────────────
+
+const TabLoader = () => (
+  <div className="grid place-items-center rounded-2xl border border-white/8 bg-white/[0.02] py-12 text-white/50">
+    <Loader2 className="size-5 animate-spin text-brand-cyan" />
+  </div>
+);
 
 const Empty = ({ hint }: { hint: string }) => (
   <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center font-body text-sm text-white/55">
     {hint}
   </div>
 );
-

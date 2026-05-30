@@ -2,10 +2,8 @@
  * FloatingProgramareCTA — sticky bottom-right pill that opens the
  * /programare lead form after visitors have had time to read the page.
  *
- * Hidden on auth pages (avoid distraction during sign-up) and on /cunoaste,
- * where the swipe deck already has its own fixed bottom pager plus a
- * per-slide CTA — a third fixed pill there just collides with both. Fades
- * in after the visitor scrolls past 600px so the hero stays clean.
+ * Hidden on auth pages (avoid distraction during sign-up). Fades in after
+ * the visitor scrolls past 600px so the hero stays clean.
  */
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -16,12 +14,12 @@ const HIDDEN_ROUTES = [
   /^\/login/,
   /^\/inregistrare/,
   /^\/programare/,
-  /^\/cunoaste/,
 ];
 
 export default function FloatingProgramareCTA() {
   const [location] = useLocation();
   const [show, setShow] = useState(false);
+  const onCunoaste = /^\/cunoaste/.test(location);
 
   useEffect(() => {
     const onScroll = () => setShow(window.scrollY > 600);
@@ -30,7 +28,7 @@ export default function FloatingProgramareCTA() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  if (HIDDEN_ROUTES.some((re) => re.test(location))) return null;
+  if (HIDDEN_ROUTES.some(re => re.test(location))) return null;
 
   return (
     <a
@@ -40,7 +38,9 @@ export default function FloatingProgramareCTA() {
         paddingBottom: "max(0px, env(safe-area-inset-bottom))",
         paddingRight: "max(0px, env(safe-area-inset-right))",
       }}
-      className={`fixed z-[60] bottom-20 right-4 sm:bottom-6 sm:right-6 inline-flex min-h-[44px] items-center gap-2.5 rounded-full bg-brand-cyan text-[oklch(0.08_0.02_250)] font-heading uppercase tracking-[0.16em] text-[11px] sm:text-xs px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_0_0_1px_oklch(0.78_0.13_210/0.7),0_18px_40px_-10px_oklch(0.78_0.13_210/0.55),0_0_60px_-15px_oklch(0.78_0.13_210/0.6)] transition-all duration-300 ${
+      className={`fixed z-[60] right-4 inline-flex min-h-[44px] items-center gap-2.5 rounded-full bg-brand-cyan text-[oklch(0.08_0.02_250)] font-heading uppercase tracking-[0.16em] text-[11px] sm:right-6 sm:text-xs px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_0_0_1px_oklch(0.78_0.13_210/0.7),0_18px_40px_-10px_oklch(0.78_0.13_210/0.55),0_0_60px_-15px_oklch(0.78_0.13_210/0.6)] transition-all duration-300 ${
+        onCunoaste ? "bottom-28 lg:bottom-24" : "bottom-20 sm:bottom-6"
+      } ${
         show
           ? "opacity-100 translate-y-0 pointer-events-auto"
           : "opacity-0 translate-y-3 pointer-events-none"
