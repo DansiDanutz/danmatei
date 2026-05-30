@@ -233,6 +233,13 @@ test("owner can sign in and every admin tab renders", async ({ page }) => {
         /Copiii au lucrat cu energie/
       );
     }
+
+    if (tab === "Program") {
+      await expect(page.getByText("Adaugă antrenamente")).toBeVisible();
+      await expect(
+        page.getByText("Zile și ore pentru grupele active")
+      ).toBeVisible();
+    }
   }
 
   const unexpectedApiCalls =

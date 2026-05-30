@@ -4,9 +4,17 @@
  * Filterable by trainer, event kind, and date range.
  * Shows event details with trainer name, kind pill, and location.
  */
-import { useEffect, useMemo, useState } from "react";
-import { Loader2, Calendar, MapPin, User, Filter } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Loader2,
+  Calendar,
+  MapPin,
+  User,
+  Filter,
+  CalendarPlus,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import WeeklyScheduleEditor from "@/components/trainer/WeeklyScheduleEditor";
 
 type EventRow = {
   id: string;
@@ -16,6 +24,11 @@ type EventRow = {
   location: string | null;
   trainer_id: string;
   trainer: { profile: { full_name: string } } | null;
+};
+
+type TrainerOption = {
+  id: string;
+  full_name: string;
 };
 
 const KIND_LABEL: Record<string, string> = {
@@ -34,7 +47,9 @@ const KIND_PILL: Record<string, string> = {
 
 export default function ScheduleOversight() {
   const [events, setEvents] = useState<EventRow[]>([]);
-  const [trainers, setTrainers] = useState<{ id: string; full_name: string }[]>([]);
+  const [filterTrainers, setFilterTrainers] = useState<TrainerOption[]>([]);
+  const [scheduleTrainers, setScheduleTrainers] = useState<TrainerOption[]>([]);
+  const [scheduleTrainerId, setScheduleTrainerId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +61,7 @@ export default function ScheduleOversight() {
   });
   const [rangeDays, setRangeDays] = useState<number>(7);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -56,23 +71,35 @@ export default function ScheduleOversight() {
     to.setDate(to.getDate() + rangeDays);
     to.setHours(23, 59, 59, 999);
 
-    const { data, error: evErr } = await supabase
-      .from("schedule_events")
-      .select(
-        "id, title, kind, starts_at, location, trainer_id, trainer:trainers(profile:profiles(full_name))"
-      )
-      .gte("starts_at", from.toISOString())
-      .lte("starts_at", to.toISOString())
-      .order("starts_at", { ascending: true });
+    const [eventsResult, trainersResult] = await Promise.all([
+      supabase
+        .from("schedule_events")
+        .select(
+          "id, title, kind, starts_at, location, trainer_id, trainer:trainers(profile:profiles(full_name))"
+        )
+        .gte("starts_at", from.toISOString())
+        .lte("starts_at", to.toISOString())
+        .order("starts_at", { ascending: true }),
+      supabase
+        .from("trainers")
+        .select(
+          "id, display_order, profile:profiles!trainers_profile_id_fkey(full_name)"
+        )
+        .eq("active", true),
+    ]);
 
-    if (evErr) {
-      setError(evErr.message);
+    if (eventsResult.error || trainersResult.error) {
+      setError(
+        eventsResult.error?.message ??
+          trainersResult.error?.message ??
+          "Eroare la încărcarea programului."
+      );
       setLoading(false);
       return;
     }
 
-    const raw = (data ?? []) as any[];
-    const evs: EventRow[] = raw.map((r) => ({
+    const raw = (eventsResult.data ?? []) as any[];
+    const evs: EventRow[] = raw.map(r => ({
       id: r.id,
       title: r.title,
       kind: r.kind,
@@ -83,33 +110,64 @@ export default function ScheduleOversight() {
     }));
     setEvents(evs);
 
-    // Trainer list from events
+    const activeOptions = ((trainersResult.data ?? []) as any[])
+      .map(t => ({
+        id: t.id,
+        full_name: t.profile?.full_name ?? "Antrenor fără nume",
+        display_order: Number(t.display_order ?? 999),
+      }))
+      .sort(
+        (a, b) =>
+          a.display_order - b.display_order ||
+          a.full_name.localeCompare(b.full_name, "ro")
+      )
+      .map(({ id, full_name }) => ({ id, full_name }));
+
     const seen = new Set<string>();
-    const list = evs
-      .filter((e) => e.trainer?.profile?.full_name)
-      .map((e) => ({
+    const eventOptions = evs
+      .filter(e => e.trainer?.profile?.full_name)
+      .map(e => ({
         id: e.trainer_id,
         full_name: e.trainer!.profile.full_name,
       }))
-      .filter((t) => {
+      .filter(t => {
         if (seen.has(t.id)) return false;
         seen.add(t.id);
         return true;
       })
-      .sort((a, b) => a.full_name.localeCompare(b.full_name));
-    setTrainers(list);
+      .sort((a, b) => a.full_name.localeCompare(b.full_name, "ro"));
+    const merged = new Map(activeOptions.map(t => [t.id, t]));
+    eventOptions.forEach(t => {
+      if (!merged.has(t.id)) merged.set(t.id, t);
+    });
+
+    setScheduleTrainers(activeOptions);
+    setFilterTrainers(Array.from(merged.values()));
+    setScheduleTrainerId(current => {
+      if (current && activeOptions.some(t => t.id === current)) return current;
+      return activeOptions[0]?.id ?? "";
+    });
+    setFilterTrainer(current => {
+      if (current === "all") return current;
+      return merged.has(current) ? current : "all";
+    });
 
     setLoading(false);
-  };
+  }, [filterDate, rangeDays]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterDate, rangeDays]);
+  }, [load]);
+
+  const selectedScheduleTrainer = useMemo(
+    () => scheduleTrainers.find(t => t.id === scheduleTrainerId) ?? null,
+    [scheduleTrainerId, scheduleTrainers]
+  );
 
   const filtered = useMemo(() => {
-    return events.filter((e) => {
-      if (filterTrainer !== "all" && e.trainer_id !== filterTrainer) return false;
+    return events.filter(e => {
+      if (filterTrainer !== "all" && e.trainer_id !== filterTrainer)
+        return false;
       if (filterKind !== "all" && e.kind !== filterKind) return false;
       return true;
     });
@@ -118,7 +176,7 @@ export default function ScheduleOversight() {
   // Group by day
   const grouped = useMemo(() => {
     const map = new Map<string, EventRow[]>();
-    filtered.forEach((e) => {
+    filtered.forEach(e => {
       const day = new Date(e.starts_at).toISOString().split("T")[0];
       if (!map.has(day)) map.set(day, []);
       map.get(day)!.push(e);
@@ -141,6 +199,60 @@ export default function ScheduleOversight() {
 
   return (
     <div className="grid gap-5">
+      <section className="grid gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 font-heading text-[10px] font-bold uppercase tracking-[0.18em] text-brand-cyan">
+              <CalendarPlus className="size-4" />
+              Adaugă antrenamente
+            </p>
+            <h2 className="mt-1 font-heading text-xl font-bold text-white">
+              Zile și ore pentru grupele active
+            </h2>
+          </div>
+          <label className="grid min-w-[240px] gap-1">
+            <span className="font-heading text-[10px] uppercase tracking-[0.1em] text-white/40">
+              Antrenor / grupă
+            </span>
+            <select
+              value={scheduleTrainerId}
+              onChange={e => setScheduleTrainerId(e.target.value)}
+              disabled={scheduleTrainers.length === 0}
+              className="h-11 rounded-xl border border-white/15 bg-white/[0.04] px-3 font-body text-sm text-white outline-none transition focus:border-brand-cyan/40 disabled:opacity-50"
+            >
+              {scheduleTrainers.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.full_name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {scheduleTrainerId ? (
+          <WeeklyScheduleEditor
+            key={scheduleTrainerId}
+            trainerId={scheduleTrainerId}
+            onChanged={() => {
+              void load();
+            }}
+          />
+        ) : !loading ? (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-5">
+            <p className="font-body text-sm text-white/55">
+              Adaugă mai întâi un antrenor activ în tab-ul Antrenori.
+            </p>
+          </div>
+        ) : null}
+
+        {selectedScheduleTrainer && (
+          <p className="font-body text-xs text-white/45">
+            Calendarul se actualizează pentru{" "}
+            {selectedScheduleTrainer.full_name} după fiecare schimbare.
+          </p>
+        )}
+      </section>
+
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-4">
         <div className="grid gap-1">
@@ -150,7 +262,7 @@ export default function ScheduleOversight() {
           <input
             type="date"
             value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
+            onChange={e => setFilterDate(e.target.value)}
             className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2 font-body text-sm text-white outline-none transition focus:border-brand-cyan/40"
           />
         </div>
@@ -160,7 +272,7 @@ export default function ScheduleOversight() {
           </label>
           <select
             value={rangeDays}
-            onChange={(e) => setRangeDays(Number(e.target.value))}
+            onChange={e => setRangeDays(Number(e.target.value))}
             className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2 font-body text-sm text-white outline-none transition focus:border-brand-cyan/40"
           >
             <option value={3}>3 zile</option>
@@ -175,11 +287,11 @@ export default function ScheduleOversight() {
           </label>
           <select
             value={filterTrainer}
-            onChange={(e) => setFilterTrainer(e.target.value)}
+            onChange={e => setFilterTrainer(e.target.value)}
             className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2 font-body text-sm text-white outline-none transition focus:border-brand-cyan/40"
           >
             <option value="all">Toți</option>
-            {trainers.map((t) => (
+            {filterTrainers.map(t => (
               <option key={t.id} value={t.id}>
                 {t.full_name}
               </option>
@@ -192,7 +304,7 @@ export default function ScheduleOversight() {
           </label>
           <select
             value={filterKind}
-            onChange={(e) => setFilterKind(e.target.value)}
+            onChange={e => setFilterKind(e.target.value)}
             className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2 font-body text-sm text-white outline-none transition focus:border-brand-cyan/40"
           >
             <option value="all">Toate</option>
@@ -228,7 +340,8 @@ export default function ScheduleOversight() {
         <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
           <Calendar className="mx-auto size-8 text-white/20" />
           <p className="mt-3 font-body text-sm text-white/50">
-            Nu există evenimente în perioada selectată.
+            Nu există evenimente în perioada selectată. Adaugă zile și ore mai
+            sus, apoi apasă Reîmprospătează.
           </p>
         </div>
       )}
@@ -240,7 +353,7 @@ export default function ScheduleOversight() {
               {dayFmt.format(new Date(day))}
             </h3>
             <div className="grid gap-2">
-              {evs.map((e) => (
+              {evs.map(e => (
                 <div
                   key={e.id}
                   className="flex flex-wrap items-center gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3"
