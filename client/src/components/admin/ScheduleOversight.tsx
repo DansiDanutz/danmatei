@@ -45,6 +45,20 @@ const KIND_PILL: Record<string, string> = {
   other: "bg-white/8 text-white/50 border-white/10",
 };
 
+function weekdayTone(dateKey: string): string {
+  const weekday = new Date(`${dateKey}T12:00:00+02:00`).getDay();
+  if (weekday === 1) return "text-sky-300";
+  if (weekday === 3) return "text-rose-300";
+  return "text-brand-gold";
+}
+
+function weekdayRule(dateKey: string): string {
+  const weekday = new Date(`${dateKey}T12:00:00+02:00`).getDay();
+  if (weekday === 1) return "from-sky-300/35";
+  if (weekday === 3) return "from-rose-300/35";
+  return "from-brand-gold/35";
+}
+
 export default function ScheduleOversight() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [filterTrainers, setFilterTrainers] = useState<TrainerOption[]>([]);
@@ -349,9 +363,16 @@ export default function ScheduleOversight() {
       <div className="grid gap-4">
         {grouped.map(([day, evs]) => (
           <section key={day}>
-            <h3 className="mb-2 font-heading text-xs font-bold uppercase tracking-[0.1em] text-brand-cyan">
-              {dayFmt.format(new Date(day))}
-            </h3>
+            <div className="mb-2 flex items-center gap-3">
+              <h3
+                className={`font-heading text-xs font-bold uppercase tracking-[0.1em] ${weekdayTone(day)}`}
+              >
+                {dayFmt.format(new Date(day))}
+              </h3>
+              <span
+                className={`h-px flex-1 bg-gradient-to-r ${weekdayRule(day)} via-white/10 to-transparent`}
+              />
+            </div>
             <div className="grid gap-2">
               {evs.map(e => (
                 <div

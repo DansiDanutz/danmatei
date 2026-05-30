@@ -89,6 +89,20 @@ const KIND_META: Record<
   other: { label: "Eveniment", icon: Calendar, tone: "text-white/70" },
 };
 
+function weekdayTone(date: Date): string {
+  const weekday = date.getDay();
+  if (weekday === 1) return "text-sky-300";
+  if (weekday === 3) return "text-rose-300";
+  return "text-brand-gold";
+}
+
+function weekdayRule(date: Date): string {
+  const weekday = date.getDay();
+  if (weekday === 1) return "from-sky-300/35";
+  if (weekday === 3) return "from-rose-300/35";
+  return "from-brand-gold/35";
+}
+
 export default function Program() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,19 +111,19 @@ export default function Program() {
   useEffect(() => {
     let cancelled = false;
 
-        if (!isSupabaseConfigured) {
-                setUsingFallback(true);
-                setEvents(FALLBACK);
-                setLoading(false);
-                return;
-        }
+    if (!isSupabaseConfigured) {
+      setUsingFallback(true);
+      setEvents(FALLBACK);
+      setLoading(false);
+      return;
+    }
 
-        const timeoutId = setTimeout(() => {
-                if (cancelled) return;
-                setUsingFallback(true);
-                setEvents(FALLBACK);
-                setLoading(false);
-        }, 6000);
+    const timeoutId = setTimeout(() => {
+      if (cancelled) return;
+      setUsingFallback(true);
+      setEvents(FALLBACK);
+      setLoading(false);
+    }, 6000);
     const horizon = new Date(Date.now() + 14 * 86400000).toISOString();
     void (async () => {
       const { data } = await supabase
@@ -120,7 +134,7 @@ export default function Program() {
         .order("starts_at", { ascending: true })
         .limit(60);
       if (cancelled) return;
-              clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
       const rows = (data as EventRow[] | null) ?? [];
       const fallback = rows.length === 0;
       setUsingFallback(fallback);
@@ -129,7 +143,7 @@ export default function Program() {
     })();
     return () => {
       cancelled = true;
-            clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
     };
   }, []);
 
@@ -169,10 +183,14 @@ export default function Program() {
             transition={{ duration: 0.5, delay: di * 0.06, ease: expoOut }}
           >
             <div className="mb-3 flex items-center gap-3">
-              <span className="font-heading text-[11px] uppercase tracking-[0.22em] text-brand-cyan">
+              <span
+                className={`font-heading text-[11px] uppercase tracking-[0.22em] ${weekdayTone(new Date(list[0]?.starts_at ?? Date.now()))}`}
+              >
                 {day}
               </span>
-              <span className="h-px flex-1 bg-gradient-to-r from-brand-cyan/30 via-white/10 to-transparent" />
+              <span
+                className={`h-px flex-1 bg-gradient-to-r ${weekdayRule(new Date(list[0]?.starts_at ?? Date.now()))} via-white/10 to-transparent`}
+              />
               <span className="font-heading text-[10px] tabular-nums uppercase tracking-[0.18em] text-white/40">
                 {list.length} {list.length === 1 ? "eveniment" : "evenimente"}
               </span>

@@ -10,6 +10,7 @@ import { Home as HomeIcon, LogOut } from "lucide-react";
 import { useAuth, type UserRole } from "@/lib/auth";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import InstallAppButton from "@/components/InstallAppButton";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const ROLE_LABEL: Record<UserRole, string> = {
   owner: "Proprietar",
@@ -28,7 +29,7 @@ export default function MemberShell({ children, navLinks }: Props) {
   const [location] = useLocation();
 
   return (
-    <div className="relative min-h-[100dvh] bg-[oklch(0.08_0.02_250)] text-white">
+    <div className="app-shell relative min-h-[100dvh] bg-[oklch(0.08_0.02_250)] text-white">
       {/* Atmosphere */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0">
         <div className="absolute -left-32 top-1/4 size-[36rem] rounded-full bg-brand-cyan/[0.06] blur-3xl" />
@@ -92,6 +93,7 @@ export default function MemberShell({ children, navLinks }: Props) {
             )}
 
             <InstallAppButton />
+            <ThemeToggle />
 
             {profile && <NotificationBell />}
 

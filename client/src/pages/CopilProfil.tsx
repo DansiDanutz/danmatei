@@ -44,6 +44,13 @@ import { currentAge, formatTimelineDate } from "@/lib/age";
 import { useAuth } from "@/lib/auth";
 import TeamMatches from "@/components/player/TeamMatches";
 import {
+  MobileSectionHeader,
+  MobileSectionHome,
+  sectionTriggerClass,
+  type MobileSection,
+} from "@/components/MobileSectionNav";
+import { useIsMobile } from "@/hooks/useMobile";
+import {
   computePaymentStatus,
   statusColorClass,
   statusLabel,
@@ -149,10 +156,80 @@ const KIND_LABEL: Record<string, string> = {
   status_change: "Status",
 };
 
+type ParentTab =
+  | "profil"
+  | "stiri"
+  | "program"
+  | "arhiva"
+  | "mesaje"
+  | "plati"
+  | "istoric";
+
+const PARENT_SECTIONS: MobileSection<ParentTab>[] = [
+  {
+    value: "program",
+    label: "Program",
+    description: "Antrenamente, meciuri și confirmare prezență.",
+    group: "Azi",
+    icon: <CalendarDays className="size-4" />,
+    tone: "teal",
+    badge: "Important",
+  },
+  {
+    value: "mesaje",
+    label: "Mesaje",
+    description: "Anunțuri de la antrenor și răspuns către club.",
+    group: "Azi",
+    icon: <MessageSquare className="size-4" />,
+    tone: "violet",
+  },
+  {
+    value: "plati",
+    label: "Plăți",
+    description: "Situația taxelor, chitanțe și soldul copilului.",
+    group: "Azi",
+    icon: <Receipt className="size-4" />,
+    tone: "amber",
+  },
+  {
+    value: "profil",
+    label: "Profil",
+    description: "Date copil, poză, detalii medicale și galerie.",
+    group: "Copil",
+    icon: <UserRound className="size-4" />,
+    tone: "cyan",
+  },
+  {
+    value: "stiri",
+    label: "Știri",
+    description: "Noutăți pentru academie și grupa copilului.",
+    group: "Copil",
+    icon: <Newspaper className="size-4" />,
+    tone: "indigo",
+  },
+  {
+    value: "arhiva",
+    label: "Arhivă",
+    description: "Meciuri trecute, rezultate și participări.",
+    group: "Istoric",
+    icon: <Trophy className="size-4" />,
+    tone: "green",
+  },
+  {
+    value: "istoric",
+    label: "Istoric",
+    description: "Cronologia activităților și notelor jucătorului.",
+    group: "Istoric",
+    icon: <Activity className="size-4" />,
+    tone: "slate",
+  },
+];
+
 export default function CopilProfil() {
   const [, params] = useRoute<{ childId: string }>("/copil/:childId");
   const childId = params?.childId;
   const { profile } = useAuth();
+  const isMobile = useIsMobile();
   const [child, setChild] = useState<Child | null>(null);
   const [events, setEvents] = useState<PlayerEvent[]>([]);
   const [schedule, setSchedule] = useState<ScheduleRow[]>([]);
@@ -171,6 +248,8 @@ export default function CopilProfil() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<ParentTab>("program");
+  const [mobileHome, setMobileHome] = useState(true);
 
   useEffect(() => {
     if (!childId) return;
@@ -431,6 +510,14 @@ export default function CopilProfil() {
       return false;
     });
   }, [news, child]);
+  const activeSection =
+    PARENT_SECTIONS.find(section => section.value === tab) ??
+    PARENT_SECTIONS[0];
+  const selectSection = (value: ParentTab) => {
+    setTab(value);
+    setMobileHome(false);
+  };
+  const showMobileHome = isMobile && mobileHome;
 
   if (!childId) return null;
 
@@ -554,28 +641,78 @@ export default function CopilProfil() {
         </div>
       </section>
 
+      <MobileSectionHome
+        title="Ce vrei să vezi?"
+        subtitle="Am pus programul, mesajele și plățile primele, pentru că acestea sunt cele mai utile pe telefon."
+        sections={PARENT_SECTIONS}
+        onSelect={selectSection}
+        className={showMobileHome ? undefined : "hidden"}
+      />
+
+      {!showMobileHome && (
+        <MobileSectionHeader
+          rootLabel={child.full_name.split(" ")[0] ?? "Copil"}
+          section={activeSection}
+          sections={PARENT_SECTIONS}
+          onBack={() => setMobileHome(true)}
+          onSelect={selectSection}
+        />
+      )}
+
       {/* Tabs */}
-      <Tabs defaultValue="profil" className="mt-6">
-        <TabsList className="flex w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1">
-          <Trigger value="profil" icon={<UserRound className="size-3.5" />}>
+      <Tabs
+        value={tab}
+        onValueChange={value => setTab(value as ParentTab)}
+        className={showMobileHome ? "hidden md:block" : "mt-6"}
+      >
+        <TabsList className="hidden w-full gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 md:flex">
+          <Trigger
+            value="profil"
+            tone="cyan"
+            icon={<UserRound className="size-3.5" />}
+          >
             Profil
           </Trigger>
-          <Trigger value="stiri" icon={<Newspaper className="size-3.5" />}>
+          <Trigger
+            value="stiri"
+            tone="indigo"
+            icon={<Newspaper className="size-3.5" />}
+          >
             Știri
           </Trigger>
-          <Trigger value="program" icon={<CalendarDays className="size-3.5" />}>
+          <Trigger
+            value="program"
+            tone="teal"
+            icon={<CalendarDays className="size-3.5" />}
+          >
             Program
           </Trigger>
-          <Trigger value="arhiva" icon={<Trophy className="size-3.5" />}>
+          <Trigger
+            value="arhiva"
+            tone="green"
+            icon={<Trophy className="size-3.5" />}
+          >
             Arhivă
           </Trigger>
-          <Trigger value="mesaje" icon={<MessageSquare className="size-3.5" />}>
+          <Trigger
+            value="mesaje"
+            tone="violet"
+            icon={<MessageSquare className="size-3.5" />}
+          >
             Mesaje
           </Trigger>
-          <Trigger value="plati" icon={<Receipt className="size-3.5" />}>
+          <Trigger
+            value="plati"
+            tone="amber"
+            icon={<Receipt className="size-3.5" />}
+          >
             Plăți
           </Trigger>
-          <Trigger value="istoric" icon={<Activity className="size-3.5" />}>
+          <Trigger
+            value="istoric"
+            tone="slate"
+            icon={<Activity className="size-3.5" />}
+          >
             Istoric
           </Trigger>
         </TabsList>
@@ -845,16 +982,15 @@ const Detail = ({ label, value }: { label: string; value: string }) => (
 const Trigger = ({
   value,
   icon,
+  tone = "cyan",
   children,
 }: {
   value: string;
   icon: React.ReactNode;
+  tone?: MobileSection["tone"];
   children: React.ReactNode;
 }) => (
-  <TabsTrigger
-    value={value}
-    className="flex-1 rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan"
-  >
+  <TabsTrigger value={value} className={sectionTriggerClass(tone)}>
     <span className="inline-flex items-center gap-1.5">
       {icon}
       {children}

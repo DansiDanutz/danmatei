@@ -47,6 +47,13 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { currentAge } from "@/lib/age";
 import { BrandedField } from "@/components/ui/branded-field";
+import {
+  MobileSectionHeader,
+  MobileSectionHome,
+  sectionTriggerClass,
+  type MobileSection,
+} from "@/components/MobileSectionNav";
+import { useIsMobile } from "@/hooks/useMobile";
 
 const LOCAL_INPUT_CLS =
   "touch-target w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-4 py-3 font-body text-base text-white placeholder:text-white/25 focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20";
@@ -116,8 +123,96 @@ type MessageRow = {
   sender_role: "trainer" | "parent";
 };
 
+type TrainerTab =
+  | "grupa"
+  | "atribuiri"
+  | "program"
+  | "meciuri"
+  | "prezenta"
+  | "mesaje"
+  | "profil"
+  | "inbox-ai"
+  | "ai";
+
+const TRAINER_SECTIONS: MobileSection<TrainerTab>[] = [
+  {
+    value: "inbox-ai",
+    label: "Inbox AI",
+    description: "Lead-uri noi, transcript, WhatsApp și răspuns rapid.",
+    group: "Azi",
+    icon: <Inbox className="size-4" />,
+    tone: "emerald",
+    badge: "Nou",
+  },
+  {
+    value: "program",
+    label: "Program",
+    description: "Antrenamente, locații, ore și rezumate după sesiune.",
+    group: "Azi",
+    icon: <CalendarDays className="size-4" />,
+    tone: "teal",
+  },
+  {
+    value: "prezenta",
+    label: "Prezență",
+    description: "Confirmări, absențe și evidența pentru fiecare copil.",
+    group: "Azi",
+    icon: <ClipboardCheck className="size-4" />,
+    tone: "amber",
+  },
+  {
+    value: "grupa",
+    label: "Grupa",
+    description: "Lista copiilor, părinți și profiluri jucători.",
+    group: "Echipă",
+    icon: <Users className="size-4" />,
+    tone: "cyan",
+  },
+  {
+    value: "atribuiri",
+    label: "Atribuiri",
+    description: "Copii în așteptare și decizii de repartizare.",
+    group: "Echipă",
+    icon: <UsersRound className="size-4" />,
+    tone: "blue",
+  },
+  {
+    value: "meciuri",
+    label: "Meciuri",
+    description: "Propuneri, rezultate și arhiva competițiilor.",
+    group: "Echipă",
+    icon: <Swords className="size-4" />,
+    tone: "rose",
+  },
+  {
+    value: "mesaje",
+    label: "Mesaje",
+    description: "Trimite anunțuri către grupă, copil sau părinte.",
+    group: "Comunicare",
+    icon: <MessageSquare className="size-4" />,
+    tone: "violet",
+  },
+  {
+    value: "ai",
+    label: "AI · WhatsApp",
+    description: "Panoul asistentului și istoricul conversațiilor.",
+    group: "Comunicare",
+    icon: <Bot className="size-4" />,
+    tone: "indigo",
+  },
+  {
+    value: "profil",
+    label: "Profil",
+    description: "Bio, certificări, WhatsApp și setări de antrenor.",
+    group: "Setări",
+    icon: <UserCog className="size-4" />,
+    tone: "slate",
+  },
+];
+
 export default function Antrenor() {
   const { profile } = useAuth();
+  const isMobile = useIsMobile();
   const [trainer, setTrainer] = useState<Trainer | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
   const [schedule, setSchedule] = useState<ScheduleRow[]>([]);
@@ -125,7 +220,8 @@ export default function Antrenor() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [recapEvent, setRecapEvent] = useState<ScheduleRow | null>(null);
-  const [tab, setTab] = useState("grupa");
+  const [tab, setTab] = useState<TrainerTab>("inbox-ai");
+  const [mobileHome, setMobileHome] = useState(true);
   const [messagePrefill, setMessagePrefill] = useState<{
     audience: "group" | "child" | "parent";
     childId?: string;
@@ -209,6 +305,14 @@ export default function Antrenor() {
         .sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at)),
     [schedule]
   );
+  const activeSection =
+    TRAINER_SECTIONS.find(section => section.value === tab) ??
+    TRAINER_SECTIONS[0];
+  const selectSection = (value: TrainerTab) => {
+    setTab(value);
+    setMobileHome(false);
+  };
+  const showMobileHome = isMobile && mobileHome;
 
   if (loading) {
     return (
@@ -268,36 +372,87 @@ export default function Antrenor() {
         <CoachingTips recipientId={profile?.id ?? ""} />
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="mt-6">
-        <TabsList className="relative flex w-full justify-start gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x">
-          <Trigger value="grupa" icon={<Users className="size-3.5" />}>
+      <MobileSectionHome
+        title="Ce ai de făcut acum?"
+        subtitle="Intră direct în munca zilei: lead-uri, program și prezență sunt primele, restul rămâne la un tap distanță."
+        sections={TRAINER_SECTIONS}
+        onSelect={selectSection}
+        className={showMobileHome ? undefined : "hidden"}
+      />
+
+      {!showMobileHome && (
+        <MobileSectionHeader
+          rootLabel="Antrenor"
+          section={activeSection}
+          sections={TRAINER_SECTIONS}
+          onBack={() => setMobileHome(true)}
+          onSelect={selectSection}
+        />
+      )}
+
+      <Tabs
+        value={tab}
+        onValueChange={value => setTab(value as TrainerTab)}
+        className={showMobileHome ? "hidden md:block" : "mt-6"}
+      >
+        <TabsList className="relative hidden w-full justify-start gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x md:flex">
+          <Trigger
+            value="grupa"
+            tone="cyan"
+            icon={<Users className="size-3.5" />}
+          >
             Grupa
           </Trigger>
-          <Trigger value="atribuiri" icon={<UsersRound className="size-3.5" />}>
+          <Trigger
+            value="atribuiri"
+            tone="blue"
+            icon={<UsersRound className="size-3.5" />}
+          >
             Atribuiri
           </Trigger>
-          <Trigger value="program" icon={<CalendarDays className="size-3.5" />}>
+          <Trigger
+            value="program"
+            tone="teal"
+            icon={<CalendarDays className="size-3.5" />}
+          >
             Program
           </Trigger>
-          <Trigger value="meciuri" icon={<Swords className="size-3.5" />}>
+          <Trigger
+            value="meciuri"
+            tone="rose"
+            icon={<Swords className="size-3.5" />}
+          >
             Meciuri
           </Trigger>
           <Trigger
             value="prezenta"
+            tone="amber"
             icon={<ClipboardCheck className="size-3.5" />}
           >
             Prezență
           </Trigger>
-          <Trigger value="mesaje" icon={<MessageSquare className="size-3.5" />}>
+          <Trigger
+            value="mesaje"
+            tone="violet"
+            icon={<MessageSquare className="size-3.5" />}
+          >
             Mesaje
           </Trigger>
-          <Trigger value="profil" icon={<UserCog className="size-3.5" />}>
+          <Trigger
+            value="profil"
+            tone="slate"
+            icon={<UserCog className="size-3.5" />}
+          >
             Profil
           </Trigger>
-          <Trigger value="inbox-ai" icon={<Inbox className="size-3.5" />}>
+          <Trigger
+            value="inbox-ai"
+            tone="emerald"
+            icon={<Inbox className="size-3.5" />}
+          >
             Inbox AI
           </Trigger>
-          <Trigger value="ai" icon={<Bot className="size-3.5" />}>
+          <Trigger value="ai" tone="indigo" icon={<Bot className="size-3.5" />}>
             AI · WhatsApp
           </Trigger>
         </TabsList>
@@ -692,16 +847,15 @@ const Stat = ({ label, value }: { label: string; value: number }) => (
 const Trigger = ({
   value,
   icon,
+  tone = "cyan",
   children,
 }: {
   value: string;
   icon: React.ReactNode;
+  tone?: MobileSection["tone"];
   children: React.ReactNode;
 }) => (
-  <TabsTrigger
-    value={value}
-    className="flex-none snap-center rounded-full px-3 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-white/65 data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan md:flex-1"
-  >
+  <TabsTrigger value={value} className={sectionTriggerClass(tone)}>
     <span className="inline-flex items-center gap-1.5">
       {icon}
       {children}

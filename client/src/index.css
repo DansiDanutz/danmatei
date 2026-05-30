@@ -48,12 +48,12 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-heading: 'Oswald', sans-serif;
-  --font-body: 'Source Sans 3', sans-serif;
+  --font-heading: "Oswald", sans-serif;
+  --font-body: "Source Sans 3", sans-serif;
   /* Brand colors extracted from official logo */
   --color-brand-cyan: oklch(0.75 0.12 230);
-  --color-brand-cyan-dark: oklch(0.60 0.12 230);
-  --color-brand-navy: oklch(0.40 0.08 220);
+  --color-brand-cyan-dark: oklch(0.6 0.12 230);
+  --color-brand-navy: oklch(0.4 0.08 220);
   --color-brand-navy-dark: oklch(0.25 0.06 220);
   --color-brand-gold: oklch(0.75 0.14 85);
   --color-brand-gold-light: oklch(0.82 0.12 85);
@@ -62,7 +62,7 @@
 :root {
   --radius: 0.75rem;
   /* Dark theme - football school brand */
-  --background: oklch(0.10 0.02 250);
+  --background: oklch(0.1 0.02 250);
   --foreground: oklch(0.95 0.01 250);
   --card: oklch(0.15 0.04 250);
   --card-foreground: oklch(0.95 0.01 250);
@@ -70,34 +70,64 @@
   --popover-foreground: oklch(0.95 0.01 250);
   /* Primary: Logo cyan */
   --primary: oklch(0.75 0.12 230);
-  --primary-foreground: oklch(0.10 0.02 250);
+  --primary-foreground: oklch(0.1 0.02 250);
   /* Secondary: Logo navy */
-  --secondary: oklch(0.20 0.06 220);
+  --secondary: oklch(0.2 0.06 220);
   --secondary-foreground: oklch(0.85 0.02 250);
   --muted: oklch(0.22 0.03 250);
   --muted-foreground: oklch(0.65 0.03 250);
   /* Accent: Logo gold */
   --accent: oklch(0.75 0.14 85);
-  --accent-foreground: oklch(0.10 0.02 250);
+  --accent-foreground: oklch(0.1 0.02 250);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.22 0.03 250);
-  --input: oklch(0.20 0.03 250);
+  --input: oklch(0.2 0.03 250);
   /* Ring: Cyan glow */
   --ring: oklch(0.75 0.12 230);
   --chart-1: oklch(0.75 0.12 230);
   --chart-2: oklch(0.75 0.14 85);
-  --chart-3: oklch(0.40 0.08 220);
-  --chart-4: oklch(0.60 0.10 220);
+  --chart-3: oklch(0.4 0.08 220);
+  --chart-4: oklch(0.6 0.1 220);
   --chart-5: oklch(0.82 0.12 85);
   --sidebar: oklch(0.12 0.04 250);
   --sidebar-foreground: oklch(0.95 0.01 250);
   --sidebar-primary: oklch(0.75 0.12 230);
-  --sidebar-primary-foreground: oklch(0.10 0.02 250);
-  --sidebar-accent: oklch(0.20 0.06 220);
+  --sidebar-primary-foreground: oklch(0.1 0.02 250);
+  --sidebar-accent: oklch(0.2 0.06 220);
   --sidebar-accent-foreground: oklch(0.95 0.01 250);
   --sidebar-border: oklch(0.22 0.03 250);
   --sidebar-ring: oklch(0.75 0.12 230);
+}
+
+html.light {
+  --background: oklch(0.985 0.006 245);
+  --foreground: oklch(0.18 0.035 248);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.035 248);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.035 248);
+  --primary: oklch(0.58 0.14 230);
+  --primary-foreground: oklch(0.985 0.006 245);
+  --secondary: oklch(0.95 0.018 245);
+  --secondary-foreground: oklch(0.24 0.045 245);
+  --muted: oklch(0.94 0.012 245);
+  --muted-foreground: oklch(0.46 0.035 245);
+  --accent: oklch(0.7 0.16 86);
+  --accent-foreground: oklch(0.2 0.04 245);
+  --destructive: oklch(0.56 0.22 27);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.86 0.018 245);
+  --input: oklch(0.93 0.014 245);
+  --ring: oklch(0.58 0.14 230);
+  --sidebar: oklch(0.98 0.008 245);
+  --sidebar-foreground: oklch(0.18 0.035 248);
+  --sidebar-primary: oklch(0.58 0.14 230);
+  --sidebar-primary-foreground: oklch(0.985 0.006 245);
+  --sidebar-accent: oklch(0.94 0.012 245);
+  --sidebar-accent-foreground: oklch(0.18 0.035 248);
+  --sidebar-border: oklch(0.86 0.018 245);
+  --sidebar-ring: oklch(0.58 0.14 230);
 }
 
 @layer base {
@@ -106,11 +136,16 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Source Sans 3', sans-serif;
+    font-family: "Source Sans 3", sans-serif;
     -webkit-tap-highlight-color: transparent;
   }
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Oswald', sans-serif;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Oswald", sans-serif;
     text-wrap: balance;
   }
   p {
@@ -163,21 +198,33 @@
 
   /* Brand gradient text effects */
   .text-gradient-cyan {
-    background: linear-gradient(135deg, oklch(0.75 0.12 230), oklch(0.60 0.12 230));
+    background: linear-gradient(
+      135deg,
+      oklch(0.75 0.12 230),
+      oklch(0.6 0.12 230)
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-gold {
-    background: linear-gradient(135deg, oklch(0.75 0.14 85), oklch(0.82 0.12 85));
+    background: linear-gradient(
+      135deg,
+      oklch(0.75 0.14 85),
+      oklch(0.82 0.12 85)
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-navy {
-    background: linear-gradient(135deg, oklch(0.40 0.08 220), oklch(0.60 0.10 220));
+    background: linear-gradient(
+      135deg,
+      oklch(0.4 0.08 220),
+      oklch(0.6 0.1 220)
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -185,15 +232,21 @@
 
   /* Glow effects matching brand */
   .glow-cyan {
-    box-shadow: 0 0 20px oklch(0.75 0.12 230 / 0.35), 0 0 40px oklch(0.75 0.12 230 / 0.15);
+    box-shadow:
+      0 0 20px oklch(0.75 0.12 230 / 0.35),
+      0 0 40px oklch(0.75 0.12 230 / 0.15);
   }
 
   .glow-gold {
-    box-shadow: 0 0 20px oklch(0.75 0.14 85 / 0.35), 0 0 40px oklch(0.75 0.14 85 / 0.15);
+    box-shadow:
+      0 0 20px oklch(0.75 0.14 85 / 0.35),
+      0 0 40px oklch(0.75 0.14 85 / 0.15);
   }
 
   .glow-navy {
-    box-shadow: 0 0 20px oklch(0.40 0.08 220 / 0.35), 0 0 40px oklch(0.40 0.08 220 / 0.15);
+    box-shadow:
+      0 0 20px oklch(0.4 0.08 220 / 0.35),
+      0 0 40px oklch(0.4 0.08 220 / 0.15);
   }
 
   /* Mobile-first touch targets */
@@ -224,7 +277,9 @@
 
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
@@ -234,14 +289,20 @@
 
   /* Huashu-inspired surface tokens — layered, thoughtful, generous */
   .surface-card {
-    background:
-      linear-gradient(145deg, oklch(0.16 0.04 250 / 0.85), oklch(0.12 0.03 250 / 0.6));
+    background: linear-gradient(
+      145deg,
+      oklch(0.16 0.04 250 / 0.85),
+      oklch(0.12 0.03 250 / 0.6)
+    );
     border: 1px solid oklch(1 0 0 / 0.08);
     border-radius: 1.25rem;
   }
   .surface-elevated {
-    background:
-      linear-gradient(145deg, oklch(0.18 0.05 250 / 0.95), oklch(0.13 0.03 250 / 0.7));
+    background: linear-gradient(
+      145deg,
+      oklch(0.18 0.05 250 / 0.95),
+      oklch(0.13 0.03 250 / 0.7)
+    );
     border: 1px solid oklch(0.75 0.12 230 / 0.18);
     box-shadow:
       0 30px 70px -28px oklch(0 0 0 / 0.55),
@@ -250,8 +311,16 @@
   }
   .surface-grid {
     background-image:
-      linear-gradient(to right, oklch(0.75 0.12 230 / 0.04) 1px, transparent 1px),
-      linear-gradient(to bottom, oklch(0.75 0.12 230 / 0.04) 1px, transparent 1px);
+      linear-gradient(
+        to right,
+        oklch(0.75 0.12 230 / 0.04) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        oklch(0.75 0.12 230 / 0.04) 1px,
+        transparent 1px
+      );
     background-size: 32px 32px;
   }
 
@@ -270,8 +339,12 @@
   }
 
   /* Equipment-cyan utility shorthand used across the rebrand */
-  .text-cyan-brand { color: oklch(0.75 0.12 230); }
-  .bg-cyan { background-color: oklch(0.75 0.12 230); }
+  .text-cyan-brand {
+    color: oklch(0.75 0.12 230);
+  }
+  .bg-cyan {
+    background-color: oklch(0.75 0.12 230);
+  }
 
   /* Hide scrollbar for Chrome, Safari, Opera */
   .scrollbar-hide::-webkit-scrollbar {
@@ -328,8 +401,12 @@
 /* Wave shimmer — a bright highlight slides across the title from right
    to left, then loops. Used on the "Școala de Fotbal Dan Matei" title. */
 @keyframes title-wave {
-  0%   { background-position: 220% 50%; }
-  100% { background-position: -120% 50%; }
+  0% {
+    background-position: 220% 50%;
+  }
+  100% {
+    background-position: -120% 50%;
+  }
 }
 
 .text-wave-white {
@@ -376,4 +453,71 @@
   .text-wave-cyan {
     animation: none;
   }
+}
+
+/* Light theme compatibility layer. The current product was originally built
+   with dark Tailwind utility classes, so these higher-specificity selectors
+   translate the common dark surfaces/text into a white operational theme. */
+html.light body,
+html.light .app-shell,
+html.light [class*="bg-[oklch(0.08_0.02_250"] {
+  background-color: oklch(0.985 0.006 245) !important;
+  color: oklch(0.18 0.035 248);
+}
+
+html.light header[class*="bg-[oklch(0.08_0.02_250"] {
+  background-color: oklch(0.985 0.006 245 / 0.92) !important;
+}
+
+html.light [class*="bg-[oklch(0.10_0.02_250"],
+html.light [class*="bg-[oklch(0.12_0.03_250"],
+html.light [class*="bg-[oklch(0.13_0.03_250"],
+html.light [class*="bg-[oklch(0.15_0.03_250"],
+html.light [class*="bg-[oklch(0.16_0.04_250"],
+html.light [class*="bg-[oklch(0.18_0.05_250"] {
+  background-color: oklch(1 0 0 / 0.92) !important;
+}
+
+html.light [class*="bg-white/[0.02"],
+html.light [class*="bg-white/[0.03"],
+html.light [class*="bg-white/[0.04"],
+html.light [class*="bg-white/[0.05"],
+html.light [class*="bg-white/[0.07"],
+html.light [class*="bg-white/[0.10"] {
+  background-color: oklch(0.95 0.012 245 / 0.88) !important;
+}
+
+html.light .text-white {
+  color: oklch(0.18 0.035 248) !important;
+}
+
+html.light [class*="text-white/"] {
+  color: oklch(0.36 0.035 248) !important;
+}
+
+html.light [class*="border-white/"] {
+  border-color: oklch(0.84 0.018 245) !important;
+}
+
+html.light [class*="from-[oklch(0.10_0.02_250"],
+html.light [class*="from-[oklch(0.13_0.03_250"],
+html.light [class*="from-[oklch(0.16_0.04_250"] {
+  --tw-gradient-from: oklch(1 0 0 / 0.92) var(--tw-gradient-from-position) !important;
+}
+
+html.light [class*="to-[oklch(0.08_0.02_250"],
+html.light [class*="to-[oklch(0.12_0.03_250"],
+html.light [class*="to-[oklch(0.13_0.03_250"] {
+  --tw-gradient-to: oklch(0.94 0.012 245 / 0.7) var(--tw-gradient-to-position) !important;
+}
+
+html.light .surface-card,
+html.light .surface-elevated {
+  background: linear-gradient(
+    145deg,
+    oklch(1 0 0 / 0.96),
+    oklch(0.96 0.012 245 / 0.78)
+  );
+  border-color: oklch(0.84 0.018 245);
+  box-shadow: 0 24px 60px -34px oklch(0.25 0.05 245 / 0.35);
 }

@@ -34,6 +34,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { expoOut } from "@/lib/motion";
 import InstallAppButton from "@/components/InstallAppButton";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export interface PublicShellProps {
   children: ReactNode;
@@ -153,7 +154,7 @@ export default function PublicShell({
   }, [mobileOpen]);
 
   return (
-    <div className="relative min-h-[100dvh] bg-[oklch(0.08_0.02_250)] text-white">
+    <div className="app-shell relative min-h-[100dvh] bg-[oklch(0.08_0.02_250)] text-white">
       {/* Background atmosphere */}
       <div
         aria-hidden="true"
@@ -270,6 +271,7 @@ export default function PublicShell({
 
           <div className="flex items-center gap-2">
             <InstallAppButton />
+            <ThemeToggle />
             {!onProgramare && (
               <Link
                 href="/programare"

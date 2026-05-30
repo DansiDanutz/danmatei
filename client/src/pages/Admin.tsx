@@ -51,6 +51,13 @@ import { useAuth } from "@/lib/auth";
 import { currentAge } from "@/lib/age";
 import CoachingTips from "@/components/trainer/CoachingTips";
 import { BrandedField } from "@/components/ui/branded-field";
+import {
+  MobileSectionHeader,
+  MobileSectionHome,
+  sectionTriggerClass,
+  type MobileSection,
+} from "@/components/MobileSectionNav";
+import { useIsMobile } from "@/hooks/useMobile";
 
 const GroupsTab = lazy(() => import("@/components/admin/GroupsTab"));
 const NewsManager = lazy(() => import("@/components/admin/NewsManager"));
@@ -136,9 +143,124 @@ type LandingRow = {
   payload: Record<string, unknown>;
 };
 
+type AdminTab =
+  | "antrenori"
+  | "grupe"
+  | "membri"
+  | "risc"
+  | "plati"
+  | "funnel"
+  | "lead-uri"
+  | "stiri"
+  | "program"
+  | "notificari"
+  | "pagina";
+
+const ADMIN_SECTIONS: MobileSection<AdminTab>[] = [
+  {
+    value: "lead-uri",
+    label: "Lead-uri",
+    description: "Apeluri AI, transcript, WhatsApp și următorul pas.",
+    group: "Azi",
+    icon: <Inbox className="size-4" />,
+    tone: "emerald",
+    badge: "Zilnic",
+  },
+  {
+    value: "program",
+    label: "Program",
+    description: "Antrenamente, meciuri propuse și calendarul academiei.",
+    group: "Azi",
+    icon: <Calendar className="size-4" />,
+    tone: "teal",
+  },
+  {
+    value: "plati",
+    label: "Plăți",
+    description: "Taxe, încasări și conturi care cer atenție.",
+    group: "Atenție",
+    icon: <Receipt className="size-4" />,
+    tone: "amber",
+    badge: "Bani",
+  },
+  {
+    value: "risc",
+    label: "Risc",
+    description: "Familii și jucători unde trebuie intervenit rapid.",
+    group: "Atenție",
+    icon: <AlertTriangle className="size-4" />,
+    tone: "rose",
+  },
+  {
+    value: "antrenori",
+    label: "Antrenori",
+    description: "Conturi, roluri, intervale de vârstă și profiluri.",
+    group: "Oameni",
+    icon: <UserPlus className="size-4" />,
+    tone: "cyan",
+  },
+  {
+    value: "grupe",
+    label: "Grupe",
+    description: "Structură grupe, taxe și copii în așteptare.",
+    group: "Oameni",
+    icon: <UsersRound className="size-4" />,
+    tone: "cyan",
+  },
+  {
+    value: "membri",
+    label: "Membri",
+    description: "Părinți, copii, repartizări și statusuri.",
+    group: "Oameni",
+    icon: <Users className="size-4" />,
+    tone: "blue",
+  },
+  {
+    value: "funnel",
+    label: "Funnel",
+    description: "Conversie, surse, intenții și distribuția lead-urilor.",
+    group: "Creștere",
+    icon: <TrendingUp className="size-4" />,
+    tone: "green",
+  },
+  {
+    value: "stiri",
+    label: "Știri",
+    description: "Articole și drafturi AI pentru pagina publică.",
+    group: "Comunicare",
+    icon: <Tag className="size-4" />,
+    tone: "violet",
+  },
+  {
+    value: "notificari",
+    label: "Notificări",
+    description: "Mesaje push pentru părinți și antrenori.",
+    group: "Comunicare",
+    icon: <Bell className="size-4" />,
+    tone: "indigo",
+  },
+  {
+    value: "pagina",
+    label: "Pagina publică",
+    description: "Conținutul vizibil pe site pentru vizitatori.",
+    group: "Comunicare",
+    icon: <Newspaper className="size-4" />,
+    tone: "slate",
+  },
+];
+
 export default function Admin() {
   const { profile } = useAuth();
-  const [tab, setTab] = useState("antrenori");
+  const isMobile = useIsMobile();
+  const [tab, setTab] = useState<AdminTab>("lead-uri");
+  const [mobileHome, setMobileHome] = useState(true);
+  const activeSection =
+    ADMIN_SECTIONS.find(section => section.value === tab) ?? ADMIN_SECTIONS[0];
+  const selectSection = (value: AdminTab) => {
+    setTab(value);
+    setMobileHome(false);
+  };
+  const showMobileHome = isMobile && mobileHome;
   return (
     <MemberShell
       navLinks={[
@@ -162,40 +284,106 @@ export default function Admin() {
         <CoachingTips recipientId={profile?.id ?? ""} />
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="mt-6">
-        <div className="relative">
+      <MobileSectionHome
+        title="Ce vrei să rezolvi?"
+        subtitle="Alege cardul potrivit. Cele mai folosite zone sunt sus, iar culorile rămân aceleași când intri în secțiune."
+        sections={ADMIN_SECTIONS}
+        onSelect={selectSection}
+        className={showMobileHome ? undefined : "hidden"}
+      />
+
+      {!showMobileHome && (
+        <MobileSectionHeader
+          rootLabel="Admin"
+          section={activeSection}
+          sections={ADMIN_SECTIONS}
+          onBack={() => setMobileHome(true)}
+          onSelect={selectSection}
+        />
+      )}
+
+      <Tabs
+        value={tab}
+        onValueChange={value => setTab(value as AdminTab)}
+        className={showMobileHome ? "hidden md:block" : "mt-6"}
+      >
+        <div className="relative hidden md:block">
           <TabsList className="flex h-12 w-full justify-start gap-1 overflow-x-auto rounded-full border border-white/8 bg-[oklch(0.10_0.02_250)] p-1 scrollbar-hide snap-x md:h-9">
-            <Trigger value="antrenori" icon={<UserPlus className="size-3.5" />}>
+            <Trigger
+              value="antrenori"
+              tone="cyan"
+              icon={<UserPlus className="size-3.5" />}
+            >
               Antrenori
             </Trigger>
-            <Trigger value="grupe" icon={<UsersRound className="size-3.5" />}>
+            <Trigger
+              value="grupe"
+              tone="cyan"
+              icon={<UsersRound className="size-3.5" />}
+            >
               Grupe
             </Trigger>
-            <Trigger value="membri" icon={<Users className="size-3.5" />}>
+            <Trigger
+              value="membri"
+              tone="blue"
+              icon={<Users className="size-3.5" />}
+            >
               Membri
             </Trigger>
-            <Trigger value="risc" icon={<AlertTriangle className="size-3.5" />}>
+            <Trigger
+              value="risc"
+              tone="rose"
+              icon={<AlertTriangle className="size-3.5" />}
+            >
               Risc
             </Trigger>
-            <Trigger value="plati" icon={<Receipt className="size-3.5" />}>
+            <Trigger
+              value="plati"
+              tone="amber"
+              icon={<Receipt className="size-3.5" />}
+            >
               Plăți
             </Trigger>
-            <Trigger value="funnel" icon={<TrendingUp className="size-3.5" />}>
+            <Trigger
+              value="funnel"
+              tone="green"
+              icon={<TrendingUp className="size-3.5" />}
+            >
               Funnel
             </Trigger>
-            <Trigger value="lead-uri" icon={<Inbox className="size-3.5" />}>
+            <Trigger
+              value="lead-uri"
+              tone="emerald"
+              icon={<Inbox className="size-3.5" />}
+            >
               Lead-uri
             </Trigger>
-            <Trigger value="stiri" icon={<Tag className="size-3.5" />}>
+            <Trigger
+              value="stiri"
+              tone="violet"
+              icon={<Tag className="size-3.5" />}
+            >
               Știri
             </Trigger>
-            <Trigger value="program" icon={<Calendar className="size-3.5" />}>
+            <Trigger
+              value="program"
+              tone="teal"
+              icon={<Calendar className="size-3.5" />}
+            >
               Program
             </Trigger>
-            <Trigger value="notificari" icon={<Bell className="size-3.5" />}>
+            <Trigger
+              value="notificari"
+              tone="indigo"
+              icon={<Bell className="size-3.5" />}
+            >
               Notificări
             </Trigger>
-            <Trigger value="pagina" icon={<Newspaper className="size-3.5" />}>
+            <Trigger
+              value="pagina"
+              tone="slate"
+              icon={<Newspaper className="size-3.5" />}
+            >
               Pagina publică
             </Trigger>
           </TabsList>
@@ -277,16 +465,15 @@ export default function Admin() {
 const Trigger = ({
   value,
   icon,
+  tone = "cyan",
   children,
 }: {
   value: string;
   icon: React.ReactNode;
+  tone?: MobileSection["tone"];
   children: React.ReactNode;
 }) => (
-  <TabsTrigger
-    value={value}
-    className="flex-none snap-center rounded-full px-4 font-heading text-[13px] uppercase tracking-[0.1em] text-white/65 transition-colors data-[state=active]:bg-brand-cyan/15 data-[state=active]:text-brand-cyan md:flex-1 md:px-3 md:py-2 md:text-[11px] md:tracking-[0.16em]"
-  >
+  <TabsTrigger value={value} className={sectionTriggerClass(tone)}>
     <span className="inline-flex items-center gap-1.5">
       {icon}
       {children}
