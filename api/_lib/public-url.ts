@@ -29,12 +29,15 @@ function isProductionLike(): boolean {
 }
 
 export function configuredPublicBaseUrl(): string {
-  const configured =
-    process.env.PUBLIC_BASE_URL ||
-    process.env.VITE_APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL;
-  const origin = configured ? cleanOrigin(configured) : null;
-  return origin ?? CANONICAL_PUBLIC_BASE_URL;
+  for (const configured of [
+    process.env.PUBLIC_BASE_URL,
+    process.env.VITE_APP_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+  ]) {
+    const origin = configured ? cleanOrigin(configured) : null;
+    if (origin) return origin;
+  }
+  return CANONICAL_PUBLIC_BASE_URL;
 }
 
 export function publicBaseUrlFromHeaders(headers?: HeaderMap): string {

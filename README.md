@@ -391,6 +391,7 @@ Only the **Supabase** group is required to boot the site. The rest progressively
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Server-side equivalents                          |
 | `SUPABASE_SERVICE_ROLE`              | Service-role key — **server only**, bypasses RLS |
 | `VITE_APP_URL`                       | App origin for invite / reset redirects          |
+| `PUBLIC_BASE_URL`                    | Canonical public origin for generated links      |
 
 </details>
 
@@ -425,6 +426,9 @@ Push to a Vercel-linked branch. `vercel.json` is pre-configured:
 - SPA rewrite for client-side routing; long-cache for `/assets/*`, no-cache for `index.html`
 
 Set the environment variables (above) in **Vercel → Project Settings → Environment Variables**.
+For production, set both `VITE_APP_URL` and `PUBLIC_BASE_URL` to
+`https://www.danmatei.ro` so OAuth, trainer invites, WhatsApp call links,
+assistant fallback links, sitemap and social metadata all use the custom domain.
 
 ### Voice agent (Fly.io / Docker)
 

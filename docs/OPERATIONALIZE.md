@@ -128,6 +128,8 @@ Variables**, add (paste from your local `.env`):
 
 | Variable                   | Scope      | Value                       |
 | -------------------------- | ---------- | --------------------------- |
+| `VITE_APP_URL`             | Production | `https://www.danmatei.ro`   |
+| `PUBLIC_BASE_URL`          | Production | `https://www.danmatei.ro`   |
 | `LEAD_LINK_SIGNING_SECRET` | Production | (same as host)              |
 | `LIVEKIT_URL`              | Production | `wss://livekit.example.com` |
 | `LIVEKIT_API_KEY`          | Production | (same as host)              |
@@ -140,6 +142,11 @@ Variables**, add (paste from your local `.env`):
 | `TRAINER_PHONE_T_SOPI`     | Production | `+407xxxxxxxx`              |
 | `TRAINER_PHONE_T_KELEMEN`  | Production | `+407xxxxxxxx`              |
 | `TRAINER_PHONE_T_DAN`      | Production | `+407xxxxxxxx`              |
+
+Also set the Supabase, cron, Web Push, text-LLM and ElevenLabs variables from
+`.env.example` in Vercel. The two app-origin variables above are important:
+they keep invite links, Google OAuth redirects, WhatsApp call links and
+assistant fallback links on the custom domain instead of the Vercel preview URL.
 
 Trigger a redeploy:
 

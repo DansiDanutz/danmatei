@@ -27,6 +27,13 @@ describe("public URL helpers", () => {
     );
   });
 
+  it("falls through to the next configured origin when a higher-priority env is invalid", () => {
+    vi.stubEnv("PUBLIC_BASE_URL", "not a url");
+    vi.stubEnv("VITE_APP_URL", "https://www.danmatei.ro/login/");
+
+    expect(configuredPublicBaseUrl()).toBe("https://www.danmatei.ro");
+  });
+
   it("ignores host headers in production when PUBLIC_BASE_URL is missing", () => {
     vi.stubEnv("PUBLIC_BASE_URL", "");
     vi.stubEnv("VITE_APP_URL", "");

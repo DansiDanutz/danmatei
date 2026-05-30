@@ -54,6 +54,13 @@ export type PushPayload = {
   url?: string;
 };
 
+type PushSubscriptionRow = {
+  id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+};
+
 /**
  * Send a push notification to every subscription belonging to the given users.
  * Best-effort: any per-subscription failure (timeout, rejected, dead endpoint)
@@ -82,8 +89,9 @@ export async function sendPushToUsers(
   const deadIds: string[] = [];
   let sent = 0;
 
+  const subscriptionRows = subs as PushSubscriptionRow[];
   await Promise.all(
-    subs.map(async sub => {
+    subscriptionRows.map(async sub => {
       const subscription: WebPushSubscription = {
         endpoint: sub.endpoint,
         keys: { p256dh: sub.p256dh, auth: sub.auth },

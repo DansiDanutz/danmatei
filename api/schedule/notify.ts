@@ -11,7 +11,11 @@
  * Body: { eventId }
  */
 import { z } from "zod";
-import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
+import {
+  serviceClient,
+  getJwtFromHeader,
+  getUserIdFromJwt,
+} from "../_lib/supabase.js";
 import { sendPushToUsers } from "../_lib/push.js";
 
 const Body = z.object({ eventId: z.string().uuid() });
@@ -83,10 +87,12 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
-  const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
-  if (userErr || !userData?.user)
+  let userId: string;
+  try {
+    userId = await getUserIdFromJwt(jwt);
+  } catch {
     return res.status(401).json({ error: "invalid_jwt" });
-  const userId = userData.user.id;
+  }
 
   const { data: prof } = await supabase
     .from("profiles")

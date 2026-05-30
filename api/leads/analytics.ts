@@ -20,7 +20,11 @@
  *   }
  */
 import { z } from "zod";
-import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
+import {
+  serviceClient,
+  getJwtFromHeader,
+  getUserIdFromJwt,
+} from "../_lib/supabase.js";
 
 const Query = z.object({
   days: z.coerce.number().int().min(1).max(365).default(30),
@@ -96,14 +100,16 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
-  const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
-  if (userErr || !userData?.user) {
+  let userId: string;
+  try {
+    userId = await getUserIdFromJwt(jwt);
+  } catch {
     return res.status(401).json({ error: "invalid_jwt" });
   }
   const { data: prof } = await supabase
     .from("profiles")
     .select("role")
-    .eq("id", userData.user.id)
+    .eq("id", userId)
     .maybeSingle();
   if (!prof) return res.status(401).json({ error: "no_profile" });
   if (prof.role !== "owner" && prof.role !== "super_admin") {

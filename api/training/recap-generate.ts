@@ -16,7 +16,11 @@
  * "AI not available — write the recap yourself" state.
  */
 import { z } from "zod";
-import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
+import {
+  serviceClient,
+  getJwtFromHeader,
+  getUserIdFromJwt,
+} from "../_lib/supabase.js";
 import {
   generateText,
   isConfigured as openAIConfigured,
@@ -106,11 +110,12 @@ export default async function handler(req: Req, res: Res) {
   }
 
   // Authenticate caller and load their profile
-  const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
-  if (userErr || !userData?.user) {
+  let userId: string;
+  try {
+    userId = await getUserIdFromJwt(jwt);
+  } catch {
     return res.status(401).json({ error: "invalid_jwt" });
   }
-  const userId = userData.user.id;
 
   // Per-user/hour LLM rate limit (first-line defense — see api/_lib/ratelimit.ts)
   const rl = checkRateLimit(
