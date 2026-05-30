@@ -39,7 +39,7 @@ function birthYear(dob: string): number {
  * surface the first name + last initial only; the full surname never leaves
  * the server.
  */
-function maskName(full: string): string {
+export function maskName(full: string): string {
   const parts = full.trim().split(/\s+/).filter(Boolean);
   if (parts.length <= 1) return parts[0] ?? "";
   const last = parts[parts.length - 1];

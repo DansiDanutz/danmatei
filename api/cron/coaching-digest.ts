@@ -55,7 +55,7 @@ type GeneratedTip = {
 const AI_TIMEOUT_MS = 6000;
 
 /** Pull the first {...} JSON object out of an LLM reply (tolerates code fences). */
-function parseTip(text: string): { title: string; body: string; source: string } | null {
+export function parseTip(text: string): { title: string; body: string; source: string } | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return null;
