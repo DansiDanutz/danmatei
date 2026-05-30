@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { birthYearFromDob } from "@shared/date";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -276,7 +277,7 @@ export default function GroupsTab() {
 
   const choiceFor = (c: RequestChild): string => {
     if (groupChoice[c.id] !== undefined) return groupChoice[c.id];
-    const matched = findMatchingGroup(new Date(c.dob).getFullYear());
+    const matched = findMatchingGroup(birthYearFromDob(c.dob));
     return matched?.id ?? "";
   };
 
@@ -570,7 +571,7 @@ export default function GroupsTab() {
         ) : (
           <div className="mt-4 space-y-2">
             {requests.map((c) => {
-              const birthYear = new Date(c.dob).getFullYear();
+              const birthYear = birthYearFromDob(c.dob);
               const onHold = c.assignment_status === "on_hold";
               const busy = busyChild === c.id;
               return (

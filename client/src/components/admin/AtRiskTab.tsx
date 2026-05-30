@@ -22,6 +22,7 @@ import {
   Phone,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { currentAge } from "@/lib/age";
 
 type RiskRow = {
   child_id: string;
@@ -46,15 +47,6 @@ type SortBy = "percent" | "missed" | "name";
 
 const RISK_PERCENT_THRESHOLD = 50;
 const MIN_TRACKED_SESSIONS = 4;
-
-function ageOf(dob: string): number {
-  const d = new Date(dob);
-  const now = new Date();
-  let age = now.getFullYear() - d.getFullYear();
-  const m = now.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1;
-  return age;
-}
 
 function whatsAppHrefFor(row: RiskRow): string | null {
   const phone = row.parent?.phone?.replace(/^\+/, "");
@@ -284,7 +276,7 @@ export default function AtRiskTab() {
                     {row.full_name}
                   </Link>
                   <p className="font-body text-[12px] text-white/55">
-                    {ageOf(row.dob)} ani · {row.age_group_label ?? "Nealocat"}
+                    {currentAge(row.dob)} ani · {row.age_group_label ?? "Nealocat"}
                     {row.trainer?.full_name && ` · ${row.trainer.full_name}`}
                   </p>
                 </div>

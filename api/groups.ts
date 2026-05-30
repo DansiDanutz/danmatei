@@ -11,6 +11,7 @@
  * GET only. Cached at the edge for a minute.
  */
 import { serviceClient } from "./_lib/supabase.js";
+import { birthYearFromDob } from "../shared/date.js";
 
 type Req = { method?: string };
 type Res = {
@@ -29,10 +30,6 @@ type GroupRow = {
 
 // How many children to surface per card (the rest show as "+ N alți copii").
 const SAMPLE_SIZE = 4;
-
-function birthYear(dob: string): number {
-  return new Date(dob).getFullYear();
-}
 
 /**
  * "Andrei Mureșan" → "Andrei M." — this is a public page showing minors, so we
@@ -87,10 +84,10 @@ export default async function handler(req: Req, res: Res) {
           (c) =>
             c.group_id === g.id ||
             (c.group_id == null &&
-              birthYear(c.dob) >= g.birth_year_min &&
-              birthYear(c.dob) <= g.birth_year_max)
+              birthYearFromDob(c.dob) >= g.birth_year_min &&
+              birthYearFromDob(c.dob) <= g.birth_year_max)
         )
-        .sort((a, b) => birthYear(b.dob) - birthYear(a.dob)); // youngest first
+        .sort((a, b) => birthYearFromDob(b.dob) - birthYearFromDob(a.dob)); // youngest first
 
       return {
         id: g.id,
@@ -102,7 +99,7 @@ export default async function handler(req: Req, res: Res) {
         players: matched.slice(0, SAMPLE_SIZE).map((c) => ({
           id: c.id,
           name: maskName(c.full_name),
-          yearOfBirth: birthYear(c.dob),
+          yearOfBirth: birthYearFromDob(c.dob),
         })),
       };
     });

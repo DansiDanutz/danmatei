@@ -185,4 +185,67 @@ describe("webhook idempotency", () => {
     expect(updates.update).not.toHaveBeenCalled();
     expect(notifications.insert).not.toHaveBeenCalled();
   });
+
+  it("treats duplicate ElevenLabs trainer notifications as successful retries", async () => {
+    const existing = {
+      id: "conversation-row",
+      parent_id: "parent",
+      trainer_id: "trainer-row",
+      child_id: "child",
+      status: "in_progress",
+      ended_at: null,
+      transcript_md: null,
+    };
+    const aiConversations = {
+      select: vi.fn(() => aiConversations),
+      eq: vi.fn(() => aiConversations),
+      maybeSingle: vi.fn(async () => ({ data: existing, error: null })),
+      update: vi.fn(() => ({
+        eq: vi.fn(async () => ({ error: null })),
+      })),
+    };
+    const trainers = {
+      select: vi.fn(() => trainers),
+      eq: vi.fn(() => trainers),
+      single: vi.fn(async () => ({
+        data: { profile_id: "trainer-profile" },
+        error: null,
+      })),
+    };
+    const notifications = {
+      insert: vi.fn(async () => ({
+        error: { code: "23505", message: "duplicate key value" },
+      })),
+    };
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "ai_conversations") return aiConversations;
+        if (table === "trainers") return trainers;
+        if (table === "notifications") return notifications;
+        throw new Error(`unexpected table ${table}`);
+      }),
+    };
+    mocks.serviceClient.mockReturnValue(supabase);
+    mocks.fetchTranscript.mockResolvedValue(null);
+
+    const { default: handler } = await import("../../api/ai/webhook");
+    const { res, calls } = resRecorder();
+    await handler(
+      signedElevenLabsReq({
+        type: "completed",
+        data: { conversation_id: "conv-1", status: "completed" },
+      }),
+      res
+    );
+
+    expect(calls[0]).toEqual({
+      status: 200,
+      body: { ok: true, matched: true },
+    });
+    expect(notifications.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedupe_key: "ai_conversation:conversation-row:trainer:trainer-profile",
+      })
+    );
+  });
 });

@@ -22,6 +22,7 @@ import { Link } from "wouter";
 import { AGE_GROUPS, TRAINERS, type AgeGroup } from "@/data/landing";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { birthYearFromDob } from "@shared/date";
 import SlideShell from "./SlideShell";
 
 const expoOut: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -403,7 +404,7 @@ export default function SlidePlayers() {
         const kids = (data ?? []) as { group_id: string | null; dob: string }[];
         const ids = new Set<string>();
         for (const k of kids) {
-          const y = new Date(k.dob).getFullYear();
+          const y = birthYearFromDob(k.dob);
           const match = allGroups.find(
             (g) =>
               k.group_id === g.key ||

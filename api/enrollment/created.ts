@@ -16,6 +16,7 @@ import {
   getUserIdFromJwt,
 } from "../_lib/supabase.js";
 import { sendPushToUsers } from "../_lib/push.js";
+import { birthYearFromDob } from "../../shared/date.js";
 
 const Body = z.object({ childId: z.string().uuid() });
 
@@ -70,7 +71,7 @@ export default async function handler(req: Req, res: Res) {
     return res.status(403).json({ error: "Not your child" });
   }
 
-  const birthYear = new Date(child.dob as string).getFullYear();
+  const birthYear = birthYearFromDob(child.dob as string);
 
   // Recipients ───────────────────────────────────────────────────────────────
   // Trainers: the one the parent pre-selected (if any) + every trainer whose

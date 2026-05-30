@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, UserCheck, UserX, UsersRound, Phone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { birthYearFromDob } from "@shared/date";
 
 type PendingChild = {
   id: string;
@@ -72,7 +73,7 @@ export default function AtribuiriTab({ trainerId }: { trainerId: string }) {
         all.filter((c) => {
           if (c.trainer_id === trainerId) return true;
           if (c.trainer_id == null)
-            return inRange(new Date(c.dob).getFullYear());
+            return inRange(birthYearFromDob(c.dob));
           return false;
         })
       );
@@ -89,7 +90,7 @@ export default function AtribuiriTab({ trainerId }: { trainerId: string }) {
     setActionId(child.id);
     setError(null);
     try {
-      const year = new Date(child.dob).getFullYear();
+      const year = birthYearFromDob(child.dob);
       const group = ranges.find(
         (g) => year >= g.birth_year_min && year <= g.birth_year_max
       );
@@ -164,7 +165,7 @@ export default function AtribuiriTab({ trainerId }: { trainerId: string }) {
       ) : (
         <div className="space-y-2">
           {pending.map((c) => {
-            const birthYear = new Date(c.dob).getFullYear();
+            const birthYear = birthYearFromDob(c.dob);
             const busy = actionId === c.id;
             return (
               <div

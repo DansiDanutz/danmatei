@@ -6,6 +6,8 @@
  *   matchTrainers(age, list)   → trainers whose [age_min, age_max] contains age
  */
 
+import { dobParts } from "@shared/date";
+
 type DateParts = { year: number; month: number; day: number };
 
 function partsInTimeZone(date: Date, timeZone: string): DateParts {
@@ -22,25 +24,6 @@ function partsInTimeZone(date: Date, timeZone: string): DateParts {
     year: Number(parts.year),
     month: Number(parts.month),
     day: Number(parts.day),
-  };
-}
-
-function dobParts(dob: string | Date): DateParts {
-  if (typeof dob === "string") {
-    const m = dob.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) {
-      return {
-        year: Number(m[1]),
-        month: Number(m[2]),
-        day: Number(m[3]),
-      };
-    }
-  }
-  const d = typeof dob === "string" ? new Date(dob) : dob;
-  return {
-    year: d.getUTCFullYear(),
-    month: d.getUTCMonth() + 1,
-    day: d.getUTCDate(),
   };
 }
 

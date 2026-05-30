@@ -16,6 +16,7 @@ import {
   getJwtFromHeader,
   getUserIdFromJwt,
 } from "../_lib/supabase.js";
+import { birthYearFromDob } from "../../shared/date.js";
 
 type Req = {
   method?: string;
@@ -129,9 +130,7 @@ export default async function handler(req: Req, res: Res) {
       goals: r.goals ?? 0,
       assists: r.assists ?? 0,
       name: r.children?.full_name ?? "—",
-      yearOfBirth: r.children?.dob
-        ? new Date(r.children.dob).getFullYear()
-        : null,
+      yearOfBirth: r.children?.dob ? birthYearFromDob(r.children.dob) : null,
       groupId: r.children?.group_id ?? null,
       groupLabel: r.children?.groups?.label ?? null,
     }))

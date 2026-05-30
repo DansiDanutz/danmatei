@@ -251,7 +251,7 @@ export default defineConfig({
     // target with VITE_API_PROXY (e.g. a `vercel dev` URL) when needed.
     proxy: {
       "/api": {
-        target: process.env.VITE_API_PROXY || "https://danmatei.vercel.app",
+        target: process.env.VITE_API_PROXY || "https://www.danmatei.ro",
         changeOrigin: true,
         secure: true,
       },

@@ -16,6 +16,7 @@ import { BrandSpinner } from "@/components/ui/brand-spinner";
 import { supabase } from "@/lib/supabase";
 import { AGE_GROUPS } from "@/data/landing";
 import { useAuth } from "@/lib/auth";
+import { currentAge } from "@/lib/age";
 import { expoOut } from "@/lib/motion";
 
 interface ChildRow {
@@ -34,15 +35,6 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   year: "numeric",
   timeZone: "Europe/Bucharest",
 });
-
-function ageInYears(dob: string): number {
-  const d = new Date(dob);
-  const now = new Date();
-  let age = now.getFullYear() - d.getFullYear();
-  const m = now.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1;
-  return age;
-}
 
 export default function Copii() {
   const { user, profile, loading } = useAuth();
@@ -243,7 +235,7 @@ export default function Copii() {
                   <Cake className="size-3.5 text-brand-cyan/70" />
                   {dateFormatter.format(new Date(c.dob))}
                   <span className="text-white/30">·</span>
-                  {ageInYears(c.dob)} ani
+                  {currentAge(c.dob)} ani
                 </span>
               </div>
               <Link

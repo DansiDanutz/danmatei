@@ -73,6 +73,15 @@ class PayloadTooLargeError extends Error {
   }
 }
 
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "23505"
+  );
+}
+
 async function readRawBody(req: MinimalReq): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
@@ -258,13 +267,17 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
       .eq("id", row.trainer_id)
       .single();
     if (trainer?.profile_id) {
-      await svc.from("notifications").insert({
+      const { error: notifyErr } = await svc.from("notifications").insert({
         recipient_id: trainer.profile_id,
         kind: "ai_transcript_ready",
         title: "Transcript nou disponibil",
         body: "Un părinte tocmai a încheiat conversația cu asistentul AI. Vezi transcriptul în panou.",
         link: "/antrenor#transcripte",
+        dedupe_key: `ai_conversation:${rowId}:trainer:${trainer.profile_id}`,
       });
+      if (notifyErr && !isUniqueViolation(notifyErr)) {
+        return res.status(500).json({ error: notifyErr.message });
+      }
     }
   }
 

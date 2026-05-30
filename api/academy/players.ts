@@ -17,6 +17,7 @@ import {
   getUserIdFromJwt,
 } from "../_lib/supabase.js";
 import { escapeLike } from "../_lib/like.js";
+import { birthYearFromDob } from "../../shared/date.js";
 
 type Req = {
   method?: string;
@@ -113,7 +114,7 @@ export default async function handler(req: Req, res: Res) {
   const players = ((data ?? []) as unknown as ChildRow[]).map(c => ({
     id: c.id,
     name: c.full_name,
-    yearOfBirth: c.dob ? new Date(c.dob).getFullYear() : null,
+    yearOfBirth: c.dob ? birthYearFromDob(c.dob) : null,
     groupLabel: c.groups?.label ?? c.age_group_label ?? null,
   }));
 
