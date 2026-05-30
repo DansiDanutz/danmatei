@@ -48,6 +48,7 @@ type PartRow = {
   goals: number;
   assists: number;
   children: {
+    parent_id: string | null;
     full_name: string;
     dob: string | null;
     group_id: string | null;
@@ -97,15 +98,22 @@ export default async function handler(req: Req, res: Res) {
 
   const evTrainer = event.trainers as { profile_id?: string } | null;
   const isAssigned = !!evTrainer?.profile_id && evTrainer.profile_id === userId;
-  if (!isAdmin && !isAssigned) return res.status(403).json({ error: "forbidden" });
 
   const { data: rows, error: rErr } = await svc
     .from("match_participations")
     .select(
-      "id, child_id, role, goals, assists, children:child_id(full_name, dob, group_id, groups:group_id(label))"
+      "id, child_id, role, goals, assists, children:child_id(parent_id, full_name, dob, group_id, groups:group_id(label))"
     )
     .eq("event_id", eventId);
   if (rErr) return res.status(500).json({ error: rErr.message });
+
+  // A parent with a child in the squad may also read it (powers the parent
+  // score editor's scorer picker), alongside owner/super_admin + event trainer.
+  const isSquadParent = ((rows ?? []) as PartRow[]).some(
+    (r) => r.children?.parent_id === userId
+  );
+  if (!isAdmin && !isAssigned && !isSquadParent)
+    return res.status(403).json({ error: "forbidden" });
 
   const squad = ((rows ?? []) as unknown as PartRow[])
     .map((r) => ({

@@ -44,6 +44,7 @@ import { currentAge } from "@/lib/age";
 import GroupsTab from "@/components/admin/GroupsTab";
 import NewsManager from "@/components/admin/NewsManager";
 import ScheduleOversight from "@/components/admin/ScheduleOversight";
+import ProposedMatchesQueue from "@/components/trainer/ProposedMatchesQueue";
 import NotificationManager from "@/components/admin/NotificationManager";
 import AtRiskTab from "@/components/admin/AtRiskTab";
 import LeadAnalyticsTab from "@/components/admin/LeadAnalyticsTab";
@@ -220,7 +221,10 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="program" className="mt-5">
           <LazyTab active={tab === "program"}>
-            <ScheduleOversight />
+            <div className="grid gap-5">
+              <ProposedMatchesQueue />
+              <ScheduleOversight />
+            </div>
           </LazyTab>
         </TabsContent>
         <TabsContent value="notificari" className="mt-5">
