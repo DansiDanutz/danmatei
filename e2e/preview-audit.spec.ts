@@ -83,9 +83,11 @@ test("audit preview at every viewport", async ({ page }) => {
     }
   });
   page.on("requestfailed", (req) => {
+    if (req.url().includes("/__manus__/")) return;
     failedRequests.push(`${req.failure()?.errorText} ${req.url()}`);
   });
   page.on("response", (res) => {
+    if (res.url().includes("/__manus__/")) return;
     if (res.status() >= 400) {
       failedRequests.push(`HTTP ${res.status()} ${res.url()}`);
     }

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, MapPin, Trophy, Users, Award } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { OWNER, type Owner } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
 
@@ -19,6 +19,7 @@ export default function Academie() {
   const [owner, setOwner] = useState<Owner>(OWNER);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) return;
     let cancelled = false;
     void (async () => {
       const { data } = await supabase

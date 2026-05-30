@@ -21,12 +21,12 @@ declare
   ids record;
 begin
   for ids in select * from (values
-    ('11111111-1111-1111-1111-111111111111'::uuid, 'dan@scoala-dan-matei.ro',     'Dan Matei',       'owner'),
-    ('22222222-2222-2222-2222-222222222222'::uuid, 'andrei@scoala-dan-matei.ro',  'Andrei Popa',     'trainer'),
-    ('33333333-3333-3333-3333-333333333333'::uuid, 'radu@scoala-dan-matei.ro',    'Radu Mureșan',    'trainer'),
-    ('44444444-4444-4444-4444-444444444444'::uuid, 'cristi@scoala-dan-matei.ro',  'Cristian Ilea',   'trainer'),
-    ('55555555-5555-5555-5555-555555555555'::uuid, 'parinte@example.com',         'Maria Popescu',   'parent')
-  ) as t(id, email, full_name, role)
+    ('11111111-1111-1111-1111-111111111111'::uuid, 'dan@scoala-dan-matei.ro',     'Dan Matei',       'owner',   '+40744111111'),
+    ('22222222-2222-2222-2222-222222222222'::uuid, 'andrei@scoala-dan-matei.ro',  'Andrei Popa',     'trainer', '+40744222222'),
+    ('33333333-3333-3333-3333-333333333333'::uuid, 'radu@scoala-dan-matei.ro',    'Radu Mureșan',    'trainer', '+40744333333'),
+    ('44444444-4444-4444-4444-444444444444'::uuid, 'cristi@scoala-dan-matei.ro',  'Cristian Ilea',   'trainer', '+40744444444'),
+    ('55555555-5555-5555-5555-555555555555'::uuid, 'parinte@example.com',         'Maria Popescu',   'parent',  '+40744555555')
+  ) as t(id, email, full_name, role, phone)
   loop
     insert into auth.users (
       id, instance_id, aud, role, email, encrypted_password,
@@ -41,7 +41,7 @@ begin
       ids.email, hashed_pw, now(),
       '', '', '', '', '', '', '', '',
       jsonb_build_object('provider', 'email', 'providers', array['email']),
-      jsonb_build_object('app', 'fotbal', 'full_name', ids.full_name, 'role', ids.role),
+      jsonb_build_object('app', 'fotbal', 'full_name', ids.full_name, 'role', ids.role, 'phone', ids.phone),
       false, false, now(), now()
     ) on conflict (id) do update
       set aud = excluded.aud,
@@ -66,11 +66,12 @@ begin
     -- The auth trigger creates this when raw_user_meta_data.app='fotbal'.
     -- Upsert too, so the seed remains correct if an auth user already existed
     -- from an older run without the metadata marker.
-    insert into fotbal.profiles (id, full_name, role)
-    values (ids.id, ids.full_name, ids.role::fotbal.user_role)
+    insert into fotbal.profiles (id, full_name, role, phone)
+    values (ids.id, ids.full_name, ids.role::fotbal.user_role, ids.phone)
     on conflict (id) do update
       set role = excluded.role,
-          full_name = excluded.full_name;
+          full_name = excluded.full_name,
+          phone = excluded.phone;
   end loop;
 end $$;
 
