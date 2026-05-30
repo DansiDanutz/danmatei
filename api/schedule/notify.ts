@@ -113,15 +113,33 @@ export default async function handler(req: Req, res: Res) {
   if (!event.trainer_id)
     return res.status(400).json({ error: "no_group" });
 
-  const { data: kids } = await supabase
-    .from("children")
-    .select("parent_id")
-    .eq("trainer_id", event.trainer_id as string)
-    .eq("status", "active")
-    .not("parent_id", "is", null);
-  const recipients = Array.from(
-    new Set(((kids ?? []) as { parent_id: string }[]).map((k) => k.parent_id))
-  );
+  // Match → notify only the called-up squad (the parents of the children in
+  // match_participations). Everything else → the whole group. Service-role
+  // read, so guest call-ups from other groups are included.
+  let recipients: string[];
+  if (event.kind === "match") {
+    const { data: squad } = await supabase
+      .from("match_participations")
+      .select("children:child_id (parent_id)")
+      .eq("event_id", eventId);
+    recipients = Array.from(
+      new Set(
+        ((squad ?? []) as { children: { parent_id: string | null } | null }[])
+          .map((s) => s.children?.parent_id)
+          .filter((id): id is string => !!id)
+      )
+    );
+  } else {
+    const { data: kids } = await supabase
+      .from("children")
+      .select("parent_id")
+      .eq("trainer_id", event.trainer_id as string)
+      .eq("status", "active")
+      .not("parent_id", "is", null);
+    recipients = Array.from(
+      new Set(((kids ?? []) as { parent_id: string }[]).map((k) => k.parent_id))
+    );
+  }
 
   const kindLabel =
     event.kind === "match"

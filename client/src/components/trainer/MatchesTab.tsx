@@ -1,12 +1,19 @@
 /**
- * MatchesTab — Trainer match result entry + participation tracking.
+ * MatchesTab — the trainer's match centre.
  *
- * Lists all schedule_events of kind='match' for this trainer.
- * Trainers can enter/edit:
- *   - match result (our_score, opponent_score, recap)
- *   - player participations (role, goals, assists) per child in their group
+ * For every schedule_event of kind='match' the trainer can:
+ *   1. Build the MATCH SQUAD — call up players from their own group AND, by
+ *      searching the whole academy by name, guest players from other groups
+ *      (/api/academy/players). The squad is fotbal.match_participations.
+ *   2. Enter the result (score + recap) and per-player stats (goals/assists),
+ *      scoped to the squad — not the whole group.
+ *   3. Notify the SQUAD's parents (/api/schedule/notify → for matches this
+ *      fans out only to the called-up players, not the whole group).
+ *
+ * The squad is loaded from /api/match/squad because RLS hides guest players
+ * from other groups from the trainer's own client.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,9 +24,14 @@ import {
   Save,
   ChevronDown,
   ChevronUp,
-  Pencil,
+  Search,
+  Plus,
+  X,
+  Megaphone,
   CheckCircle2,
+  Users,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -36,6 +48,7 @@ type MatchEvent = {
   location: string | null;
   opponent: string | null;
   notes: string | null;
+  group_notified_at: string | null;
 };
 
 type MatchResult = {
@@ -45,17 +58,24 @@ type MatchResult = {
   recap_md: string | null;
 };
 
-type Participation = {
-  id: string;
-  child_id: string;
-  child_name: string;
+type SquadMember = {
+  childId: string;
+  name: string;
   role: string;
   goals: number;
   assists: number;
-  notes: string | null;
+  groupLabel: string | null;
+  yearOfBirth: number | null;
 };
 
-// ── Zod schemas ─────────────────────────────────────────────────────────────
+type AcademyPlayer = {
+  id: string;
+  name: string;
+  yearOfBirth: number | null;
+  groupLabel: string | null;
+};
+
+// ── Zod schema (result) ──────────────────────────────────────────────────────
 
 const resultSchema = z.object({
   ourScore: z.number().min(0).int(),
@@ -63,6 +83,23 @@ const resultSchema = z.object({
   recap: z.string().max(2000).optional().or(z.literal("")),
 });
 type ResultValues = z.infer<typeof resultSchema>;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  return {
+    "content-type": "application/json",
+    authorization: `Bearer ${data.session?.access_token ?? ""}`,
+  };
+}
+
+const ROLE_LABEL: Record<string, string> = {
+  starter: "Titular",
+  sub: "Rezervă",
+  injured: "Accidentat",
+  absent: "Absent",
+};
 
 // ── Component ───────────────────────────────────────────────────────────────
 
@@ -79,13 +116,13 @@ export default function MatchesTab({
   const [error, setError] = useState<string | null>(null);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     const { data: evData, error: evErr } = await supabase
       .from("schedule_events")
-      .select("id, title, starts_at, location, opponent, notes")
+      .select("id, title, starts_at, location, opponent, notes, group_notified_at")
       .eq("trainer_id", trainerId)
       .eq("kind", "match")
       .order("starts_at", { ascending: false });
@@ -112,12 +149,11 @@ export default function MatchesTab({
     }
 
     setLoading(false);
-  };
+  }, [trainerId]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trainerId]);
+  }, [load]);
 
   if (loading) {
     return (
@@ -140,7 +176,8 @@ export default function MatchesTab({
       <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
         <Swords className="mx-auto size-8 text-white/20" />
         <p className="mt-3 font-body text-sm text-white/50">
-          Nu ai meciuri programate încă. Creează un eveniment de tip „Meci" din tab-ul Program.
+          Nu ai meciuri programate încă. Creează un eveniment de tip „Meci” din
+          tab-ul Program, apoi construiește echipa aici.
         </p>
       </div>
     );
@@ -151,7 +188,6 @@ export default function MatchesTab({
       {events.map((ev) => {
         const result = resultsMap.get(ev.id);
         const isEditing = editingEventId === ev.id;
-        const isPast = new Date(ev.starts_at) < new Date();
 
         return (
           <article
@@ -166,6 +202,12 @@ export default function MatchesTab({
                   <h3 className="font-heading text-sm font-semibold uppercase tracking-[0.04em] text-white">
                     {ev.title}
                   </h3>
+                  {ev.group_notified_at && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 font-heading text-[9px] uppercase tracking-[0.14em] text-emerald-200">
+                      <CheckCircle2 className="size-2.5" />
+                      Echipă notificată
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 font-body text-xs text-white/50">
                   {new Date(ev.starts_at).toLocaleString("ro-RO", {
@@ -214,31 +256,28 @@ export default function MatchesTab({
                       <ChevronUp className="size-3" />
                       Închide
                     </>
-                  ) : result ? (
-                    <>
-                      <Pencil className="size-3" />
-                      Editează
-                    </>
                   ) : (
                     <>
                       <ChevronDown className="size-3" />
-                      Adaugă rezultat
+                      Echipă & rezultat
                     </>
                   )}
                 </button>
               </div>
             </div>
 
-            {/* Expandable form */}
+            {/* Expandable editor */}
             {isEditing && (
               <MatchEditor
                 eventId={ev.id}
-                children={children}
+                ownGroup={children}
+                groupNotifiedAt={ev.group_notified_at}
                 existingResult={result ?? null}
                 onSaved={() => {
                   setEditingEventId(null);
                   load();
                 }}
+                onNotified={load}
                 onCancel={() => setEditingEventId(null)}
               />
             )}
@@ -249,25 +288,41 @@ export default function MatchesTab({
   );
 }
 
-// ── Match Editor (result + participations) ──────────────────────────────────
+// ── Match Editor (squad + result + stats) ────────────────────────────────────
 
 function MatchEditor({
   eventId,
-  children,
+  ownGroup,
+  groupNotifiedAt,
   existingResult,
   onSaved,
+  onNotified,
   onCancel,
 }: {
   eventId: string;
-  children: Child[];
+  ownGroup: Child[];
+  groupNotifiedAt: string | null;
   existingResult: MatchResult | null;
   onSaved: () => void;
+  onNotified: () => void;
   onCancel: () => void;
 }) {
+  const [squad, setSquad] = useState<SquadMember[]>([]);
+  const [squadLoaded, setSquadLoaded] = useState(false);
+  const [busyChild, setBusyChild] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [notifying, setNotifying] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [participations, setParticipations] = useState<Participation[]>([]);
-  const [partLoaded, setPartLoaded] = useState(false);
+
+  const squadIds = useMemo(() => new Set(squad.map((s) => s.childId)), [squad]);
+  const ownGroupIds = useMemo(
+    () => new Set(ownGroup.map((c) => c.id)),
+    [ownGroup]
+  );
+  const guests = useMemo(
+    () => squad.filter((s) => !ownGroupIds.has(s.childId)),
+    [squad, ownGroupIds]
+  );
 
   const {
     register,
@@ -282,61 +337,92 @@ function MatchEditor({
     },
   });
 
-  // Load existing participations
+  const loadSquad = useCallback(async () => {
+    const r = await fetch(`/api/match/squad?eventId=${eventId}`, {
+      headers: await authHeaders(),
+    });
+    if (!r.ok) {
+      setSquadLoaded(true);
+      return;
+    }
+    const j = (await r.json()) as { squad: SquadMember[] };
+    setSquad(
+      (j.squad ?? []).map((s) => ({
+        childId: s.childId,
+        name: s.name,
+        role: s.role || "starter",
+        goals: s.goals ?? 0,
+        assists: s.assists ?? 0,
+        groupLabel: s.groupLabel ?? null,
+        yearOfBirth: s.yearOfBirth ?? null,
+      }))
+    );
+    setSquadLoaded(true);
+  }, [eventId]);
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("match_participations")
-        .select("id, child_id, role, goals, assists, notes")
-        .eq("event_id", eventId);
+    loadSquad();
+  }, [loadSquad]);
 
-      if (cancelled) return;
+  // ── Squad membership (immediate, optimistic) ──────────────────────────────
 
-      const existing = (data ?? []) as Omit<Participation, "child_name">[];
-      const existingMap = new Map(existing.map((p) => [p.child_id, p]));
+  const addToSquad = async (
+    member: Omit<SquadMember, "role" | "goals" | "assists">
+  ) => {
+    if (squadIds.has(member.childId)) return;
+    setBusyChild(member.childId);
+    setSquad((prev) => [
+      ...prev,
+      { ...member, role: "starter", goals: 0, assists: 0 },
+    ]);
+    const { error } = await supabase.from("match_participations").insert({
+      event_id: eventId,
+      child_id: member.childId,
+      role: "starter",
+      goals: 0,
+      assists: 0,
+    });
+    setBusyChild(null);
+    if (error) {
+      toast.error("Nu am putut adăuga jucătorul", { description: error.message });
+      await loadSquad();
+    }
+  };
 
-      // Build full list: every child in group gets a row
-      const full: Participation[] = children.map((c) => {
-        const e = existingMap.get(c.id);
-        return {
-          id: e?.id ?? "",
-          child_id: c.id,
-          child_name: c.full_name,
-          role: e?.role ?? "starter",
-          goals: e?.goals ?? 0,
-          assists: e?.assists ?? 0,
-          notes: e?.notes ?? "",
-        };
-      });
+  const removeFromSquad = async (childId: string) => {
+    setBusyChild(childId);
+    setSquad((prev) => prev.filter((s) => s.childId !== childId));
+    const { error } = await supabase
+      .from("match_participations")
+      .delete()
+      .eq("event_id", eventId)
+      .eq("child_id", childId);
+    setBusyChild(null);
+    if (error) {
+      toast.error("Nu am putut scoate jucătorul", { description: error.message });
+      await loadSquad();
+    }
+  };
 
-      setParticipations(full);
-      setPartLoaded(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [eventId, children]);
-
-  const updatePart = (
+  const updateMember = (
     childId: string,
-    field: keyof Participation,
+    field: "role" | "goals" | "assists",
     value: string | number
   ) => {
-    setParticipations((prev) =>
-      prev.map((p) => (p.child_id === childId ? { ...p, [field]: value } : p))
+    setSquad((prev) =>
+      prev.map((s) => (s.childId === childId ? { ...s, [field]: value } : s))
     );
   };
+
+  // ── Save result + stats ───────────────────────────────────────────────────
 
   const onSubmit = handleSubmit(async (v) => {
     setSaving(true);
     setServerError(null);
-
     try {
-      // 1. Upsert match result
-      const scorers = participations
-        .filter((p) => p.goals > 0)
-        .map((p) => ({ child_id: p.child_id, goals: p.goals, name: p.child_name }));
+      const scorers = squad
+        .filter((s) => s.goals > 0)
+        .map((s) => ({ child_id: s.childId, goals: s.goals, name: s.name }));
 
       const { error: resErr } = await supabase.from("match_results").upsert(
         {
@@ -348,36 +434,70 @@ function MatchEditor({
         },
         { onConflict: "event_id" }
       );
-
       if (resErr) throw resErr;
 
-      // 2. Upsert participations
-      for (const p of participations) {
+      for (const s of squad) {
         const { error: partErr } = await supabase
           .from("match_participations")
           .upsert(
             {
               event_id: eventId,
-              child_id: p.child_id,
-              role: p.role,
-              goals: p.goals,
-              assists: p.assists,
-              notes: p.notes || null,
+              child_id: s.childId,
+              role: s.role,
+              goals: s.goals,
+              assists: s.assists,
             },
             { onConflict: "event_id, child_id" }
           );
         if (partErr) throw partErr;
       }
 
+      toast.success("Rezultat salvat");
       onSaved();
     } catch (e) {
-      setServerError(e instanceof Error ? e.message : "Eroare la salvare.");
+      const msg = e instanceof Error ? e.message : "Eroare la salvare.";
+      setServerError(msg);
+      toast.error("Salvarea a eșuat", { description: msg });
     } finally {
       setSaving(false);
     }
   });
 
-  if (!partLoaded) {
+  // ── Notify the squad ──────────────────────────────────────────────────────
+
+  const notifySquad = async () => {
+    if (squad.length === 0) {
+      toast.error("Adaugă jucători în echipă înainte de a notifica.");
+      return;
+    }
+    setNotifying(true);
+    try {
+      const r = await fetch("/api/schedule/notify", {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({ eventId }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        notified?: number;
+        error?: string;
+      };
+      if (!r.ok) throw new Error(j.error ?? `API ${r.status}`);
+      toast.success(
+        `Echipă notificată — ${j.notified ?? 0} ${
+          (j.notified ?? 0) === 1 ? "părinte" : "părinți"
+        }.`
+      );
+      onNotified();
+    } catch (e) {
+      toast.error("Notificarea a eșuat", {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally {
+      setNotifying(false);
+    }
+  };
+
+  if (!squadLoaded) {
     return (
       <div className="border-t border-white/5 p-4">
         <Loader2 className="size-4 animate-spin text-brand-cyan" />
@@ -386,145 +506,389 @@ function MatchEditor({
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="border-t border-white/5 p-4 sm:p-5"
-    >
-      {/* Score row */}
-      <div className="flex flex-wrap items-end gap-4">
-        <div>
-          <label className="mb-1 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55">
-            Goluri noastre
-          </label>
-          <input
-            type="number"
-            min={0}
-            {...register("ourScore", { valueAsNumber: true })}
-            className="w-20 rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 text-center font-heading text-lg font-bold text-brand-cyan focus:border-brand-cyan/60"
-          />
-          {errors.ourScore && (
-            <p className="mt-1 font-body text-xs text-rose-300/85">
-              {errors.ourScore.message}
-            </p>
-          )}
+    <div className="border-t border-white/5 p-4 sm:p-5">
+      {/* ── SQUAD ─────────────────────────────────────────────────────────── */}
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="flex items-center gap-2 font-heading text-[11px] uppercase tracking-[0.18em] text-white/55">
+            <Users className="size-3.5 text-brand-cyan" />
+            Echipa meciului
+            <span className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2 py-0.5 text-brand-cyan">
+              {squad.length}
+            </span>
+          </h4>
+          <button
+            type="button"
+            onClick={notifySquad}
+            disabled={notifying || squad.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-full border border-brand-gold/30 bg-brand-gold/10 px-3 py-1.5 font-heading text-[10px] uppercase tracking-[0.14em] text-brand-gold transition-colors hover:bg-brand-gold/20 disabled:opacity-40"
+          >
+            {notifying ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Megaphone className="size-3" />
+            )}
+            {groupNotifiedAt ? "Renotifică echipa" : "Notifică echipa"}
+          </button>
         </div>
-        <span className="pb-2 font-heading text-xl text-white/30">·</span>
-        <div>
-          <label className="mb-1 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55">
-            Goluri adversar
-          </label>
-          <input
-            type="number"
-            min={0}
-            {...register("opponentScore", { valueAsNumber: true })}
-            className="w-20 rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 text-center font-heading text-lg font-bold text-white/70 focus:border-brand-cyan/60"
-          />
-          {errors.opponentScore && (
-            <p className="mt-1 font-body text-xs text-rose-300/85">
-              {errors.opponentScore.message}
-            </p>
-          )}
-        </div>
-      </div>
 
-      {/* Recap */}
-      <div className="mt-4">
-        <label className="mb-1 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55">
-          Rezumat meci
-        </label>
-        <textarea
-          rows={2}
-          {...register("recap")}
-          placeholder="Descriere scurtă a meciului…"
-          className="w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60"
-        />
-      </div>
-
-      {/* Player participations */}
-      <div className="mt-5">
-        <h4 className="font-heading text-[11px] uppercase tracking-[0.18em] text-white/55">
-          Prezență & statistici jucători
-        </h4>
-        <div className="mt-3 grid gap-2">
-          {participations.map((p) => (
-            <div
-              key={p.child_id}
-              className="flex flex-wrap items-center gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2"
-            >
-              <span className="min-w-[8rem] font-heading text-sm font-semibold text-white">
-                {p.child_name}
-              </span>
-
-              <select
-                value={p.role}
-                onChange={(e) => updatePart(p.child_id, "role", e.target.value)}
-                className="rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-2 py-1 font-body text-xs text-white"
-              >
-                <option value="starter">Titular</option>
-                <option value="sub">Rezervă</option>
-                <option value="injured">Accidentat</option>
-                <option value="absent">Absent</option>
-              </select>
-
-              <div className="flex items-center gap-1">
-                <span className="font-body text-[10px] text-white/40">Goluri</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={p.goals}
-                  onChange={(e) =>
-                    updatePart(p.child_id, "goals", parseInt(e.target.value) || 0)
-                  }
-                  className="w-12 rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-1 py-1 text-center font-heading text-xs text-white"
-                />
-              </div>
-
-              <div className="flex items-center gap-1">
-                <span className="font-body text-[10px] text-white/40">Pase</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={p.assists}
-                  onChange={(e) =>
-                    updatePart(p.child_id, "assists", parseInt(e.target.value) || 0)
-                  }
-                  className="w-12 rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-1 py-1 text-center font-heading text-xs text-white"
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {serverError && (
-        <p className="mt-4 rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 py-1.5 font-body text-xs text-rose-200">
-          {serverError}
+        {/* Own group — the whole roster; tap to call up / drop */}
+        <p className="mt-3 font-heading text-[10px] uppercase tracking-[0.16em] text-white/40">
+          Grupa mea ({ownGroup.length})
         </p>
-      )}
+        {ownGroup.length === 0 ? (
+          <p className="mt-1 font-body text-xs text-white/40">
+            Niciun copil activ în grupă.
+          </p>
+        ) : (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {ownGroup.map((c) => {
+              const inSquad = squadIds.has(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  disabled={busyChild === c.id}
+                  onClick={() =>
+                    inSquad
+                      ? removeFromSquad(c.id)
+                      : addToSquad({
+                          childId: c.id,
+                          name: c.full_name,
+                          groupLabel: null,
+                          yearOfBirth: null,
+                        })
+                  }
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-heading text-[11px] tracking-[0.02em] transition-colors disabled:opacity-50 ${
+                    inSquad
+                      ? "border-brand-cyan/50 bg-brand-cyan/15 text-brand-cyan"
+                      : "border-white/12 bg-white/[0.03] text-white/60 hover:border-white/25 hover:text-white"
+                  }`}
+                >
+                  {inSquad ? (
+                    <CheckCircle2 className="size-3" />
+                  ) : (
+                    <Plus className="size-3" />
+                  )}
+                  {c.full_name}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-      <div className="mt-4 flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={saving}
-          className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 py-2 font-heading text-[11px] font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)] transition-colors hover:bg-[oklch(0.82_0.13_220)] disabled:opacity-60"
-        >
-          {saving ? (
-            <Loader2 className="size-3.5 animate-spin" />
+        {/* Guests from other groups */}
+        {guests.length > 0 && (
+          <>
+            <p className="mt-4 font-heading text-[10px] uppercase tracking-[0.16em] text-white/40">
+              Invitați din academie ({guests.length})
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {guests.map((g) => (
+                <span
+                  key={g.childId}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-brand-gold/40 bg-brand-gold/10 px-3 py-1.5 font-heading text-[11px] text-brand-gold"
+                >
+                  {g.name}
+                  {g.groupLabel && (
+                    <span className="text-brand-gold/60">· {g.groupLabel}</span>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busyChild === g.childId}
+                    onClick={() => removeFromSquad(g.childId)}
+                    className="ml-0.5 grid size-4 place-items-center rounded-full hover:bg-brand-gold/20 disabled:opacity-50"
+                    aria-label={`Scoate ${g.name}`}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Academy-wide search to add guests */}
+        <AcademySearch
+          excludeIds={squadIds}
+          onAdd={(p) =>
+            addToSquad({
+              childId: p.id,
+              name: p.name,
+              groupLabel: p.groupLabel,
+              yearOfBirth: p.yearOfBirth,
+            })
+          }
+        />
+      </section>
+
+      {/* ── RESULT ────────────────────────────────────────────────────────── */}
+      <form onSubmit={onSubmit} className="mt-6 border-t border-white/8 pt-5">
+        <h4 className="font-heading text-[11px] uppercase tracking-[0.18em] text-white/55">
+          Rezultat
+        </h4>
+        <div className="mt-3 flex flex-wrap items-end gap-4">
+          <div>
+            <label className="mb-1 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55">
+              Goluri noastre
+            </label>
+            <input
+              type="number"
+              min={0}
+              {...register("ourScore", { valueAsNumber: true })}
+              className="w-20 rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 text-center font-heading text-lg font-bold text-brand-cyan focus:border-brand-cyan/60"
+            />
+            {errors.ourScore && (
+              <p className="mt-1 font-body text-xs text-rose-300/85">
+                {errors.ourScore.message}
+              </p>
+            )}
+          </div>
+          <span className="pb-2 font-heading text-xl text-white/30">·</span>
+          <div>
+            <label className="mb-1 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55">
+              Goluri adversar
+            </label>
+            <input
+              type="number"
+              min={0}
+              {...register("opponentScore", { valueAsNumber: true })}
+              className="w-20 rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 text-center font-heading text-lg font-bold text-white/70 focus:border-brand-cyan/60"
+            />
+            {errors.opponentScore && (
+              <p className="mt-1 font-body text-xs text-rose-300/85">
+                {errors.opponentScore.message}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-1 block font-heading text-[10px] uppercase tracking-[0.2em] text-white/55">
+            Rezumat meci
+          </label>
+          <textarea
+            rows={2}
+            {...register("recap")}
+            placeholder="Descriere scurtă a meciului…"
+            className="w-full rounded-xl border border-white/10 bg-[oklch(0.10_0.02_250)] px-3 py-2 font-body text-sm text-white placeholder:text-white/25 focus:border-brand-cyan/60"
+          />
+        </div>
+
+        {/* Per-squad stats */}
+        <div className="mt-5">
+          <h4 className="font-heading text-[11px] uppercase tracking-[0.18em] text-white/55">
+            Statistici jucători
+          </h4>
+          {squad.length === 0 ? (
+            <p className="mt-2 font-body text-xs text-white/40">
+              Construiește echipa mai sus pentru a înregistra statistici.
+            </p>
           ) : (
-            <>
-              <Save className="size-3.5" />
-              Salvează rezultatul
-            </>
+            <div className="mt-3 grid gap-2">
+              {squad.map((p) => (
+                <div
+                  key={p.childId}
+                  className="flex flex-wrap items-center gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2"
+                >
+                  <span className="min-w-[8rem] font-heading text-sm font-semibold text-white">
+                    {p.name}
+                    {!ownGroupIds.has(p.childId) && (
+                      <span className="ml-1 font-heading text-[9px] uppercase tracking-[0.12em] text-brand-gold/80">
+                        invitat
+                      </span>
+                    )}
+                  </span>
+
+                  <select
+                    value={p.role}
+                    onChange={(e) => updateMember(p.childId, "role", e.target.value)}
+                    className="rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-2 py-1 font-body text-xs text-white"
+                  >
+                    {Object.entries(ROLE_LABEL).map(([v, label]) => (
+                      <option key={v} value={v}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="flex items-center gap-1">
+                    <span className="font-body text-[10px] text-white/40">Goluri</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={p.goals}
+                      onChange={(e) =>
+                        updateMember(p.childId, "goals", parseInt(e.target.value) || 0)
+                      }
+                      className="w-12 rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-1 py-1 text-center font-heading text-xs text-white"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <span className="font-body text-[10px] text-white/40">Pase</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={p.assists}
+                      onChange={(e) =>
+                        updateMember(p.childId, "assists", parseInt(e.target.value) || 0)
+                      }
+                      className="w-12 rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-1 py-1 text-center font-heading text-xs text-white"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
-        </button>
+        </div>
+
+        {serverError && (
+          <p className="mt-4 rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 py-1.5 font-body text-xs text-rose-200">
+            {serverError}
+          </p>
+        )}
+
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 py-2 font-heading text-[11px] font-semibold uppercase tracking-[0.18em] text-[oklch(0.08_0.02_250)] transition-colors hover:bg-[oklch(0.82_0.13_220)] disabled:opacity-60"
+          >
+            {saving ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <>
+                <Save className="size-3.5" />
+                Salvează rezultatul
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 font-heading text-[11px] uppercase tracking-[0.14em] text-white/70 transition-colors hover:text-white"
+          >
+            Închide
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Academy-wide player search ───────────────────────────────────────────────
+
+function AcademySearch({
+  excludeIds,
+  onAdd,
+}: {
+  excludeIds: Set<string>;
+  onAdd: (p: AcademyPlayer) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<AcademyPlayer[]>([]);
+  const [searching, setSearching] = useState(false);
+  const reqId = useRef(0);
+
+  useEffect(() => {
+    if (!open) return;
+    const term = q.trim();
+    const mine = ++reqId.current;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(
+          `/api/academy/players?q=${encodeURIComponent(term)}`,
+          { headers: await authHeaders() }
+        );
+        if (mine !== reqId.current) return; // a newer keystroke won
+        const j = (await r.json()) as { players?: AcademyPlayer[] };
+        setResults(j.players ?? []);
+      } catch {
+        if (mine === reqId.current) setResults([]);
+      } finally {
+        if (mine === reqId.current) setSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q, open]);
+
+  const visible = results.filter((p) => !excludeIds.has(p.id));
+
+  return (
+    <div className="mt-4">
+      {!open ? (
         <button
           type="button"
-          onClick={onCancel}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 font-heading text-[11px] uppercase tracking-[0.14em] text-white/70 transition-colors hover:text-white"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.03] px-3 py-1.5 font-heading text-[10px] uppercase tracking-[0.14em] text-white/65 transition-colors hover:border-brand-gold/40 hover:text-brand-gold"
         >
-          Anulează
+          <Search className="size-3" />
+          Adaugă din academie
         </button>
-      </div>
-    </form>
+      ) : (
+        <div className="rounded-2xl border border-white/10 bg-[oklch(0.10_0.02_250)]/60 p-3">
+          <div className="flex items-center gap-2">
+            <Search className="size-3.5 text-white/40" />
+            <input
+              autoFocus
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Caută orice copil din academie după nume…"
+              className="flex-1 bg-transparent font-body text-sm text-white placeholder:text-white/30 outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setQ("");
+                setResults([]);
+              }}
+              className="grid size-6 place-items-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"
+              aria-label="Închide căutarea"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+
+          <div className="mt-2 max-h-56 overflow-y-auto">
+            {searching ? (
+              <div className="grid place-items-center py-4">
+                <Loader2 className="size-4 animate-spin text-brand-cyan" />
+              </div>
+            ) : visible.length === 0 ? (
+              <p className="py-3 text-center font-body text-xs text-white/40">
+                {q.trim() ? "Niciun jucător găsit." : "Scrie un nume pentru a căuta."}
+              </p>
+            ) : (
+              <ul className="grid gap-1">
+                {visible.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => onAdd(p)}
+                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 text-left transition-colors hover:border-brand-gold/40 hover:bg-brand-gold/[0.06]"
+                    >
+                      <span className="font-heading text-sm text-white">
+                        {p.name}
+                        {p.groupLabel && (
+                          <span className="ml-1.5 font-body text-xs text-white/45">
+                            {p.groupLabel}
+                          </span>
+                        )}
+                      </span>
+                      <Plus className="size-3.5 shrink-0 text-brand-gold" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -78,12 +78,20 @@ type ChildRow = {
   age_group_label: string | null;
   status: "active" | "paused" | "left" | "closed_unpaid" | "transferred";
   trainer_id: string | null;
+  group_id: string | null;
   parent: { id: string; full_name: string; phone: string | null } | null;
 };
 
 type TrainerOption = {
   id: string;
   full_name: string;
+  active: boolean;
+};
+
+type GroupOption = {
+  id: string;
+  label: string;
+  trainer_id: string | null;
   active: boolean;
 };
 
@@ -977,6 +985,7 @@ function TrainerCard({
 function MembersTab() {
   const [children, setChildren] = useState<ChildRow[]>([]);
   const [trainers, setTrainers] = useState<TrainerOption[]>([]);
+  const [groups, setGroups] = useState<GroupOption[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -993,11 +1002,11 @@ function MembersTab() {
 
   const refresh = useMemo(
     () => async () => {
-      const [c, t] = await Promise.all([
+      const [c, t, g] = await Promise.all([
         supabase
           .from("children")
           .select(
-            "id, full_name, dob, school, medical_notes, age_group_label, status, trainer_id, parent:profiles!children_parent_id_fkey(id, full_name, phone)"
+            "id, full_name, dob, school, medical_notes, age_group_label, status, trainer_id, group_id, parent:profiles!children_parent_id_fkey(id, full_name, phone)"
           )
           .order("created_at", { ascending: false }),
         supabase
@@ -1005,12 +1014,18 @@ function MembersTab() {
           .select(
             "id, active, profile:profiles!trainers_profile_id_fkey(full_name)"
           ),
+        supabase
+          .from("groups")
+          .select("id, label, trainer_id, active")
+          .eq("active", true)
+          .order("birth_year_min", { ascending: false }),
       ]);
       if (c.error) {
         setError(c.error.message);
         setLoading(false);
         return;
       }
+      setGroups(((g.data as unknown as GroupOption[]) ?? []).filter(Boolean));
       const trainerOptions: TrainerOption[] = (
         (t.data as unknown as
           | {
@@ -1159,6 +1174,57 @@ function MembersTab() {
     await refresh();
   };
 
+  // Owner override: drop ANY child (any age) into ANY group via the
+  // assign_child_to_group RPC, which ignores the age-range matching that
+  // gates the trainer-side enrollment flow.
+  const handleAssignGroup = async (id: string, groupId: string) => {
+    const { error: rpcErr } = await supabase.rpc("assign_child_to_group", {
+      p_child: id,
+      p_group: groupId,
+    });
+    if (rpcErr) {
+      setError(rpcErr.message);
+      toast.error("Atribuirea în grupă a eșuat", { description: rpcErr.message });
+      return;
+    }
+    const grp = groups.find(g => g.id === groupId);
+    updateChildLocally(id, {
+      group_id: groupId,
+      trainer_id: grp?.trainer_id ?? null,
+    });
+    toast.success(`Copil atribuit în ${grp?.label ?? "grupă"}.`);
+  };
+
+  const bulkAssignGroup = async (groupId: string) => {
+    if (selectedIds.size === 0 || bulkBusy) return;
+    const ids = Array.from(selectedIds);
+    const grp = groups.find(g => g.id === groupId);
+    setBulkBusy(true);
+    const toastId = toast.loading(
+      `Atribui ${ids.length} copii în ${grp?.label ?? "grupă"}…`
+    );
+    const results = await Promise.all(
+      ids.map(id =>
+        supabase.rpc("assign_child_to_group", { p_child: id, p_group: groupId })
+      )
+    );
+    setBulkBusy(false);
+    const failed = results.filter(r => r.error);
+    if (failed.length > 0) {
+      toast.error(`${failed.length} atribuiri au eșuat`, {
+        id: toastId,
+        description: failed[0].error?.message,
+      });
+    } else {
+      toast.success(
+        `${ids.length} ${ids.length === 1 ? "copil atribuit" : "copii atribuiți"} în ${grp?.label ?? "grupă"}.`,
+        { id: toastId }
+      );
+    }
+    clearSelection();
+    await refresh();
+  };
+
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/70 p-3">
@@ -1203,6 +1269,27 @@ function MembersTab() {
               {activeTrainers.map(t => (
                 <option key={t.id} value={t.id}>
                   {t.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="inline-flex items-center gap-2">
+            <UsersRound className="size-3.5 text-white/55" />
+            <select
+              value=""
+              disabled={bulkBusy || groups.length === 0}
+              onChange={e => {
+                const v = e.target.value;
+                if (v) bulkAssignGroup(v);
+              }}
+              className="rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-2 py-1 font-heading text-[10px] uppercase tracking-[0.12em] text-white/80 disabled:opacity-50"
+              title="Atribuie în grupă (orice vârstă)"
+            >
+              <option value="">Atribuie în grupă…</option>
+              {groups.map(g => (
+                <option key={g.id} value={g.id}>
+                  {g.label}
                 </option>
               ))}
             </select>
@@ -1255,9 +1342,11 @@ function MembersTab() {
             trainerName={
               c.trainer_id ? (trainerNames[c.trainer_id] ?? "Antrenor") : null
             }
+            groups={groups}
             selected={selectedIds.has(c.id)}
             onToggleSelect={() => toggleSelected(c.id)}
             onStatusChange={newStatus => handleStatusChange(c.id, newStatus)}
+            onAssignGroup={groupId => handleAssignGroup(c.id, groupId)}
             onSaved={patch => updateChildLocally(c.id, patch)}
             onError={msg => setError(msg)}
           />
@@ -1270,17 +1359,21 @@ function MembersTab() {
 function ChildCard({
   child,
   trainerName,
+  groups,
   selected,
   onToggleSelect,
   onStatusChange,
+  onAssignGroup,
   onSaved,
   onError,
 }: {
   child: ChildRow;
   trainerName: string | null;
+  groups: GroupOption[];
   selected: boolean;
   onToggleSelect: () => void;
   onStatusChange: (s: ChildRow["status"]) => void;
+  onAssignGroup: (groupId: string) => void;
   onSaved: (patch: Partial<ChildRow>) => void;
   onError: (msg: string) => void;
 }) {
@@ -1382,6 +1475,21 @@ function ChildCard({
               Editează
             </button>
           )}
+          <select
+            value={child.group_id ?? ""}
+            onChange={e => {
+              if (e.target.value) onAssignGroup(e.target.value);
+            }}
+            className="rounded-lg border border-white/10 bg-[oklch(0.10_0.02_250)] px-2 py-1 font-heading text-[10px] uppercase tracking-[0.12em] text-white/70"
+            title="Atribuie în grupă (orice vârstă)"
+          >
+            <option value="">Grupă…</option>
+            {groups.map(g => (
+              <option key={g.id} value={g.id}>
+                {g.label}
+              </option>
+            ))}
+          </select>
           <select
             value={child.status}
             onChange={e => onStatusChange(e.target.value as ChildRow["status"])}
