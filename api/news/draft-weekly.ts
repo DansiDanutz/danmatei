@@ -13,8 +13,9 @@
  *
  * Auth: owner or super_admin only.
  *
- * 503 when OpenAI isn't configured. The button hides itself after the first
- * 503 response so owners don't keep clicking.
+ * If the LLM provider is unavailable, we still return a conservative
+ * deterministic draft from the same source data so the owner never clicks the
+ * button and gets an empty form.
  */
 import {
   serviceClient,
@@ -57,16 +58,149 @@ function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * 86400_000).toISOString();
 }
 
+type TrainingRecapRow = {
+  title?: string;
+  starts_at?: string;
+  recap_md?: string | null;
+};
+
+type MatchScore = {
+  our_score: number;
+  opponent_score: number;
+  scorers?: unknown;
+  recap_md?: string | null;
+};
+
+type MatchRow = {
+  title?: string;
+  starts_at?: string;
+  opponent?: string | null;
+  location?: string | null;
+  match_results?: MatchScore[] | MatchScore | null;
+};
+
+type NewKidRow = {
+  full_name?: string;
+  age_group_label?: string | null;
+};
+
+type DraftPayload = {
+  title: string;
+  body_md: string;
+};
+
+function roDate(value?: string): string {
+  const date = new Date(value ?? "");
+  if (Number.isNaN(date.getTime())) return "recent";
+  return date.toLocaleDateString("ro-RO", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function compactText(value: string | null | undefined, max = 220): string {
+  const text = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max).replace(/\s+\S*$/, "")}...`;
+}
+
+function firstName(value: string | null | undefined): string {
+  return (value ?? "").trim().split(/\s+/)[0] || "un copil nou";
+}
+
+function normalizeMatchResult(match: MatchRow): MatchScore | null {
+  return Array.isArray(match.match_results)
+    ? (match.match_results[0] ?? null)
+    : (match.match_results ?? null);
+}
+
+function fallbackDraft(
+  recaps: TrainingRecapRow[],
+  matches: MatchRow[],
+  newKids: NewKidRow[],
+): DraftPayload {
+  const hasActivity = recaps.length > 0 || matches.length > 0 || newKids.length > 0;
+  const title = hasActivity
+    ? "Săptămână plină la Academia Dan Matei"
+    : "Săptămâna copiilor la Academia Dan Matei";
+
+  const parts: string[] = [
+    "Săptămâna aceasta a adus un nou ritm bun pentru copiii Academiei Dan Matei, cu accent pe disciplină, bucuria jocului și pași mici făcuți constant pe teren.",
+  ];
+
+  if (recaps.length > 0) {
+    const recapBullets = recaps.slice(0, 3).map(r => {
+      const detail = compactText(r.recap_md, 180);
+      return `- **${r.title ?? "Antrenament"}** (${roDate(r.starts_at)})${detail ? `: ${detail}` : ""}`;
+    });
+    parts.push(`## Antrenamente\n${recapBullets.join("\n")}`);
+  }
+
+  const matchesWithResults = matches
+    .map(match => ({ match, result: normalizeMatchResult(match) }))
+    .filter(item => item.result);
+  if (matchesWithResults.length > 0) {
+    const matchBullets = matchesWithResults.slice(0, 3).map(({ match, result }) => {
+      const score = result
+        ? `${result.our_score}-${result.opponent_score}`
+        : "scor înregistrat";
+      const recap = compactText(result?.recap_md, 140);
+      return `- **${match.title ?? "Meci"}**${match.opponent ? ` vs ${match.opponent}` : ""} (${roDate(match.starts_at)}): ${score}${recap ? ` — ${recap}` : ""}`;
+    });
+    parts.push(`## Meciuri\n${matchBullets.join("\n")}`);
+  }
+
+  if (newKids.length > 0) {
+    const names = newKids.slice(0, 6).map(k => firstName(k.full_name));
+    parts.push(
+      `## Familii noi\nLe spunem bun venit în academie lui ${names.join(", ")}. Ne bucurăm să vedem copii noi intrând în grupă și descoperind fotbalul într-un mediu organizat, prietenos și atent la ritmul fiecăruia.`
+    );
+  }
+
+  if (!hasActivity) {
+    parts.push(
+      "Nu există încă recap-uri, meciuri sau copii noi salvați pentru ultimele 7 zile. Folosește acest draft ca punct de pornire și adaugă manual momentele importante înainte de publicare."
+    );
+  }
+
+  parts.push(
+    "Felicitări copiilor, antrenorilor și părinților pentru energia pusă în fiecare sesiune. Continuăm cu aceeași seriozitate și cu poftă de fotbal."
+  );
+
+  return { title, body_md: parts.join("\n\n") };
+}
+
+function parseDraftJson(raw: string): DraftPayload | null {
+  const cleaned = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  const candidates = [cleaned];
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start >= 0 && end > start) candidates.push(cleaned.slice(start, end + 1));
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as DraftPayload;
+      if (typeof parsed.title === "string" && typeof parsed.body_md === "string") {
+        return {
+          title: parsed.title.trim(),
+          body_md: parsed.body_md.trim(),
+        };
+      }
+    } catch {
+      // Try the next candidate.
+    }
+  }
+  return null;
+}
+
 export default async function handler(req: Req, res: Res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
-  }
-
-  if (!openAIConfigured()) {
-    return res.status(503).json({
-      error: "ai_not_configured",
-      message: "OpenAI key missing on this deployment.",
-    });
   }
 
   const auth =
@@ -96,18 +230,6 @@ export default async function handler(req: Req, res: Res) {
   }
 
   // Per-user/hour LLM rate limit (first-line defense — see api/_lib/ratelimit.ts)
-  const rl = checkRateLimit(
-    `draft-weekly:${userId}`,
-    20,
-    60 * 60 * 1000,
-  );
-  if (!rl.ok) {
-    res.setHeader?.("Retry-After", Math.ceil(rl.resetIn / 1000).toString());
-    return res
-      .status(429)
-      .json({ error: "rate_limited", detail: "too many LLM requests" });
-  }
-
   const { data: prof } = await supabase
     .from("profiles")
     .select("id, role")
@@ -151,47 +273,23 @@ export default async function handler(req: Req, res: Res) {
     .limit(20);
 
   // Build a compact context. Limit each recap so we don't blow up tokens.
-  const recapLines = (
-    (recaps as {
-      title?: string;
-      starts_at?: string;
-      recap_md?: string | null;
-    }[]) ?? []
-  )
+  const recapRows = ((recaps as TrainingRecapRow[] | null) ?? []);
+  const matchRows = ((matches as MatchRow[] | null) ?? []);
+  const newKidRows = ((newKids as NewKidRow[] | null) ?? []);
+  const fallback = fallbackDraft(recapRows, matchRows, newKidRows);
+
+  const recapLines = recapRows
     .map(r => {
-      const date = new Date(r.starts_at ?? "").toLocaleDateString("ro-RO", {
-        weekday: "short",
-        day: "2-digit",
-        month: "short",
-      });
+      const date = roDate(r.starts_at);
       const body = (r.recap_md ?? "").slice(0, 600).replace(/\s+/g, " ").trim();
       return `- ${date} · ${r.title}\n  ${body}`;
     })
     .join("\n");
 
-  type MatchScore = {
-    our_score: number;
-    opponent_score: number;
-    scorers?: unknown;
-    recap_md?: string | null;
-  };
-  type MatchRow = {
-    title?: string;
-    starts_at?: string;
-    opponent?: string | null;
-    location?: string | null;
-    match_results?: MatchScore[] | MatchScore | null;
-  };
-  const matchLines = ((matches as MatchRow[]) ?? [])
+  const matchLines = matchRows
     .map(m => {
-      const date = new Date(m.starts_at ?? "").toLocaleDateString("ro-RO", {
-        weekday: "short",
-        day: "2-digit",
-        month: "short",
-      });
-      const result = Array.isArray(m.match_results)
-        ? m.match_results[0]
-        : (m.match_results as MatchScore | null);
+      const date = roDate(m.starts_at);
+      const result = normalizeMatchResult(m);
       const score = result
         ? `${result.our_score}-${result.opponent_score}`
         : "—";
@@ -202,9 +300,7 @@ export default async function handler(req: Req, res: Res) {
     })
     .join("\n");
 
-  const newKidLines = (
-    (newKids as { full_name?: string; age_group_label?: string | null }[]) ?? []
-  )
+  const newKidLines = newKidRows
     .map(
       k =>
         `- ${(k.full_name ?? "").split(/\s+/)[0]} (${k.age_group_label ?? "fără grupă"})`
@@ -226,6 +322,32 @@ Scrie acum articolul săptămânii (JSON strict { title, body_md }, 180–280 cu
 
   let raw: string;
   try {
+    if (!openAIConfigured()) {
+      return res.status(200).json({
+        ok: true,
+        ...fallback,
+        fallback: true,
+        warning: "ai_not_configured",
+        sources: {
+          recaps: recapRows.length,
+          matches: matchRows.length,
+          newFamilies: newKidRows.length,
+        },
+      });
+    }
+
+    const rl = checkRateLimit(
+      `draft-weekly:${userId}`,
+      20,
+      60 * 60 * 1000,
+    );
+    if (!rl.ok) {
+      res.setHeader?.("Retry-After", Math.ceil(rl.resetIn / 1000).toString());
+      return res
+        .status(429)
+        .json({ error: "rate_limited", detail: "too many LLM requests" });
+    }
+
     raw = await generateText({
       system: SYSTEM_PROMPT,
       user: userPrompt,
@@ -234,36 +356,44 @@ Scrie acum articolul săptămânii (JSON strict { title, body_md }, 180–280 cu
     });
   } catch (err) {
     if (err instanceof OpenAINotConfiguredError) {
-      return res.status(503).json({ error: "ai_not_configured" });
+      return res.status(200).json({
+        ok: true,
+        ...fallback,
+        fallback: true,
+        warning: "ai_not_configured",
+        sources: {
+          recaps: recapRows.length,
+          matches: matchRows.length,
+          newFamilies: newKidRows.length,
+        },
+      });
     }
-    return res
-      .status(502)
-      .json({ error: "ai_generation_failed", detail: (err as Error).message });
-  }
-
-  // Strip accidental code fences if the model adds them despite the system
-  // prompt asking otherwise.
-  const cleaned = raw
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  let parsed: { title?: string; body_md?: string };
-  try {
-    parsed = JSON.parse(cleaned) as { title?: string; body_md?: string };
-  } catch {
-    return res.status(502).json({
-      error: "ai_parse_failed",
-      detail: "Model did not return valid JSON.",
-      raw: cleaned.slice(0, 300),
+    return res.status(200).json({
+      ok: true,
+      ...fallback,
+      fallback: true,
+      warning: "ai_generation_failed",
+      detail: err instanceof Error ? err.message : "generation failed",
+      sources: {
+        recaps: recapRows.length,
+        matches: matchRows.length,
+        newFamilies: newKidRows.length,
+      },
     });
   }
 
-  if (!parsed.title || !parsed.body_md) {
-    return res.status(502).json({
-      error: "ai_parse_failed",
-      detail: "Missing title or body_md in response.",
+  const parsed = parseDraftJson(raw);
+  if (!parsed) {
+    return res.status(200).json({
+      ok: true,
+      ...fallback,
+      fallback: true,
+      warning: "ai_parse_failed",
+      sources: {
+        recaps: recapRows.length,
+        matches: matchRows.length,
+        newFamilies: newKidRows.length,
+      },
     });
   }
 
@@ -271,10 +401,11 @@ Scrie acum articolul săptămânii (JSON strict { title, body_md }, 180–280 cu
     ok: true,
     title: parsed.title,
     body_md: parsed.body_md,
+    fallback: false,
     sources: {
-      recaps: recapLines ? (recaps?.length ?? 0) : 0,
-      matches: matchLines ? (matches?.length ?? 0) : 0,
-      newFamilies: newKids?.length ?? 0,
+      recaps: recapRows.length,
+      matches: matchRows.length,
+      newFamilies: newKidRows.length,
     },
   });
 }

@@ -64,7 +64,8 @@ export default function NewsManager() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [drafting, setDrafting] = useState(false);
-  const [aiDisabled, setAiDisabled] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftNotice, setDraftNotice] = useState<string | null>(null);
 
   const {
     register,
@@ -123,11 +124,15 @@ export default function NewsManager() {
 
   const draftWeekly = async () => {
     setDrafting(true);
+    setDraftError(null);
+    setDraftNotice(null);
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
       if (!token) {
-        toast.error("Sesiune expirată — autentifică-te din nou.");
+        const message = "Sesiune expirată — autentifică-te din nou.";
+        setDraftError(message);
+        toast.error(message);
         return;
       }
       const r = await fetch("/api/news/draft-weekly", {
@@ -142,19 +147,25 @@ export default function NewsManager() {
         title?: string;
         body_md?: string;
         sources?: { recaps: number; matches: number; newFamilies: number };
+        fallback?: boolean;
+        warning?: string;
         error?: string;
+        detail?: string;
+        message?: string;
       };
       if (r.status === 503 && j.error === "ai_not_configured") {
-        setAiDisabled(true);
-        toast.info("AI-ul nu e configurat", {
-          description:
-            "Adaugă OPENAI_API_KEY pe Vercel pentru a folosi draft-ul automat.",
-        });
+        const message =
+          "AI-ul nu e configurat pe Vercel. Draftul nu poate fi generat acum.";
+        setDraftError(message);
+        toast.error("Draft negenerat", { description: message });
         return;
       }
       if (!r.ok || !j.ok || !j.title || !j.body_md) {
+        const message =
+          j.detail ?? j.message ?? j.error ?? `HTTP ${r.status}`;
+        setDraftError(message);
         toast.error("Nu am putut genera articolul", {
-          description: j.error ?? `HTTP ${r.status}`,
+          description: message,
         });
         return;
       }
@@ -163,14 +174,21 @@ export default function NewsManager() {
       setValue("body_md", j.body_md, { shouldDirty: true });
       setEditingId(null); // ensure we're in "create new" mode
       const src = j.sources;
+      setDraftNotice(
+        j.fallback
+          ? "Draft automat generat. AI-ul nu a răspuns complet, deci verifică și personalizează textul înainte de publicare."
+          : "Draft AI generat. Verifică textul și publică atunci când este gata."
+      );
       toast.success("Draft generat", {
         description: src
           ? `Bazat pe ${src.recaps} antrenamente, ${src.matches} meciuri, ${src.newFamilies} familii noi.`
           : "Verifică textul și apasă Salvează.",
       });
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setDraftError(message);
       toast.error("Eroare de rețea", {
-        description: err instanceof Error ? err.message : String(err),
+        description: message,
       });
     } finally {
       setDrafting(false);
@@ -315,22 +333,33 @@ export default function NewsManager() {
         </BrandedField>
 
         {/* AI weekly draft — pre-fills title + body_md based on the last 7
-         *  days of training recaps, match results, and new families. Hidden
-         *  once we know AI is off (503) so owners don't keep clicking. */}
-        {!aiDisabled && !editingId && (
-          <button
-            type="button"
-            onClick={() => void draftWeekly()}
-            disabled={drafting}
-            className="inline-flex items-center gap-2 self-start rounded-full border border-brand-cyan/40 bg-brand-cyan/[0.08] px-4 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/15 disabled:opacity-60"
-          >
-            {drafting ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="size-3.5" />
+         *  days of training recaps, match results, and new families. */}
+        {!editingId && (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => void draftWeekly()}
+              disabled={drafting}
+              className="inline-flex items-center gap-2 self-start rounded-full border border-brand-cyan/40 bg-brand-cyan/[0.08] px-4 py-2 font-heading text-[11px] uppercase tracking-[0.16em] text-brand-cyan transition-colors hover:bg-brand-cyan/15 disabled:opacity-60"
+            >
+              {drafting ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="size-3.5" />
+              )}
+              {drafting ? "Generez draftul..." : "Draft săptămânal cu AI"}
+            </button>
+            {draftError && (
+              <p className="rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 py-2 font-body text-xs leading-relaxed text-rose-200">
+                {draftError}
+              </p>
             )}
-            Draft săptămânal cu AI
-          </button>
+            {draftNotice && !draftError && (
+              <p className="rounded-lg border border-brand-cyan/30 bg-brand-cyan/10 px-3 py-2 font-body text-xs leading-relaxed text-brand-cyan">
+                {draftNotice}
+              </p>
+            )}
+          </div>
         )}
 
         <div>

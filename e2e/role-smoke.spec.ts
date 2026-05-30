@@ -110,6 +110,17 @@ function leadInboxPayload() {
   };
 }
 
+function weeklyDraftPayload() {
+  return {
+    ok: true,
+    title: "Săptămână bună pe teren",
+    body_md:
+      "Copiii au lucrat cu energie la antrenamente, iar familiile noi au fost primite cu bucurie în academie.",
+    sources: { recaps: 1, matches: 0, newFamilies: 1 },
+    fallback: false,
+  };
+}
+
 async function installApiMocks(page: Page, unexpectedApiCalls: string[]) {
   await page.route("**/api/**", async (route: Route) => {
     const url = new URL(route.request().url());
@@ -130,6 +141,10 @@ async function installApiMocks(page: Page, unexpectedApiCalls: string[]) {
     }
     if (url.pathname === "/api/lead/list") {
       await json(leadInboxPayload());
+      return;
+    }
+    if (url.pathname === "/api/news/draft-weekly") {
+      await json(weeklyDraftPayload());
       return;
     }
 
@@ -207,6 +222,16 @@ test("owner can sign in and every admin tab renders", async ({ page }) => {
       await expect(
         page.getByText("Bună, vreau să înscriu copilul la fotbal.")
       ).toBeVisible();
+    }
+
+    if (tab === "Știri") {
+      await page.getByRole("button", { name: /draft săptămânal/i }).click();
+      await expect(page.locator("#n-title")).toHaveValue(
+        "Săptămână bună pe teren"
+      );
+      await expect(page.locator("#n-body")).toHaveValue(
+        /Copiii au lucrat cu energie/
+      );
     }
   }
 
