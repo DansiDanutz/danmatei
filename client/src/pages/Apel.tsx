@@ -25,6 +25,7 @@ import { ConnectionState, Track } from "livekit-client";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
+import { CheckCircle2 } from "lucide-react";
 import StepIndicator from "@/components/leads/StepIndicator";
 import MicTest from "@/components/MicTest";
 import SpeakerTest from "@/components/SpeakerTest";
@@ -125,9 +126,9 @@ export default function Apel() {
             video={false}
             connect
             onDisconnected={() =>
-              setPhase((p) => (p === "error" ? "error" : "ended"))
+              setPhase(p => (p === "error" ? "error" : "ended"))
             }
-            onError={(e) => {
+            onError={e => {
               setError(e.message || "Conexiune întreruptă.");
               setPhase("error");
             }}
@@ -140,18 +141,14 @@ export default function Apel() {
               }
               onAgentNoShow={() => {
                 setError(
-                  "Andra nu a putut intra în apel. Antrenorul tău va primi notificare și te va contacta direct. Mulțumim pentru încercare.",
+                  "Andra nu a putut intra în apel. Antrenorul tău va primi notificare și te va contacta direct. Mulțumim pentru încercare."
                 );
                 setPhase("error");
               }}
             />
           </LiveKitRoom>
         ) : (
-          <CallShell
-            phase={phase}
-            error={error}
-            onStart={start}
-          />
+          <CallShell phase={phase} error={error} onStart={start} />
         )}
       </div>
     </main>
@@ -197,7 +194,7 @@ function CallShell({
 
       <p className="text-white/70 leading-relaxed mb-4">
         {phase === "idle" &&
-          "Testează mai jos microfonul și sunetul, apoi apasă butonul pentru a vorbi cu Andra. Browserul îți va cere permisiunea de microfon — apasă „Permite”."}
+          "Apasă pe rând cele două butoane indicate cu săgeți: mai întâi microfonul, apoi sunetul. După ce ambele teste sunt gata, poți vorbi cu Andra. Browserul îți va cere permisiunea de microfon — apasă „Permite”."}
         {phase === "asking_mic" && "Acceptă accesul la microfon din browser..."}
         {phase === "starting" && "Se conectează la consilierul Andra..."}
         {phase === "ended" &&
@@ -208,6 +205,7 @@ function CallShell({
 
       {phase === "idle" && (
         <>
+          <PreflightChecklist micOk={micOk} speakerOk={speakerOk} />
           <MicTest onResult={setMicOk} />
           <SpeakerTest onResult={setSpeakerOk} />
         </>
@@ -238,15 +236,11 @@ function CallShell({
                 : "inline-flex w-full sm:w-auto items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-emerald-500 text-[oklch(0.15_0.05_150)] font-heading uppercase tracking-[0.16em] text-sm font-semibold shadow-[0_18px_50px_-18px_rgba(52,211,153,0.65)] hover:bg-emerald-400 transition"
             }
           >
-            🎙️ {phase === "error" ? "Reia apelul" : "Începe apelul"} →
+            🎙️ {phase === "error" ? "Reia apelul" : "Pasul 3 - Începe apelul"} →
           </button>
           {phase === "idle" && !ready && (
             <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-white/45">
-              {!micOk && !speakerOk
-                ? "Testează microfonul și sunetul mai sus"
-                : !micOk
-                  ? "Testează microfonul mai sus"
-                  : "Testează sunetul mai sus"}
+              Butonul de apel se activează după Pasul 1 și Pasul 2.
             </p>
           )}
         </>
@@ -260,8 +254,76 @@ function CallShell({
           ← Înapoi la pagina principală
         </a>
       )}
-
     </>
+  );
+}
+
+function PreflightChecklist({
+  micOk,
+  speakerOk,
+}: {
+  micOk: boolean;
+  speakerOk: boolean;
+}) {
+  const items = [
+    {
+      done: micOk,
+      step: "1",
+      title: "Microfon",
+      hint: micOk ? "Test făcut" : "Apasă butonul verde de mai jos",
+      tone: "emerald",
+    },
+    {
+      done: speakerOk,
+      step: "2",
+      title: "Sunet",
+      hint: speakerOk ? "Test făcut" : "Apasă butonul albastru de mai jos",
+      tone: "cyan",
+    },
+  ] as const;
+
+  return (
+    <div className="mx-auto mb-4 grid w-full max-w-sm gap-2 rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-left">
+      <p className="text-center font-heading text-[10px] font-semibold uppercase tracking-[0.2em] text-white/60">
+        Fă pașii în ordine
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {items.map(item => (
+          <div
+            key={item.title}
+            className={[
+              "flex items-center gap-2 rounded-xl border px-3 py-2",
+              item.done
+                ? "border-emerald-300/35 bg-emerald-400/10"
+                : item.tone === "emerald"
+                  ? "border-emerald-300/25 bg-emerald-400/[0.06]"
+                  : "border-cyan-300/25 bg-cyan-400/[0.06]",
+            ].join(" ")}
+          >
+            <span
+              className={[
+                "grid size-7 shrink-0 place-items-center rounded-full font-heading text-[11px] font-bold",
+                item.done
+                  ? "bg-emerald-400/20 text-emerald-200"
+                  : item.tone === "emerald"
+                    ? "bg-emerald-400/15 text-emerald-200"
+                    : "bg-cyan-400/15 text-cyan-200",
+              ].join(" ")}
+            >
+              {item.done ? <CheckCircle2 className="size-4" /> : item.step}
+            </span>
+            <span className="min-w-0">
+              <span className="block font-heading text-[11px] uppercase tracking-[0.14em] text-white/85">
+                {item.title}
+              </span>
+              <span className="block font-body text-[11px] leading-tight text-white/55">
+                {item.hint}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

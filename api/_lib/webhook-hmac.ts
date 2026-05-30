@@ -2,7 +2,7 @@
  * Shared HMAC verification for inbound webhook bodies.
  *
  * Used by:
- *   - api/voice/webhook.ts   (Pipecat agent end-of-call payload)
+ *   - api/voice/webhook.ts   (LiveKit voice agent end-of-call payload)
  *   - api/ai/webhook.ts      (ElevenLabs ConvAI completion payload)
  *
  * Pure function — no I/O, easy to unit-test. The handler reads the raw body

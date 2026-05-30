@@ -103,15 +103,16 @@ export default async function handler(req: Req, res: Res) {
     )
     .eq("id", eventId)
     .maybeSingle();
-  if (evErr || !event) return res.status(404).json({ error: "event_not_found" });
+  if (evErr || !event)
+    return res.status(404).json({ error: "event_not_found" });
 
   const evTrainer = event.trainers as { profile_id?: string } | null;
   const isAssigned = !!evTrainer?.profile_id && evTrainer.profile_id === userId;
-  if (!isAdmin && !isAssigned) return res.status(403).json({ error: "forbidden" });
+  if (!isAdmin && !isAssigned)
+    return res.status(403).json({ error: "forbidden" });
   if (event.cancelled_at)
     return res.status(400).json({ error: "event_cancelled" });
-  if (!event.trainer_id)
-    return res.status(400).json({ error: "no_group" });
+  if (!event.trainer_id) return res.status(400).json({ error: "no_group" });
 
   // Match → notify only the called-up squad (the parents of the children in
   // match_participations). Everything else → the whole group. Service-role
@@ -124,8 +125,12 @@ export default async function handler(req: Req, res: Res) {
       .eq("event_id", eventId);
     recipients = Array.from(
       new Set(
-        ((squad ?? []) as { children: { parent_id: string | null } | null }[])
-          .map((s) => s.children?.parent_id)
+        (
+          (squad ?? []) as unknown as {
+            children: { parent_id: string | null } | null;
+          }[]
+        )
+          .map(s => s.children?.parent_id)
           .filter((id): id is string => !!id)
       )
     );
@@ -137,7 +142,7 @@ export default async function handler(req: Req, res: Res) {
       .eq("status", "active")
       .not("parent_id", "is", null);
     recipients = Array.from(
-      new Set(((kids ?? []) as { parent_id: string }[]).map((k) => k.parent_id))
+      new Set(((kids ?? []) as { parent_id: string }[]).map(k => k.parent_id))
     );
   }
 
@@ -164,7 +169,7 @@ export default async function handler(req: Req, res: Res) {
   let notified = 0;
   let push: { sent: number; skipped: number; removed: number } | null = null;
   if (recipients.length > 0) {
-    const rows = recipients.map((rid) => ({
+    const rows = recipients.map(rid => ({
       recipient_id: rid,
       kind: "event_announced",
       title,

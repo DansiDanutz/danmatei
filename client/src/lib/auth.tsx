@@ -54,127 +54,167 @@ export type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+function readStoredSession(): Session | null {
+  try {
+    const raw = localStorage.getItem("scoala-fotbal-auth");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Session> & {
+      currentSession?: Session | null;
+    };
+    const candidate = parsed.currentSession ?? parsed;
+    if (candidate?.access_token && candidate?.user) {
+      return candidate as Session;
+    }
+  } catch {
+    // ignore parse/storage errors
+  }
+  return null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = useCallback(async (userId: string) => {
-    if (!import.meta.env.VITE_SUPABASE_URL) {
-      console.warn("[auth] VITE_SUPABASE_URL missing; cannot load profile");
-      setProfile(null);
-      return;
-    }
-    // Use fetch directly to avoid supabase client deadlock on getSession()
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=id,role,full_name,phone,locale,avatar_path,created_at,updated_at`;
-    const token = JSON.parse(localStorage.getItem("scoala-fotbal-auth") || "{}").access_token;
-    try {
-      const res = await fetch(url, {
-        headers: {
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-          "Accept-Profile": "fotbal",
-        },
-      });
-      if (!res.ok) {
-        console.warn("[auth] profile load error", res.status);
+  const loadProfile = useCallback(
+    async (userId: string, accessToken?: string) => {
+      if (!import.meta.env.VITE_SUPABASE_URL) {
+        console.warn("[auth] VITE_SUPABASE_URL missing; cannot load profile");
         setProfile(null);
         return;
       }
-      const data = await res.json();
-      const existing = (data[0] as Profile) ?? null;
-      if (existing) {
-        setProfile(existing);
-        return;
-      }
-      // No profile row yet (e.g. Google OAuth signup where the
-      // handle_new_user trigger skipped row creation because
-      // raw_user_meta_data.app !== 'fotbal'). Create one lazily from
-      // auth.users metadata so the user can reach /completeaza-profil
-      // with a valid profile.id.
-      const { data: userData } = await supabase.auth.getUser();
-      const authUser = userData.user;
-      if (!authUser || authUser.id !== userId) {
+      // Use fetch directly to avoid supabase client deadlock on getSession().
+      // Prefer the session token from the auth event; localStorage can lag briefly
+      // during OAuth redirects.
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=id,role,full_name,phone,locale,avatar_path,created_at,updated_at`;
+      const token = accessToken ?? readStoredSession()?.access_token;
+      if (!token) {
         setProfile(null);
         return;
       }
-      const meta = (authUser.user_metadata ?? {}) as Record<string, unknown>;
-      const fullName =
-        (typeof meta.full_name === "string" && meta.full_name) ||
-        (typeof meta.name === "string" && meta.name) ||
-        "";
-      const { data: upserted, error: upsertErr } = await supabase
-        .from("profiles")
-        .upsert({
-          id: userId,
-          role: "parent",
-          full_name: fullName,
-          phone: "",
-        })
-        .select("id,role,full_name,phone,locale,avatar_path,created_at,updated_at")
-        .single();
-      if (upsertErr) {
-        console.warn("[auth] profile lazy-create error", upsertErr);
+      try {
+        const res = await fetch(url, {
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Accept-Profile": "fotbal",
+          },
+        });
+        if (!res.ok) {
+          console.warn("[auth] profile load error", res.status);
+          setProfile(null);
+          return;
+        }
+        const data = await res.json();
+        const existing = (data[0] as Profile) ?? null;
+        if (existing) {
+          setProfile(existing);
+          return;
+        }
+        // No profile row yet (e.g. Google OAuth signup where the
+        // handle_new_user trigger skipped row creation because
+        // raw_user_meta_data.app !== 'fotbal'). Create one lazily from
+        // auth.users metadata so the user can reach /completeaza-profil
+        // with a valid profile.id.
+        const { data: userData } = await supabase.auth.getUser();
+        const authUser = userData.user;
+        if (!authUser || authUser.id !== userId) {
+          setProfile(null);
+          return;
+        }
+        const meta = (authUser.user_metadata ?? {}) as Record<string, unknown>;
+        const fullName =
+          (typeof meta.full_name === "string" && meta.full_name) ||
+          (typeof meta.name === "string" && meta.name) ||
+          "";
+        const { data: upserted, error: upsertErr } = await supabase
+          .from("profiles")
+          .upsert({
+            id: userId,
+            role: "parent",
+            full_name: fullName,
+            phone: "",
+          })
+          .select(
+            "id,role,full_name,phone,locale,avatar_path,created_at,updated_at"
+          )
+          .single();
+        if (upsertErr) {
+          console.warn("[auth] profile lazy-create error", upsertErr);
+          setProfile(null);
+          return;
+        }
+        setProfile(upserted as Profile);
+      } catch (e) {
+        console.warn("[auth] profile load error", e);
         setProfile(null);
-        return;
       }
-      setProfile(upserted as Profile);
-    } catch (e) {
-      console.warn("[auth] profile load error", e);
-      setProfile(null);
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     let cancelled = false;
+    let noSessionTimer: ReturnType<typeof setTimeout> | null = null;
     setLoading(true);
 
     // Fast-path: read session directly from localStorage so we don't block
     // the UI while Supabase's getSession() resolves its internal lock.
-    let fastSession: Session | null = null;
-    try {
-      const raw = localStorage.getItem("scoala-fotbal-auth");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.access_token && parsed.user) {
-          fastSession = parsed as Session;
-        }
-      }
-    } catch {
-      // ignore parse errors
-    }
+    const fastSession = readStoredSession();
 
     if (fastSession) {
       // Tell the singleton supabase client about the session so that
       // subsequent queries (e.g. loadProfile) don't deadlock on getSession().
-      supabase.auth.setSession({
-        access_token: fastSession.access_token,
-        refresh_token: fastSession.refresh_token,
-      });
-      setSession(fastSession);
-      loadProfile(fastSession.user.id).finally(() => {
+      void (async () => {
+        const { error } = await supabase.auth.setSession({
+          access_token: fastSession.access_token,
+          refresh_token: fastSession.refresh_token,
+        });
+        if (cancelled) return;
+        if (error) {
+          console.warn("[auth] stored session restore failed", error.message);
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        setSession(fastSession);
+        await loadProfile(fastSession.user.id, fastSession.access_token);
         if (!cancelled) setLoading(false);
-      });
+      })();
     } else {
-      setLoading(false);
+      // Give Supabase one tick to emit INITIAL_SESSION after OAuth redirects.
+      noSessionTimer = setTimeout(() => {
+        if (!cancelled) setLoading(false);
+      }, 350);
     }
 
     // Listen for auth state changes (login, logout, token refresh)
     const { data: sub } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
+        if (noSessionTimer) {
+          clearTimeout(noSessionTimer);
+          noSessionTimer = null;
+        }
         if (cancelled) return;
+        if (newSession?.user) setLoading(true);
         setSession(prev => {
           if (prev?.access_token === newSession?.access_token) return prev;
           return newSession;
         });
-        if (newSession?.user) await loadProfile(newSession.user.id);
-        else setProfile(null);
+        if (newSession?.user) {
+          await loadProfile(newSession.user.id, newSession.access_token);
+        } else {
+          setProfile(null);
+        }
+        if (!cancelled) setLoading(false);
       }
     );
 
     return () => {
       cancelled = true;
+      if (noSessionTimer) clearTimeout(noSessionTimer);
       sub.subscription.unsubscribe();
     };
   }, [loadProfile]);
@@ -238,6 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    setSession(null);
     setProfile(null);
   }, []);
 

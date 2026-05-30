@@ -17,14 +17,15 @@ export type Step = 1 | 2 | 3;
 
 type StepDef = {
   label: string;
+  helper: string;
   /** Token used to build the tailwind classes for each accent. */
   accent: "cyan" | "gold" | "emerald";
 };
 
 const STEPS: ReadonlyArray<StepDef> = [
-  { label: "Completezi datele", accent: "cyan" },
-  { label: "Primești linkul", accent: "gold" },
-  { label: "Vorbești cu Andra", accent: "emerald" },
+  { label: "Datele", helper: "Completezi formularul", accent: "cyan" },
+  { label: "Link apel", helper: "Apeși butonul", accent: "gold" },
+  { label: "Test + apel", helper: "Microfon și sunet", accent: "emerald" },
 ];
 
 /** Tailwind class fragments per accent — kept here so the indicator and
@@ -39,13 +40,15 @@ const ACCENT_CLASSES: Record<
   }
 > = {
   cyan: {
-    activeRing: "ring-brand-cyan/60 shadow-[0_0_28px_-8px_oklch(0.78_0.13_210/0.55)]",
+    activeRing:
+      "ring-brand-cyan/60 shadow-[0_0_28px_-8px_oklch(0.78_0.13_210/0.55)]",
     activeText: "text-brand-cyan",
     activeBg: "bg-brand-cyan/15",
     doneText: "text-brand-cyan/80",
   },
   gold: {
-    activeRing: "ring-brand-gold/60 shadow-[0_0_28px_-8px_oklch(0.85_0.13_85/0.55)]",
+    activeRing:
+      "ring-brand-gold/60 shadow-[0_0_28px_-8px_oklch(0.85_0.13_85/0.55)]",
     activeText: "text-brand-gold",
     activeBg: "bg-brand-gold/15",
     doneText: "text-brand-gold/80",
@@ -94,17 +97,27 @@ export default function StepIndicator({ current }: { current: Step }) {
             >
               {isDone ? <Check className="size-3" /> : stepNum}
             </span>
-            <span
-              className={[
-                "font-heading text-[11px] uppercase leading-tight tracking-[0.06em] transition-colors sm:text-xs sm:tracking-[0.12em]",
-                isActive
-                  ? `${colours.activeText} font-semibold`
-                  : isDone
-                    ? colours.doneText
-                    : "text-white/40",
-              ].join(" ")}
-            >
-              {step.label}
+            <span className="min-w-0">
+              <span
+                className={[
+                  "block font-heading text-[11px] uppercase leading-tight tracking-[0.06em] transition-colors sm:text-xs sm:tracking-[0.12em]",
+                  isActive
+                    ? `${colours.activeText} font-semibold`
+                    : isDone
+                      ? colours.doneText
+                      : "text-white/40",
+                ].join(" ")}
+              >
+                {step.label}
+              </span>
+              <span
+                className={[
+                  "mt-0.5 block font-body text-[9.5px] leading-tight transition-colors sm:text-[10px]",
+                  isActive || isDone ? "text-white/65" : "text-white/30",
+                ].join(" ")}
+              >
+                {step.helper}
+              </span>
             </span>
           </li>
         );

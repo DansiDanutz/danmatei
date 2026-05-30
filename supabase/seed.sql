@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Dev seed — sample data for local Supabase + previews.
 -- =============================================================================
-set search_path = fotbal, public;
+set search_path = fotbal, public, extensions;
 -- This script is idempotent. It expects the schema from 0001_init.sql to be
 -- already applied. The sample auth users below use deterministic UUIDs so the
 -- seed can be re-run without duplication.
@@ -30,19 +30,47 @@ begin
   loop
     insert into auth.users (
       id, instance_id, aud, role, email, encrypted_password,
-      email_confirmed_at, raw_user_meta_data, created_at, updated_at
+      email_confirmed_at,
+      confirmation_token, recovery_token, email_change_token_new,
+      email_change, phone_change, phone_change_token,
+      email_change_token_current, reauthentication_token,
+      raw_app_meta_data, raw_user_meta_data, is_sso_user, is_anonymous,
+      created_at, updated_at
     ) values (
       ids.id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
       ids.email, hashed_pw, now(),
-      jsonb_build_object('full_name', ids.full_name, 'role', ids.role),
-      now(), now()
-    ) on conflict (id) do nothing;
+      '', '', '', '', '', '', '', '',
+      jsonb_build_object('provider', 'email', 'providers', array['email']),
+      jsonb_build_object('app', 'fotbal', 'full_name', ids.full_name, 'role', ids.role),
+      false, false, now(), now()
+    ) on conflict (id) do update
+      set aud = excluded.aud,
+          role = excluded.role,
+          email = excluded.email,
+          encrypted_password = excluded.encrypted_password,
+          email_confirmed_at = excluded.email_confirmed_at,
+          confirmation_token = excluded.confirmation_token,
+          recovery_token = excluded.recovery_token,
+          email_change_token_new = excluded.email_change_token_new,
+          email_change = excluded.email_change,
+          phone_change = excluded.phone_change,
+          phone_change_token = excluded.phone_change_token,
+          email_change_token_current = excluded.email_change_token_current,
+          reauthentication_token = excluded.reauthentication_token,
+          raw_app_meta_data = excluded.raw_app_meta_data,
+          raw_user_meta_data = excluded.raw_user_meta_data,
+          is_sso_user = excluded.is_sso_user,
+          is_anonymous = excluded.is_anonymous,
+          updated_at = excluded.updated_at;
 
-    -- Trigger creates the profile automatically; force role + name in case of conflict
-    update fotbal.profiles
-       set role = ids.role::user_role,
-           full_name = ids.full_name
-     where id = ids.id;
+    -- The auth trigger creates this when raw_user_meta_data.app='fotbal'.
+    -- Upsert too, so the seed remains correct if an auth user already existed
+    -- from an older run without the metadata marker.
+    insert into fotbal.profiles (id, full_name, role)
+    values (ids.id, ids.full_name, ids.role::fotbal.user_role)
+    on conflict (id) do update
+      set role = excluded.role,
+          full_name = excluded.full_name;
   end loop;
 end $$;
 

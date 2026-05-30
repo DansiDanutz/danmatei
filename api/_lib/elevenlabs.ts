@@ -21,6 +21,8 @@
  *   - ELEVENLABS_DEFAULT_AGENT_ID
  *   - ELEVENLABS_WEBHOOK_SECRET   (optional but recommended)
  */
+import { configuredPublicBaseUrl } from "./public-url.js";
+
 const API_BASE = "https://api.elevenlabs.io/v1";
 
 export interface AgentLinkResult {
@@ -50,11 +52,7 @@ export interface TranscriptResult {
 }
 
 function publicAppUrl(): string {
-  return (
-    process.env.VITE_APP_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    "http://localhost:3000"
-  );
+  return configuredPublicBaseUrl();
 }
 
 /**

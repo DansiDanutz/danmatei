@@ -9,11 +9,12 @@ primary_region = "fra"   # Frankfurt — closest to LiveKit eu-west-1 region
   dockerfile = "Dockerfile"
 
 [env]
-  API_BASE = "https://danmatei.vercel.app"
+  API_BASE = "https://www.danmatei.ro"
   LIVEKIT_AGENT_NAME = "danmatei-voice-agent"
   LIVEKIT_STT_MODEL = "deepgram/nova-3"
   LIVEKIT_STT_LANGUAGE = "ro"
-  LIVEKIT_LLM_MODEL = "openai/gpt-4o-mini"
+  LIVEKIT_LLM_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+  LIVEKIT_LLM_MODEL = "gemini-2.0-flash"
   LIVEKIT_TTS_MODEL = "elevenlabs/eleven_turbo_v2_5"
   LIVEKIT_TTS_VOICE = "hpp4J3VqNfWAUOO0d1Us"
   MAX_CALL_SECONDS = "180"

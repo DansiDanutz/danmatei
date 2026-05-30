@@ -3,8 +3,8 @@
  * to call PushManager.subscribe(). Public endpoint — the public key is, well,
  * public; the only thing it lets the browser do is target our push service.
  *
- * Returns 503 when push isn't configured yet so the client can show a clear
- * "push setup not complete" state instead of a confusing crash.
+ * Returns `{ configured: false }` when push isn't configured yet so the client
+ * can hide push controls without logging a noisy failed network request.
  */
 import { getVapidPublicKey, isConfigured } from "../_lib/push.js";
 
@@ -19,9 +19,9 @@ export default function handler(req: Req, res: Res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
   if (!isConfigured()) {
-    return res
-      .status(503)
-      .json({ error: "Web Push not configured on this deployment." });
+    return res.status(200).json({ configured: false, publicKey: null });
   }
-  return res.status(200).json({ publicKey: getVapidPublicKey() });
+  return res
+    .status(200)
+    .json({ configured: true, publicKey: getVapidPublicKey() });
 }

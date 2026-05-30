@@ -33,7 +33,8 @@ function readQuery(req: Req, key: string): string | undefined {
   if (direct != null) return Array.isArray(direct) ? direct[0] : direct;
   if (req.url) {
     const qi = req.url.indexOf("?");
-    if (qi >= 0) return new URLSearchParams(req.url.slice(qi)).get(key) ?? undefined;
+    if (qi >= 0)
+      return new URLSearchParams(req.url.slice(qi)).get(key) ?? undefined;
   }
   return undefined;
 }
@@ -109,21 +110,22 @@ export default async function handler(req: Req, res: Res) {
 
   // A parent with a child in the squad may also read it (powers the parent
   // score editor's scorer picker), alongside owner/super_admin + event trainer.
-  const isSquadParent = ((rows ?? []) as PartRow[]).some(
-    (r) => r.children?.parent_id === userId
-  );
+  const partRows = (rows ?? []) as unknown as PartRow[];
+  const isSquadParent = partRows.some(r => r.children?.parent_id === userId);
   if (!isAdmin && !isAssigned && !isSquadParent)
     return res.status(403).json({ error: "forbidden" });
 
-  const squad = ((rows ?? []) as unknown as PartRow[])
-    .map((r) => ({
+  const squad = partRows
+    .map(r => ({
       id: r.id,
       childId: r.child_id,
       role: r.role,
       goals: r.goals ?? 0,
       assists: r.assists ?? 0,
       name: r.children?.full_name ?? "—",
-      yearOfBirth: r.children?.dob ? new Date(r.children.dob).getFullYear() : null,
+      yearOfBirth: r.children?.dob
+        ? new Date(r.children.dob).getFullYear()
+        : null,
       groupId: r.children?.group_id ?? null,
       groupLabel: r.children?.groups?.label ?? null,
     }))

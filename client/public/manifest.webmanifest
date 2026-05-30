@@ -16,7 +16,7 @@
   "related_applications": [
     {
       "platform": "webapp",
-      "url": "https://danmatei.vercel.app/manifest.webmanifest",
+      "url": "https://www.danmatei.ro/manifest.webmanifest",
       "id": "/"
     }
   ],

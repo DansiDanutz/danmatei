@@ -20,10 +20,13 @@ alter view fotbal.v_trainer_inbox set (security_invoker = on);
 
 revoke select on fotbal.v_child_stats from anon;
 revoke select on fotbal.v_trainer_inbox from anon;
+grant select on fotbal.v_child_stats to authenticated, service_role;
+grant select on fotbal.v_trainer_inbox to authenticated, service_role;
 
 -- player_skills holds minors' assessment data; it must never be anon-readable
 -- (0007 granted it to anon directly). Legitimate access is parent/staff via RLS.
 revoke select on fotbal.player_skills from anon;
+grant select on fotbal.player_skills to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- 2. Fix enroll_accept's monthly-fee charge insert.
@@ -46,16 +49,60 @@ declare
   v_fee numeric;
   v_parent uuid;
   v_child_name text;
-  v_group_label text;
+  v_child_status fotbal.assignment_status;
+  v_child_birth_year int;
+  v_group record;
+  v_my_trainer uuid := fotbal.my_trainer_id();
 begin
-  if not (fotbal.is_owner() or (p_trainer is not null and p_trainer = fotbal.my_trainer_id())) then
+  select id, label, trainer_id, birth_year_min, birth_year_max
+    into v_group
+    from fotbal.groups
+   where id = p_group
+     and active = true;
+
+  if not found then
+    raise exception 'group_not_found';
+  end if;
+
+  if p_trainer is distinct from v_group.trainer_id then
+    raise exception 'trainer_group_mismatch';
+  end if;
+
+  select parent_id, full_name, assignment_status, extract(year from dob)::int
+    into v_parent, v_child_name, v_child_status, v_child_birth_year
+    from fotbal.children
+   where id = p_child;
+
+  if not found then
+    raise exception 'child_not_found';
+  end if;
+
+  if v_child_status not in ('pending', 'on_hold') then
+    raise exception 'child_not_pending';
+  end if;
+
+  if not (
+    fotbal.is_owner()
+    or (
+      v_group.trainer_id is not null
+      and v_group.trainer_id = v_my_trainer
+      and v_child_birth_year between v_group.birth_year_min and v_group.birth_year_max
+    )
+  ) then
     raise exception 'not_authorized';
   end if;
 
   update fotbal.children
-     set trainer_id = p_trainer, group_id = p_group, assignment_status = 'accepted', updated_at = now()
+     set trainer_id = v_group.trainer_id,
+         group_id = v_group.id,
+         assignment_status = 'accepted',
+         updated_at = now()
    where id = p_child
-   returning parent_id, full_name into v_parent, v_child_name;
+     and assignment_status in ('pending', 'on_hold');
+
+  if not found then
+    raise exception 'child_not_pending';
+  end if;
 
   select monthly_fee_ron into v_fee from fotbal.academy_settings where id = true;
   if coalesce(v_fee, 0) > 0 then
@@ -74,14 +121,13 @@ begin
   end if;
 
   if v_parent is not null then
-    select label into v_group_label from fotbal.groups where id = p_group;
     insert into fotbal.notifications (recipient_id, kind, title, body, link)
     values (
       v_parent,
       'enrollment_accepted',
       'Copil acceptat în grupă',
       coalesce(v_child_name, 'Copilul tău') || ' a fost înscris'
-        || coalesce(' în grupa ' || v_group_label, '')
+        || coalesce(' în grupa ' || v_group.label, '')
         || case when coalesce(v_fee, 0) > 0
                 then '. Taxa lunară: ' || v_fee || ' RON.'
                 else '.' end,

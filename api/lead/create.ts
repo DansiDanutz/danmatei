@@ -14,6 +14,7 @@
  */
 import { z } from "zod";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { publicBaseUrlFromHeaders } from "../_lib/public-url.js";
 import { serviceClient } from "../_lib/supabase.js";
 import { sendWhatsappText } from "../_lib/whatsapp.js";
 import { isLeadLinkSigningConfigured, signToken } from "../_lib/sign-token.js";
@@ -39,34 +40,8 @@ type Res = {
   json: (body: unknown) => Res;
 };
 
-const DEFAULT_PUBLIC_BASE_URL = "https://danmatei.vercel.app";
-
-function readHeader(req: Req, key: string): string | undefined {
-  const value = req.headers?.[key.toLowerCase()] ?? req.headers?.[key];
-  return Array.isArray(value) ? value[0] : value;
-}
-
 function publicBaseUrl(req: Req): string {
-  const configured = process.env.PUBLIC_BASE_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, "");
-
-  const rawHost =
-    readHeader(req, "x-forwarded-host") ?? readHeader(req, "host");
-  if (!rawHost) return DEFAULT_PUBLIC_BASE_URL;
-
-  const host = rawHost.split(",")[0].trim();
-  const rawProto = readHeader(req, "x-forwarded-proto");
-  const proto =
-    rawProto?.split(",")[0].trim() ||
-    (host.startsWith("localhost") || host.startsWith("127.")
-      ? "http"
-      : "https");
-
-  try {
-    return new URL(`${proto}://${host}`).origin;
-  } catch {
-    return DEFAULT_PUBLIC_BASE_URL;
-  }
+  return publicBaseUrlFromHeaders(req.headers);
 }
 
 /** Hardcoded fallback used only when trainers.slug has not been populated. */

@@ -6,12 +6,10 @@
  * Flow:
  *   1. Verify the signed token from /api/lead/create (HMAC + expiry).
  *   2. Resolve the lead row.
- *   3. Generate a deterministic LiveKit room name from the lead id.
- *   4. Issue two short-lived LiveKit JWTs:
- *        - one for the parent's browser (read+write audio)
- *        - one for the Pipecat agent (read+write audio + agent metadata)
- *   5. POST to the Pipecat agent's /spawn endpoint so the agent joins
- *      the same room with the parent's lead context (name, child, age).
+ *   3. Generate a LiveKit room name from the lead id.
+ *   4. Embed the lead context in room metadata and request LiveKit agent
+ *      auto-dispatch via roomConfig.agents.
+ *   5. Issue a short-lived LiveKit JWT for the parent's browser.
  *   6. Return the parent's join token + LiveKit URL to the browser.
  *
  * The token-signing scheme matches `api/lead/create.ts`.
@@ -20,8 +18,7 @@
  *   - LIVEKIT_URL                 (wss://...)
  *   - LIVEKIT_API_KEY
  *   - LIVEKIT_API_SECRET
- *   - VOICE_AGENT_SPAWN_URL       (http://voice-agent:8080/spawn)
- *   - VOICE_AGENT_AUTH_TOKEN      (shared secret)
+ *   - LIVEKIT_AGENT_NAME          (defaults to danmatei-voice-agent)
  *   - LEAD_LINK_SIGNING_SECRET    (matches api/lead/create.ts)
  *
  * In dev/preview without these vars, returns 503 and the page falls back
@@ -29,7 +26,10 @@
  */
 import { AccessToken } from "livekit-server-sdk";
 import { serviceClient } from "../_lib/supabase.js";
-import { verifyToken } from "../_lib/sign-token.js";
+import {
+  isLeadLinkSigningConfigured,
+  verifyToken,
+} from "../_lib/sign-token.js";
 
 type Req = {
   method?: string;
@@ -43,7 +43,8 @@ type Res = {
 };
 
 function readBody(req: Req): Record<string, unknown> {
-  if (typeof req.body === "object" && req.body) return req.body as Record<string, unknown>;
+  if (typeof req.body === "object" && req.body)
+    return req.body as Record<string, unknown>;
   if (typeof req.body === "string") {
     try {
       return JSON.parse(req.body);
@@ -62,6 +63,12 @@ export default async function handler(req: Req, res: Res) {
   const body = readBody(req);
   const token = typeof body.token === "string" ? body.token : "";
   if (!token) return res.status(400).json({ error: "missing_token" });
+  if (!isLeadLinkSigningConfigured()) {
+    return res.status(503).json({
+      error: "lead_link_signing_unavailable",
+      message: "LEAD_LINK_SIGNING_SECRET is required in production.",
+    });
+  }
   const verified = verifyToken(token);
   if (!verified) return res.status(401).json({ error: "invalid_token" });
 
@@ -88,7 +95,7 @@ export default async function handler(req: Req, res: Res) {
   const { data: lead, error } = await supabase
     .from("leads")
     .select(
-      "id, parent_name, parent_phone_e164, child_name, child_age, assigned_trainer_id",
+      "id, parent_name, parent_phone_e164, child_name, child_age, assigned_trainer_id"
     )
     .eq("id", verified.leadId)
     .single();
@@ -120,6 +127,7 @@ export default async function handler(req: Req, res: Res) {
   // Lead context that the agent reads from room.metadata on connect.
   const roomMetadata = JSON.stringify({
     leadId: lead.id,
+    callId: room,
     parentName: lead.parent_name,
     childName: lead.child_name,
     childAge: lead.child_age,
@@ -128,7 +136,7 @@ export default async function handler(req: Req, res: Res) {
   });
 
   // Mint the parent's token with LiveKit auto-dispatch wired up: when the
-  // parent joins this room, LiveKit Cloud spawns the agent worker named
+  // parent joins this room, LiveKit dispatches the agent worker named
   // `agentName` against the same room. No /spawn HTTP call needed.
   const parentToken = await mintToken({
     apiKey,

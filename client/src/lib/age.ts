@@ -6,14 +6,58 @@
  *   matchTrainers(age, list)   → trainers whose [age_min, age_max] contains age
  */
 
+type DateParts = { year: number; month: number; day: number };
+
+function partsInTimeZone(date: Date, timeZone: string): DateParts {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = Object.fromEntries(
+    fmt.formatToParts(date).map(p => [p.type, p.value])
+  ) as { year: string; month: string; day: string };
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+  };
+}
+
+function dobParts(dob: string | Date): DateParts {
+  if (typeof dob === "string") {
+    const m = dob.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      return {
+        year: Number(m[1]),
+        month: Number(m[2]),
+        day: Number(m[3]),
+      };
+    }
+  }
+  const d = typeof dob === "string" ? new Date(dob) : dob;
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+  };
+}
+
 export function currentAge(
   dob: string | Date,
-  today: Date = new Date()
+  today: Date = new Date(),
+  timeZone = "Europe/Bucharest"
 ): number {
-  const d = typeof dob === "string" ? new Date(dob) : dob;
-  let age = today.getFullYear() - d.getFullYear();
-  const m = today.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age -= 1;
+  const birth = dobParts(dob);
+  const now = partsInTimeZone(today, timeZone);
+  let age = now.year - birth.year;
+  if (
+    now.month < birth.month ||
+    (now.month === birth.month && now.day < birth.day)
+  ) {
+    age -= 1;
+  }
   return Math.max(0, age);
 }
 
@@ -61,32 +105,21 @@ export function formatTimelineDate(iso: string, locale = "ro-RO"): string {
  */
 export function isBirthdayToday(
   dob: string | Date,
-  today: Date = new Date()
+  today: Date = new Date(),
+  timeZone = "Europe/Bucharest"
 ): boolean {
-  const d = typeof dob === "string" ? new Date(dob) : dob;
-  // Format "today" in Europe/Bucharest so the day boundary is right for Cluj.
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Bucharest",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const parts = Object.fromEntries(
-    fmt.formatToParts(today).map(p => [p.type, p.value])
-  ) as { year: string; month: string; day: string };
-  const tMonth = Number(parts.month);
-  const tDay = Number(parts.day);
-  const tYear = Number(parts.year);
-
-  let bMonth = d.getUTCMonth() + 1;
-  let bDay = d.getUTCDate();
+  const now = partsInTimeZone(today, timeZone);
+  const birth = dobParts(dob);
+  let bMonth = birth.month;
+  let bDay = birth.day;
 
   // Leap-day fallback: Feb 29 birthday celebrates on Mar 1 in non-leap years.
-  const isLeap = (tYear % 4 === 0 && tYear % 100 !== 0) || tYear % 400 === 0;
+  const isLeap =
+    (now.year % 4 === 0 && now.year % 100 !== 0) || now.year % 400 === 0;
   if (bMonth === 2 && bDay === 29 && !isLeap) {
     bMonth = 3;
     bDay = 1;
   }
 
-  return tMonth === bMonth && tDay === bDay;
+  return now.month === bMonth && now.day === bDay;
 }

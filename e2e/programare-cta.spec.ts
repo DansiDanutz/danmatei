@@ -12,13 +12,15 @@ test("/programare page renders the lead form", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByPlaceholder("ex. Andrei Popescu")).toBeVisible();
   await expect(page.getByPlaceholder("07XX XXX XXX")).toBeVisible();
-  await expect(page.getByRole("button", { name: /primește linkul de apel/i })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /primește linkul de apel/i })
+  ).toBeVisible();
 });
 
 test("floating Programare CTA appears after scroll on landing pages", async ({
   page,
 }) => {
-  await page.goto(`${BASE}/cunoaste`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/academie`, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
   const cta = page.locator('a[aria-label="Vorbește cu un consilier acum"]');
   // Hidden initially (or showing only at scrollY > 600)

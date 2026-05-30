@@ -2,7 +2,7 @@
  * GET /api/cron/reap-stale-calls — fires every 15 minutes from Vercel Cron
  * (configured in vercel.json: "*\/15 * * * *").
  *
- * Why: if the Pipecat voice-agent crashes mid-call (OOM, container restart,
+ * Why: if the LiveKit voice agent crashes mid-call (OOM, container restart,
  * etc.), no end-of-call webhook ever fires, so the lead's `status` stays at
  * `'calling'` forever. Trainers sit waiting for a transcript that will never
  * arrive. This janitor flips any lead stuck in `'calling'` longer than

@@ -19,7 +19,14 @@
  * button only then). When omitted, behaves stand-alone.
  */
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Volume2, VolumeX, XCircle } from "lucide-react";
+import {
+  ArrowDown,
+  CheckCircle2,
+  MousePointerClick,
+  Volume2,
+  VolumeX,
+  XCircle,
+} from "lucide-react";
 
 type State = "idle" | "playing" | "asking" | "ok" | "fail";
 
@@ -173,19 +180,35 @@ export default function SpeakerTest({ onResult }: Props) {
       )}
 
       {(state === "idle" || state === "fail") && (
-        <button
-          type="button"
-          onClick={playChime}
-          className={[
-            "mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-heading text-[11px] font-semibold uppercase tracking-[0.16em] transition-colors",
-            state === "fail"
-              ? "border border-red-400/40 bg-red-500/10 text-red-200 hover:bg-red-500/20"
-              : "border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20",
-          ].join(" ")}
-        >
-          <Volume2 className="size-3.5" />
-          {state === "fail" ? "Încearcă din nou" : "Redă clopoțelul"}
-        </button>
+        <>
+          <div
+            className={[
+              "mt-3 flex items-center justify-center gap-2 rounded-full border px-3 py-2 font-heading text-[10px] font-semibold uppercase tracking-[0.16em]",
+              state === "fail"
+                ? "border-red-300/35 bg-red-400/10 text-red-100"
+                : "border-cyan-300/35 bg-cyan-400/10 text-cyan-100",
+            ].join(" ")}
+          >
+            <ArrowDown className="size-3.5 animate-bounce" aria-hidden="true" />
+            <span>Pasul 2: apasă aici</span>
+            <MousePointerClick className="size-3.5" aria-hidden="true" />
+          </div>
+          <button
+            type="button"
+            onClick={playChime}
+            className={[
+              "mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-heading text-[11px] font-semibold uppercase tracking-[0.16em] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_16px_36px_-22px_rgba(34,211,238,0.9)] transition-all",
+              state === "fail"
+                ? "border border-red-400/50 bg-red-500/15 text-red-100 hover:bg-red-500/25"
+                : "border border-cyan-300/65 bg-cyan-500/20 text-cyan-50 hover:-translate-y-0.5 hover:bg-cyan-500/30",
+            ].join(" ")}
+          >
+            <Volume2 className="size-3.5" />
+            {state === "fail"
+              ? "Apasă aici - încearcă din nou"
+              : "Apasă aici - redă clopoțelul"}
+          </button>
+        </>
       )}
     </div>
   );

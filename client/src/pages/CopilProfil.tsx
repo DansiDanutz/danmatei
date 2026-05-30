@@ -127,6 +127,15 @@ type ParticipationRow = {
   result: { our_score: number; opponent_score: number } | null;
 };
 
+type ParticipationQueryRow = Omit<ParticipationRow, "event" | "result"> & {
+  event: ParticipationRow["event"] & {
+    result:
+      | { our_score: number; opponent_score: number }
+      | { our_score: number; opponent_score: number }[]
+      | null;
+  };
+};
+
 const KIND_LABEL: Record<string, string> = {
   signup: "Înscriere",
   profile_update: "Profil actualizat",
@@ -222,7 +231,7 @@ export default function CopilProfil() {
         supabase
           .from("match_participations")
           .select(
-            "id, goals, assists, role, event:schedule_events(id, title, starts_at, opponent), result:match_results(our_score, opponent_score)"
+            "id, goals, assists, role, event:schedule_events(id, title, starts_at, opponent, result:match_results(our_score, opponent_score))"
           )
           .eq("child_id", childId)
           .order("created_at", { ascending: false }),
@@ -247,7 +256,16 @@ export default function CopilProfil() {
       setNews((nw.data ?? []) as NewsRow[]);
       setMedia((md.data ?? []) as MediaRow[]);
       setMessages((msg.data ?? []) as unknown as MessageRow[]);
-      setParticipations((pa.data ?? []) as unknown as ParticipationRow[]);
+      setParticipations(
+        ((pa.data ?? []) as unknown as ParticipationQueryRow[]).map(p => {
+          const rawResult = p.event.result;
+          const result = Array.isArray(rawResult)
+            ? (rawResult[0] ?? null)
+            : rawResult;
+          const { result: _result, ...event } = p.event;
+          return { ...p, event, result };
+        })
+      );
 
       // Pull this child's attendance rows for the events we just loaded so
       // the parent's RSVP pills know their last answer.
@@ -655,20 +673,20 @@ export default function CopilProfil() {
               parentId={profile?.id ?? ""}
             />
             <div>
-          {upcoming.length === 0 && (
-            <Empty hint="Nu sunt evenimente programate." />
-          )}
-          <div className="grid gap-3">
-            {upcoming.map(e => (
-              <ScheduleRowCard
-                key={e.id}
-                row={e}
-                rsvpStatus={attendance.get(e.id) ?? null}
-                onConfirm={isParent ? confirmAttendance : undefined}
-                busy={confirmingId === e.id}
-              />
-            ))}
-          </div>
+              {upcoming.length === 0 && (
+                <Empty hint="Nu sunt evenimente programate." />
+              )}
+              <div className="grid gap-3">
+                {upcoming.map(e => (
+                  <ScheduleRowCard
+                    key={e.id}
+                    row={e}
+                    rsvpStatus={attendance.get(e.id) ?? null}
+                    onConfirm={isParent ? confirmAttendance : undefined}
+                    busy={confirmingId === e.id}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -1141,13 +1159,7 @@ const replySchema = z.object({
 });
 type ReplyValues = z.infer<typeof replySchema>;
 
-function ReplyForm({
-  child,
-  onSent,
-}: {
-  child: Child;
-  onSent: () => void;
-}) {
+function ReplyForm({ child, onSent }: { child: Child; onSent: () => void }) {
   const {
     register,
     handleSubmit,
@@ -1338,10 +1350,7 @@ function ParentPaymentsTab({ childId }: { childId: string }) {
     const sorted = [...charges].sort((a, b) =>
       a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0
     );
-    const totalPaid = payments.reduce(
-      (s, p) => s + Number(p.amount_ron),
-      0
-    );
+    const totalPaid = payments.reduce((s, p) => s + Number(p.amount_ron), 0);
     let pool = totalPaid;
     return sorted.map(c => {
       const amount = Number(c.amount_ron);
@@ -1462,7 +1471,11 @@ function ParentPaymentsTab({ childId }: { childId: string }) {
                           : "border-rose-300/30 bg-rose-300/10 text-rose-200"
                     }`}
                   >
-                    {c.paid ? "✓ Plătit" : c.partial > 0 ? "Parțial" : "Restant"}
+                    {c.paid
+                      ? "✓ Plătit"
+                      : c.partial > 0
+                        ? "Parțial"
+                        : "Restant"}
                   </span>
                 </li>
               );
@@ -1506,7 +1519,11 @@ function ParentPaymentsTab({ childId }: { childId: string }) {
                           : "border-rose-300/30 bg-rose-300/10 text-rose-200"
                     }`}
                   >
-                    {c.paid ? "✓ Plătit" : c.partial > 0 ? "Parțial" : "Restant"}
+                    {c.paid
+                      ? "✓ Plătit"
+                      : c.partial > 0
+                        ? "Parțial"
+                        : "Restant"}
                   </span>
                 </li>
               ))}

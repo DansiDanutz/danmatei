@@ -4,7 +4,7 @@ A pragmatic audit of the current state and a prioritized list of enhancements, w
 
 ## Current state — what exists
 
-### Web (`/` on `danmatei.vercel.app`)
+### Web (`/` on `www.danmatei.ro`)
 - Vite + React 19 + Express + Supabase + wouter
 - Public landing flow (`/`, `/cunoaste`) with the trainer reveal carousel built on Embla
 - Auth (login, register, forgot, complete-profil)

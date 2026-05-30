@@ -92,7 +92,7 @@ export default async function handler(req: Req, res: Res) {
     .eq("active", true)
     .lte("birth_year_min", birthYear)
     .gte("birth_year_max", birthYear);
-  for (const g of (matchGroups ?? []) as Array<{
+  for (const g of (matchGroups ?? []) as unknown as Array<{
     trainer: { profile_id: string } | null;
   }>) {
     if (g.trainer?.profile_id) trainerProfileIds.add(g.trainer.profile_id);
@@ -103,7 +103,7 @@ export default async function handler(req: Req, res: Res) {
     .from("profiles")
     .select("id")
     .in("role", ["owner", "super_admin"]);
-  const ownerIds = ((owners ?? []) as Array<{ id: string }>).map((o) => o.id);
+  const ownerIds = ((owners ?? []) as Array<{ id: string }>).map(o => o.id);
 
   const name = (child.full_name as string) ?? "Un copil";
 

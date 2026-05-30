@@ -7,7 +7,13 @@
  * See docs/AI_CALL_FLOW.md for the full feature design.
  */
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Loader2, PhoneCall, ShieldCheck } from "lucide-react";
+import {
+  ArrowDown,
+  CheckCircle2,
+  Loader2,
+  PhoneCall,
+  ShieldCheck,
+} from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
@@ -22,19 +28,23 @@ const Schema = z.object({
     .min(7, "Numărul este prea scurt")
     .max(32)
     .regex(/^[+\d\s()-]+$/, "Folosește doar cifre și + - ( ) spațiu"),
-  childName: z.string().trim().min(2, "Numele copilului este obligatoriu").max(120),
+  childName: z
+    .string()
+    .trim()
+    .min(2, "Numele copilului este obligatoriu")
+    .max(120),
   childAge: z.preprocess(
-    (value) => (value === "" || value == null ? undefined : Number(value)),
+    value => (value === "" || value == null ? undefined : Number(value)),
     z
-    .number({ error: "Vârsta este obligatorie" })
-    .int("Vârsta este obligatorie")
-    .min(4, "Minim 4 ani")
-    .max(18, "Maxim 18 ani"),
+      .number({ error: "Vârsta este obligatorie" })
+      .int("Vârsta este obligatorie")
+      .min(4, "Minim 4 ani")
+      .max(18, "Maxim 18 ani")
   ),
   childPosition: z.string().trim().max(60).optional(),
   consent: z
     .boolean()
-    .refine((v) => v === true, "Consimțământul este obligatoriu"),
+    .refine(v => v === true, "Consimțământul este obligatoriu"),
 });
 
 type Input = z.infer<typeof Schema>;
@@ -87,7 +97,9 @@ export default function LeadForm() {
         | SubmitResult
         | { error: string; detail?: string };
       if (!res.ok || !("ok" in json)) {
-        throw new Error("detail" in json && json.detail ? json.detail : "Trimitere eșuată");
+        throw new Error(
+          "detail" in json && json.detail ? json.detail : "Trimitere eșuată"
+        );
       }
       setResult(json);
       reset();
@@ -114,13 +126,18 @@ export default function LeadForm() {
               : "Apasă butonul de mai jos ca să pornești apelul cu Andra. Permite microfonul când îți cere browserul."}
           </p>
 
+          <div className="mx-auto mt-5 flex max-w-sm items-center justify-center gap-2 rounded-full border border-brand-gold/35 bg-brand-gold/10 px-3 py-2 font-heading text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-gold">
+            <ArrowDown className="size-3.5 animate-bounce" aria-hidden="true" />
+            <span>Pasul 2: apasă butonul de apel</span>
+          </div>
+
           <a
             href={result.callLink}
             target="_self"
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-gold px-6 py-4 font-heading text-sm font-semibold uppercase tracking-[0.16em] text-[oklch(0.15_0.04_50)] shadow-[0_18px_50px_-18px_oklch(0.85_0.13_85/0.65)] transition hover:opacity-90 sm:w-auto"
+            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-gold px-6 py-4 font-heading text-sm font-semibold uppercase tracking-[0.16em] text-[oklch(0.15_0.04_50)] shadow-[0_18px_50px_-18px_oklch(0.85_0.13_85/0.65)] transition hover:-translate-y-0.5 hover:opacity-90 sm:w-auto"
           >
             <PhoneCall className="size-4" />
-            Începe apelul →
+            Apasă aici - începe apelul →
           </a>
 
           {!result.whatsapp.sent && result.whatsapp.reason ? (
@@ -141,8 +158,22 @@ export default function LeadForm() {
     >
       <StepIndicator current={1} />
 
+      <div className="rounded-2xl border border-brand-cyan/25 bg-brand-cyan/[0.06] px-4 py-3 text-center">
+        <p className="font-heading text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-cyan">
+          Pasul 1: completează datele
+        </p>
+        <p className="mt-1 font-body text-sm leading-snug text-white/70">
+          După formular primești linkul de apel, apoi testezi microfonul și
+          sunetul înainte să vorbești.
+        </p>
+      </div>
+
       <div className="grid sm:grid-cols-2 gap-4">
-        <BrandedField htmlFor="lead-parentName" label="Numele tău" error={errors.parentName?.message}>
+        <BrandedField
+          htmlFor="lead-parentName"
+          label="Numele tău"
+          error={errors.parentName?.message}
+        >
           <input
             id="lead-parentName"
             {...register("parentName")}
@@ -153,7 +184,11 @@ export default function LeadForm() {
             placeholder="ex. Andrei Popescu"
           />
         </BrandedField>
-        <BrandedField htmlFor="lead-parentPhone" label="Telefon (WhatsApp)" error={errors.parentPhone?.message}>
+        <BrandedField
+          htmlFor="lead-parentPhone"
+          label="Telefon (WhatsApp)"
+          error={errors.parentPhone?.message}
+        >
           <input
             id="lead-parentPhone"
             {...register("parentPhone")}
@@ -165,7 +200,11 @@ export default function LeadForm() {
             placeholder="07XX XXX XXX"
           />
         </BrandedField>
-        <BrandedField htmlFor="lead-childName" label="Numele copilului" error={errors.childName?.message}>
+        <BrandedField
+          htmlFor="lead-childName"
+          label="Numele copilului"
+          error={errors.childName?.message}
+        >
           <input
             id="lead-childName"
             {...register("childName")}
@@ -175,7 +214,11 @@ export default function LeadForm() {
             placeholder="ex. Luca"
           />
         </BrandedField>
-        <BrandedField htmlFor="lead-childAge" label="Vârsta copilului" error={errors.childAge?.message}>
+        <BrandedField
+          htmlFor="lead-childAge"
+          label="Vârsta copilului"
+          error={errors.childAge?.message}
+        >
           <input
             id="lead-childAge"
             {...register("childAge")}
@@ -190,7 +233,10 @@ export default function LeadForm() {
         </BrandedField>
       </div>
 
-      <BrandedField htmlFor="lead-childPosition" label="Postul preferat (opțional)">
+      <BrandedField
+        htmlFor="lead-childPosition"
+        label="Postul preferat (opțional)"
+      >
         <input
           id="lead-childPosition"
           {...register("childPosition")}
@@ -208,14 +254,13 @@ export default function LeadForm() {
             <input
               type="checkbox"
               checked={!!field.value}
-              onChange={(e) => field.onChange(e.target.checked)}
+              onChange={e => field.onChange(e.target.checked)}
               className="mt-0.5 size-5 shrink-0 accent-[oklch(0.78_0.13_210)]"
             />
             <span>
               Sunt de acord ca datele mele să fie folosite pentru a fi contactat
               de academie. Apelul cu agentul AI este înregistrat și transcris
-              pentru calitatea serviciului. Datele sunt șterse la cerere
-              (GDPR).
+              pentru calitatea serviciului. Datele sunt șterse la cerere (GDPR).
               {fieldState.error ? (
                 <span className="block text-red-400 text-xs mt-1">
                   {fieldState.error.message}

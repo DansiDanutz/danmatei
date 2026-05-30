@@ -5,23 +5,18 @@ gets a WhatsApp link with the agent within seconds, taps it, talks to
 **Andra** (Romanian voice agent) for 3-5 min, and the transcript lands
 in `/antrenor → Inbox AI` for the right trainer.
 
-The whole pipeline is **open source** and self-hostable — no per-minute
-SaaS fees once the box is running.
+The media/agent pipeline is self-hostable on LiveKit, while speech/LLM/TTS
+providers are called directly (Deepgram, OpenAI-compatible LLM, ElevenLabs).
 
 ---
 
 ## What you need
 
 - A Supabase project (free tier is fine)
-- A Vercel project (already at `danmatei.vercel.app`)
-- One host that can run Docker:
-  - **Minimum (CPU only):** 8 cores, 16 GB RAM. Uses `WHISPER_MODEL=medium`,
-    `OLLAMA_MODEL=gemma2:2b`. Call latency 1.5-3s per turn.
-  - **Recommended (small GPU):** RTX 4060 / 3060 / 4070. Uses
-    `WHISPER_MODEL=large-v3` + `OLLAMA_MODEL=llama3.1:8b-instruct-q4_K_M`.
-    Sub-second latency per turn.
-- A domain + DNS A record for the voice host (so the LiveKit transport
-  and the agent's `/spawn` endpoint have HTTPS).
+- A Vercel project (already at `www.danmatei.ro`)
+- One small host that can run Docker, or a Fly.io app for the voice worker.
+- A domain + DNS A record if you self-host LiveKit/WhatsApp (so LiveKit can use
+  `wss://` and Evolution API can receive HTTPS traffic).
 - A WhatsApp-eligible phone number you can scan with a QR code (for
   Evolution API to log in to WhatsApp Web).
 
@@ -62,38 +57,29 @@ cp .env.example .env
 # Edit .env and set:
 #  - LIVEKIT_API_KEY        (any string, e.g. "academia-livekit")
 #  - LIVEKIT_API_SECRET     (32-char random)
-#  - VOICE_AGENT_AUTH_TOKEN (32-char random)
 #  - PIPECAT_WEBHOOK_SECRET (32-char random)
 #  - EVOLUTION_API_KEY      (32-char random)
 #  - LEAD_LINK_SIGNING_SECRET (32-char random)
-#  - SUPABASE_URL, SUPABASE_SERVICE_ROLE (used by the agent's webhook)
+#  - DEEPGRAM_API_KEY, LIVEKIT_LLM_API_KEY, ELEVENLABS_API_KEY
 
-# 3. Start everything (Ollama, LiveKit, Pipecat agent, Evolution API)
+# 3. Start everything (LiveKit, LiveKit voice-agent worker, Evolution API)
 docker compose --env-file .env up -d
 
-# 4. Pull the LLM model into Ollama. This is one-time and may take ~5 min.
-docker compose exec ollama ollama pull llama3.1:8b-instruct-q4_K_M
-
-# 5. Check health
-curl http://localhost:8080/health   # voice-agent → {"ok":true,...}
-curl http://localhost:11434/api/tags # ollama
+# 4. Check health
+curl http://localhost:8082/         # voice-agent health/debug server
 curl http://localhost:7880/         # livekit (returns 404, that's fine)
 ```
 
 ### Public TLS (optional, recommended once you go live)
 
-The Vercel side calls the voice agent via HTTPS. For dev you can tunnel
-with [`cloudflared`](https://github.com/cloudflare/cloudflared) or
-[`ngrok`](https://ngrok.com). For prod, point a domain at the host and
-let Caddy provision TLS:
+For prod self-hosting, point a domain at the host and let Caddy provision TLS:
 
 ```bash
 # DNS: A record voice.example.com → <your-host-ip>
 PUBLIC_HOST=example.com docker compose --profile public --env-file .env up -d caddy
 
-# voice-agent → https://voice.example.com
-# livekit     → https://livekit.example.com   (use wss://livekit.example.com in env)
-# evolution   → https://wa.example.com        (admin UI)
+# livekit   → https://livekit.example.com   (use wss://livekit.example.com in env)
+# evolution → https://wa.example.com        (admin UI)
 ```
 
 ---
@@ -125,6 +111,7 @@ Decode the QR (paste the data URL into a browser, or pipe through `base64
 Once paired, the session persists in the `evolution_data` Docker volume.
 
 Test:
+
 ```bash
 curl -X POST http://localhost:8081/message/sendText/academia \
   -H "apikey: $EVOLUTION_API_KEY" \
@@ -139,23 +126,23 @@ curl -X POST http://localhost:8081/message/sendText/academia \
 In the Vercel dashboard → `danmatei` project → **Settings → Environment
 Variables**, add (paste from your local `.env`):
 
-| Variable | Scope | Value |
-| --- | --- | --- |
-| `LEAD_LINK_SIGNING_SECRET` | Production | (same as host) |
-| `LIVEKIT_URL` | Production | `wss://livekit.example.com` |
-| `LIVEKIT_API_KEY` | Production | (same as host) |
-| `LIVEKIT_API_SECRET` | Production | (same as host) |
-| `VOICE_AGENT_SPAWN_URL` | Production | `https://voice.example.com/spawn` |
-| `VOICE_AGENT_AUTH_TOKEN` | Production | (same as host) |
-| `PIPECAT_WEBHOOK_SECRET` | Production | (same as host) |
-| `EVOLUTION_API_URL` | Production | `https://wa.example.com` |
-| `EVOLUTION_API_KEY` | Production | (same as host) |
-| `EVOLUTION_API_INSTANCE` | Production | `academia` |
-| `TRAINER_PHONE_T_SOPI` | Production | `+407xxxxxxxx` |
-| `TRAINER_PHONE_T_KELEMEN` | Production | `+407xxxxxxxx` |
-| `TRAINER_PHONE_T_DAN` | Production | `+407xxxxxxxx` |
+| Variable                   | Scope      | Value                       |
+| -------------------------- | ---------- | --------------------------- |
+| `LEAD_LINK_SIGNING_SECRET` | Production | (same as host)              |
+| `LIVEKIT_URL`              | Production | `wss://livekit.example.com` |
+| `LIVEKIT_API_KEY`          | Production | (same as host)              |
+| `LIVEKIT_API_SECRET`       | Production | (same as host)              |
+| `LIVEKIT_AGENT_NAME`       | Production | `danmatei-voice-agent`      |
+| `PIPECAT_WEBHOOK_SECRET`   | Production | (same as host)              |
+| `EVOLUTION_API_URL`        | Production | `https://wa.example.com`    |
+| `EVOLUTION_API_KEY`        | Production | (same as host)              |
+| `EVOLUTION_API_INSTANCE`   | Production | `academia`                  |
+| `TRAINER_PHONE_T_SOPI`     | Production | `+407xxxxxxxx`              |
+| `TRAINER_PHONE_T_KELEMEN`  | Production | `+407xxxxxxxx`              |
+| `TRAINER_PHONE_T_DAN`      | Production | `+407xxxxxxxx`              |
 
 Trigger a redeploy:
+
 ```bash
 # from your laptop with the Vercel CLI logged in
 vercel --prod
@@ -167,7 +154,7 @@ vercel --prod
 
 ```bash
 # 1. Submit a lead with your own phone
-curl -X POST https://danmatei.vercel.app/api/lead/create \
+curl -X POST https://www.danmatei.ro/api/lead/create \
   -H "Content-Type: application/json" \
   -d '{
     "parentName": "Dan Test",
@@ -180,19 +167,22 @@ curl -X POST https://danmatei.vercel.app/api/lead/create \
 ```
 
 Expect:
+
 - HTTP 200 with `{ ok: true, leadId, trainerId, callLink, whatsapp: { sent: true } }`
 - Your phone receives a WhatsApp message containing a `/apel/<token>` link
 - Tap the link → page asks for mic → Andra greets you in Romanian
-- Hang up → check `https://danmatei.vercel.app/antrenor` → tab **Inbox AI**
+- Hang up → check `https://www.danmatei.ro/antrenor` → tab **Inbox AI**
   → the transcript + summary is there
 
 If the agent doesn't speak:
+
 - `docker compose logs voice-agent` should show "starting call lead=…"
 - Make sure `LIVEKIT_URL` is reachable from both the browser AND the
   voice-agent container. The browser uses `wss://`; the agent uses the
   same URL.
 
 If the WhatsApp message doesn't arrive:
+
 - `docker compose logs evolution-api` — check for QR drop / session loss
 - `curl http://localhost:8081/instance/connectionState/academia`
 
@@ -202,8 +192,9 @@ If the WhatsApp message doesn't arrive:
 
 - Vercel: existing tier
 - Supabase: existing tier
-- Host: ~€60-150/month depending on GPU
-- WhatsApp + voice AI: **€0 / call** (open source, local models)
+- Fly voice worker: always-on shared CPU machine (see `services/voice-agent/fly.toml`)
+- WhatsApp + voice AI: no PSTN per-minute cost; usage depends on Evolution
+  hosting plus Deepgram / LLM / ElevenLabs provider quotas
 
 Compare to Twilio + Vapi: ~€0.15-0.30 per 5-min call.
 
@@ -212,9 +203,10 @@ Compare to Twilio + Vapi: ~€0.15-0.30 per 5-min call.
 ## Going further
 
 Once the loop is working, the natural follow-ups in `AUDIT_AND_ROADMAP.md` P0:
+
 - **Player profiles** — the inbox now feeds new leads; build the screen
   parents will spend the most time in.
-- **Push notifications** — the `lead_notifications` table is already
-  populated; wire `expo-notifications` against `recipient_trainer_id`.
-- **Highlight clips per child** — use the hyperframes pipeline already
-  in `apps/mobile/hyperframes/`.
+- **Push notifications** — Web Push is wired through VAPID; validate real
+  browser delivery after production credentials are set.
+- **Highlight clips per child** — add a media pipeline when the academy has
+  confirmed the desired parent/trainer workflow.

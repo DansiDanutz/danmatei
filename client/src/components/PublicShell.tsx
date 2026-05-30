@@ -7,7 +7,13 @@
  * Public pages all share this shell so the brand chrome is consistent
  * and the menu's active state propagates wherever the user lands.
  */
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -49,12 +55,24 @@ export interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/academie", label: "Academia", icon: <GraduationCap className="size-4" /> },
+  {
+    href: "/academie",
+    label: "Academia",
+    icon: <GraduationCap className="size-4" />,
+  },
   { href: "/grupe", label: "Grupe", icon: <Users className="size-4" /> },
   { href: "/turnee", label: "Turnee", icon: <Trophy className="size-4" /> },
-  { href: "/campionat", label: "Campionat", icon: <ListOrdered className="size-4" /> },
+  {
+    href: "/campionat",
+    label: "Campionat",
+    icon: <ListOrdered className="size-4" />,
+  },
   { href: "/stiri", label: "Știri", icon: <Newspaper className="size-4" /> },
-  { href: "/notificari", label: "Notificări", icon: <Bell className="size-4" /> },
+  {
+    href: "/notificari",
+    label: "Notificări",
+    icon: <Bell className="size-4" />,
+  },
   { href: "/contact", label: "Contact", icon: <Phone className="size-4" /> },
 ];
 
@@ -85,7 +103,10 @@ export default function PublicShell({
     }
   };
 
-  const handleNavIconClick = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+  const handleNavIconClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    href: string
+  ) => {
     if (expandedHref === href) {
       // Second click on the revealed pill → allow navigation, clear state.
       clearExpandTimer();
@@ -134,7 +155,10 @@ export default function PublicShell({
   return (
     <div className="relative min-h-[100dvh] bg-[oklch(0.08_0.02_250)] text-white">
       {/* Background atmosphere */}
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 overflow-hidden"
+      >
         <div className="absolute -left-40 top-1/3 size-[40rem] rounded-full bg-brand-cyan/[0.07] blur-3xl" />
         <div className="absolute -right-40 bottom-1/4 size-[36rem] rounded-full bg-brand-cyan/[0.04] blur-3xl" />
         <div className="absolute left-1/2 top-0 h-px w-[60%] -translate-x-1/2 bg-gradient-to-r from-transparent via-brand-cyan/30 to-transparent" />
@@ -182,7 +206,9 @@ export default function PublicShell({
             <AnimatePresence mode="wait" initial={false}>
               {expandedHref ? (
                 (() => {
-                  const item = NAV_ITEMS.find((entry) => entry.href === expandedHref);
+                  const item = NAV_ITEMS.find(
+                    entry => entry.href === expandedHref
+                  );
                   if (!item) return null;
                   const active = location === item.href;
                   return (
@@ -195,7 +221,7 @@ export default function PublicShell({
                     >
                       <Link
                         href={item.href}
-                        onClick={(e) => handleNavIconClick(e, item.href)}
+                        onClick={e => handleNavIconClick(e, item.href)}
                         className={`inline-flex items-center gap-2 rounded-full px-4 py-2 font-heading text-[11px] uppercase tracking-[0.16em] transition-colors ${
                           active
                             ? "border border-brand-cyan/40 bg-brand-cyan/15 text-brand-cyan"
@@ -218,13 +244,13 @@ export default function PublicShell({
                   transition={{ duration: 0.15 }}
                   className="flex items-center gap-1"
                 >
-                  {NAV_ITEMS.map((item) => {
+                  {NAV_ITEMS.map(item => {
                     const active = location === item.href;
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
-                        onClick={(e) => handleNavIconClick(e, item.href)}
+                        onClick={e => handleNavIconClick(e, item.href)}
                         aria-label={item.label}
                         title={item.label}
                         className={`grid size-10 place-items-center rounded-full transition-colors ${
@@ -281,12 +307,12 @@ export default function PublicShell({
               aria-label={profile ? "Contul meu" : "Autentificare"}
             >
               <LogIn className="size-4" />
-              {profile ? "Cont" : "Log in"}
+              {profile ? "Cont" : "Autentificare"}
             </Link>
 
             <button
               type="button"
-              onClick={() => setMobileOpen((v) => !v)}
+              onClick={() => setMobileOpen(v => !v)}
               className="grid size-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-white/85 transition-colors hover:border-brand-cyan/40 lg:hidden"
               aria-label={mobileOpen ? "Închide meniul" : "Deschide meniul"}
               aria-expanded={mobileOpen}
@@ -338,7 +364,11 @@ export default function PublicShell({
                       key={item.href}
                       initial={{ opacity: 0, x: -16 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: i * 0.04, ease: expoOut }}
+                      transition={{
+                        duration: 0.3,
+                        delay: i * 0.04,
+                        ease: expoOut,
+                      }}
                     >
                       <Link
                         href={item.href}
@@ -378,30 +408,33 @@ export default function PublicShell({
                   </Link>
                 )}
                 <div className="flex items-center gap-2">
-                <Link
-                  href={profile ? "/dashboard" : "/login"}
-                  onClick={() => setMobileOpen(false)}
-                  className="flex-1 rounded-full border border-white/12 bg-white/[0.04] py-3 text-center font-heading text-sm font-semibold uppercase tracking-[0.18em] text-white/85"
-                >
-                  {profile ? "Dashboard" : "Intră în cont"}
-                </Link>
-                {profile && (
-                  <button
-                    type="button"
-                    onClick={() => { setMobileOpen(false); signOut(); }}
-                    className="grid size-12 place-items-center rounded-full border border-rose-300/30 bg-rose-300/10 text-rose-200"
-                    aria-label="Deconectează-te"
+                  <Link
+                    href={profile ? "/dashboard" : "/login"}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex-1 rounded-full border border-white/12 bg-white/[0.04] py-3 text-center font-heading text-sm font-semibold uppercase tracking-[0.18em] text-white/85"
                   >
-                    <LogOut className="size-5" />
-                  </button>
-                )}
-                <a
-                  href="tel:0744311147"
-                  className="grid size-12 place-items-center rounded-full border border-brand-cyan/40 bg-brand-cyan/10 text-brand-cyan"
-                  aria-label="Sună"
-                >
-                  <Phone className="size-5" />
-                </a>
+                    {profile ? "Dashboard" : "Intră în cont"}
+                  </Link>
+                  {profile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        signOut();
+                      }}
+                      className="grid size-12 place-items-center rounded-full border border-rose-300/30 bg-rose-300/10 text-rose-200"
+                      aria-label="Deconectează-te"
+                    >
+                      <LogOut className="size-5" />
+                    </button>
+                  )}
+                  <a
+                    href="tel:0744311147"
+                    className="grid size-12 place-items-center rounded-full border border-brand-cyan/40 bg-brand-cyan/10 text-brand-cyan"
+                    aria-label="Sună"
+                  >
+                    <Phone className="size-5" />
+                  </a>
                 </div>
               </div>
             </div>
@@ -450,39 +483,39 @@ export default function PublicShell({
       </main>
 
       {!hideFooter && (
-      <footer className="relative z-10 mt-12 border-t border-white/5">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-4 py-8 sm:flex-row sm:items-center sm:px-8">
-          <div className="flex items-center gap-3">
-            <span className="grid size-9 place-items-center rounded-full bg-white">
-              <img
-                src="/logo-official.jpg"
-                alt=""
-                width={28}
-                height={28}
-                className="size-7 rounded-full"
-              />
-            </span>
-            <div>
-              <p className="font-heading text-sm font-semibold uppercase tracking-wider text-white">
-                Școala de Fotbal Dan Matei
-              </p>
-              <p className="font-body text-xs text-white/45">
-                Cluj-Napoca · Licență UEFA · Din 2018
-              </p>
+        <footer className="relative z-10 mt-12 border-t border-white/5">
+          <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-4 py-8 sm:flex-row sm:items-center sm:px-8">
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-full bg-white">
+                <img
+                  src="/logo-official.jpg"
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="size-7 rounded-full"
+                />
+              </span>
+              <div>
+                <p className="font-heading text-sm font-semibold uppercase tracking-wider text-white">
+                  Școala de Fotbal Dan Matei
+                </p>
+                <p className="font-body text-xs text-white/45">
+                  Cluj-Napoca · Licență UEFA · Din 2018
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-white/40">
+              <a
+                href="tel:0744311147"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/10 px-3 py-2 transition-colors hover:border-brand-cyan/40 hover:text-white"
+              >
+                <Phone className="size-3.5" />
+                0744 311 147
+              </a>
+              <span>© {new Date().getFullYear()} ACS Dan Matei</span>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-xs text-white/40">
-            <a
-              href="tel:0744311147"
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/10 px-3 py-2 transition-colors hover:border-brand-cyan/40 hover:text-white"
-            >
-              <Phone className="size-3.5" />
-              0744 311 147
-            </a>
-            <span>© {new Date().getFullYear()} ACS Dan Matei</span>
-          </div>
-        </div>
-      </footer>
+        </footer>
       )}
     </div>
   );
