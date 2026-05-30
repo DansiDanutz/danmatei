@@ -44,15 +44,15 @@ const RAW_BASE_URL = process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
 // Strip a trailing slash so `${BASE_URL}/chat/completions` always produces a
 // clean URL regardless of how the env was set.
 const BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");
+// Gemini's OpenAI-compat endpoint needs two tweaks vs OpenAI: a Gemini model
+// name, and disabling "thinking" (see the request body below).
+const IS_GEMINI = BASE_URL.includes("generativelanguage.googleapis.com");
 const RAW_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-// If the operator pointed at Gemini's OpenAI-compat URL but kept the
-// hardcoded gpt-* default model name, Gemini will 404. Nudge to a sensible
-// Gemini model so a half-finished env switch still works.
+// If the operator pointed at Gemini but kept the hardcoded gpt-* default model
+// name, Gemini will 404. Nudge to a current Gemini model so a half-finished env
+// switch still works (gemini-2.0-flash is not served on all keys; 2.5 is).
 const MODEL =
-  BASE_URL.includes("generativelanguage.googleapis.com") &&
-  RAW_MODEL.startsWith("gpt-")
-    ? "gemini-2.0-flash"
-    : RAW_MODEL;
+  IS_GEMINI && RAW_MODEL.startsWith("gpt-") ? "gemini-2.5-flash" : RAW_MODEL;
 
 export class OpenAINotConfiguredError extends Error {
   constructor() {
@@ -99,6 +99,10 @@ export async function generateText(input: GenerateInput): Promise<string> {
       ],
       max_tokens: input.maxTokens ?? 600,
       temperature: input.temperature ?? 0.6,
+      // Gemini 2.5 "thinks" by default; that reasoning silently consumes the
+      // token budget and truncates the structured JSON we ask for. Disable it
+      // for these short replies. No-op (and not sent) for OpenAI-compat peers.
+      ...(IS_GEMINI ? { reasoning_effort: "none" } : {}),
     }),
   });
 
