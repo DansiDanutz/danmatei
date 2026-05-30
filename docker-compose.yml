@@ -39,7 +39,7 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
       LIVEKIT_AGENT_NAME: ${LIVEKIT_AGENT_NAME:-danmatei-voice-agent}
-      API_BASE: ${API_BASE:-https://danmatei.vercel.app}
+      API_BASE: ${API_BASE:-https://www.danmatei.ro}
       PIPECAT_WEBHOOK_SECRET: ${PIPECAT_WEBHOOK_SECRET}
       MAX_CALL_SECONDS: ${MAX_CALL_SECONDS:-360}
       DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
@@ -72,7 +72,7 @@ services:
       QRCODE_LIMIT: 30
       CONFIG_SESSION_PHONE_CLIENT: "Academia Dan Matei"
       CONFIG_SESSION_PHONE_NAME: Chrome
-      WEBHOOK_GLOBAL_URL: ${API_BASE:-https://danmatei.vercel.app}/api/whatsapp/inbound
+      WEBHOOK_GLOBAL_URL: ${API_BASE:-https://www.danmatei.ro}/api/whatsapp/inbound
       WEBHOOK_GLOBAL_ENABLED: "false"
       WEBHOOK_EVENTS_MESSAGES_UPSERT: "true"
     volumes:
