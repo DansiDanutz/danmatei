@@ -19,7 +19,7 @@
  * so the client can show partial success without a 4xx blocking the rest.
  */
 import { z } from "zod";
-import { serviceClient } from "../_lib/supabase.js";
+import { serviceClient, getUserIdFromJwt } from "../_lib/supabase.js";
 
 const Body = z
   .object({
@@ -104,11 +104,12 @@ export default async function handler(req: Req, res: Res) {
   }
 
   // Resolve the caller from the JWT
-  const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
-  if (userErr || !userData?.user) {
+  let userId: string;
+  try {
+    userId = await getUserIdFromJwt(jwt);
+  } catch {
     return res.status(401).json({ error: "invalid_jwt" });
   }
-  const userId = userData.user.id;
 
   // Fetch caller profile + (optional) trainer row to learn the slug
   const [{ data: prof }, { data: trainer }] = await Promise.all([

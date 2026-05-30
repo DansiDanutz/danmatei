@@ -11,7 +11,11 @@
  *
  * Auth: bearer JWT.
  */
-import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
+import {
+  serviceClient,
+  getJwtFromHeader,
+  getUserIdFromJwt,
+} from "../_lib/supabase.js";
 
 type Req = {
   method?: string;
@@ -78,10 +82,12 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
-  const { data: userData, error: userErr } = await svc.auth.getUser(jwt);
-  if (userErr || !userData?.user)
+  let userId: string;
+  try {
+    userId = await getUserIdFromJwt(jwt);
+  } catch {
     return res.status(401).json({ error: "invalid_jwt" });
-  const userId = userData.user.id;
+  }
 
   const { data: prof } = await svc
     .from("profiles")

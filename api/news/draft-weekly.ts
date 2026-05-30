@@ -16,7 +16,11 @@
  * 503 when OpenAI isn't configured. The button hides itself after the first
  * 503 response so owners don't keep clicking.
  */
-import { serviceClient, getJwtFromHeader } from "../_lib/supabase.js";
+import {
+  serviceClient,
+  getJwtFromHeader,
+  getUserIdFromJwt,
+} from "../_lib/supabase.js";
 import {
   generateText,
   isConfigured as openAIConfigured,
@@ -84,11 +88,12 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
-  const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
-  if (userErr || !userData?.user) {
+  let userId: string;
+  try {
+    userId = await getUserIdFromJwt(jwt);
+  } catch {
     return res.status(401).json({ error: "invalid_jwt" });
   }
-  const userId = userData.user.id;
 
   // Per-user/hour LLM rate limit (first-line defense — see api/_lib/ratelimit.ts)
   const rl = checkRateLimit(

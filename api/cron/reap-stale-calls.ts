@@ -25,6 +25,12 @@ type Res = {
   json: (body: unknown) => Res;
 };
 
+type StuckLeadRow = {
+  id: string;
+  parent_name: string | null;
+  assigned_trainer_id: string | null;
+};
+
 function readHeader(req: Req, key: string): string | undefined {
   const v = req.headers?.[key.toLowerCase()] ?? req.headers?.[key];
   return Array.isArray(v) ? v[0] : v;
@@ -79,7 +85,8 @@ export default async function handler(req: Req, res: Res) {
   if (findErr) {
     return res.status(500).json({ error: findErr.message });
   }
-  const ids = (stuck ?? []).map((l) => l.id as string);
+  const stuckRows = (stuck ?? []) as StuckLeadRow[];
+  const ids = stuckRows.map((l) => l.id);
   if (ids.length === 0) {
     return res.status(200).json({ ok: true, ranAt, reaped: 0 });
   }
@@ -97,7 +104,7 @@ export default async function handler(req: Req, res: Res) {
   // (inapp channel). Skipped silently for leads with no assigned trainer.
   // lead_notifications has no lead_id column — embed it in payload so the
   // client can deep-link back to the dead lead.
-  const notifRows = (stuck ?? []).flatMap((l) =>
+  const notifRows = stuckRows.flatMap((l) =>
     l.assigned_trainer_id
       ? [
           {
