@@ -183,11 +183,15 @@ function appVersionPlugin(): Plugin {
   };
 }
 
+const devOnlyPlugins =
+  process.env.NODE_ENV === "production"
+    ? []
+    : [jsxLocPlugin(), vitePluginManusRuntime()];
+
 const plugins = [
   react(),
   tailwindcss(),
-  jsxLocPlugin(),
-  vitePluginManusRuntime(),
+  ...devOnlyPlugins,
   vitePluginManusDebugCollector(),
   appVersionPlugin(),
 ];
