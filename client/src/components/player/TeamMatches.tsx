@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { TRAINING_BASES, OTHER_LOCATION } from "@/lib/locations";
+import MatchPhotos from "@/components/trainer/MatchPhotos";
 
 type Scorer = { child_id: string; name: string; goals: number };
 type MatchResult = {
@@ -287,6 +288,7 @@ function MatchCard({
       )}
 
       {editing && <ScoreEditor match={match} onSaved={onSaved} onCancel={onToggleEdit} />}
+      {result && !editing && <MatchPhotos eventId={match.id} />}
     </article>
   );
 }

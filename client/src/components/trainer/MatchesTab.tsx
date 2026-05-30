@@ -34,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import ProposedMatchesQueue from "./ProposedMatchesQueue";
+import MatchPhotos from "./MatchPhotos";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -287,6 +288,7 @@ export default function MatchesTab({
                 onCancel={() => setEditingEventId(null)}
               />
             )}
+            {result && !isEditing && <MatchPhotos eventId={ev.id} />}
           </article>
         );
       })}
