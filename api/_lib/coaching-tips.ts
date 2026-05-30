@@ -241,6 +241,186 @@ export const COACHING_TIPS: CoachingTip[] = [
     body: "Măsoară succesul prin dezvoltarea individuală, nu prin trofee la vârste mici. Cele mai bune academii sacrifică victoria de azi pentru jucătorul de mâine.",
     source: "Filozofia academiilor de top",
   },
+
+  // ── Expanded set — added to keep the daily tip fresh for longer ─────────
+
+  // U5–U8
+  {
+    bands: ["U5-U8"],
+    theme: "Ascultare prin joc",
+    title: "Joc de pornit–oprit",
+    body: "Jocurile „start–stop” la fluier dezvoltă ascultarea, frânarea și controlul corpului. Transformă-le în poveste (statui, semafor) ca să rămână joacă, nu comandă.",
+    source: "Dezvoltare motrică (LTAD)",
+  },
+  {
+    bands: ["U5-U8"],
+    theme: "Rotația posturilor",
+    title: "Toți stau în poartă pe rând",
+    body: "Rotește copiii pe toate posturile, inclusiv portar. La 5–8 ani nimeni nu e „doar” ceva — toți trebuie să atingă mingea cu picioarele și să încerce tot.",
+    source: "Model de dezvoltare timpurie (DFB)",
+  },
+  {
+    bands: ["U5-U8"],
+    theme: "Mai mult joc",
+    title: "Mingea revine repede în joc",
+    body: "Ține mingi de rezervă pe margine și repune-le imediat când iese. Mai puține pauze înseamnă mai mult joc, mai multe atingeri și mai multe zâmbete.",
+    source: "Mini-fotbal (UEFA Grassroots)",
+  },
+  {
+    bands: ["U5-U8"],
+    theme: "Minute acasă",
+    title: "Tema: joacă-te cu mingea acasă",
+    body: "Dă-le „teme” simple și distractive — 50 de atingeri, jonglerii cu mâna. Familiaritatea cu mingea crește prin minute în plus, nu prin antrenamente mai lungi.",
+    source: "Coerver Coaching",
+  },
+  {
+    bands: ["U5-U8"],
+    theme: "Joc ludic",
+    title: "Imită animale cu mingea",
+    body: "Dribling „ca ursul”, pași mărunți „ca șoricelul”, sărituri „ca broasca”. Coordonarea cu mingea se dezvoltă cel mai bine deghizată în joc, nu în exercițiu.",
+    source: "ABC-ul mișcării (LTAD)",
+  },
+
+  // U9–U12
+  {
+    bands: ["U9-U12"],
+    theme: "Atingere fină",
+    title: "Provocarea de jonglerii",
+    body: "Stabilește ținte individuale de jonglerii și sărbătorește recordurile personale. Crește atingerea fină a mingii și răbdarea — la antrenament și acasă.",
+    source: "Coerver Coaching",
+  },
+  {
+    bands: ["U9-U12"],
+    theme: "Finalizare",
+    title: "Repetă finalizările",
+    body: "Dedică timp finalizării din pase și din 1v1 cu portarul. Golul se antrenează: multe repetări, din unghiuri diferite, cu ambele picioare.",
+    source: "Metodologie de academie (Ajax)",
+  },
+  {
+    bands: ["U9-U12"],
+    theme: "Conducerea mingii",
+    title: "Conduce mingea cu capul sus",
+    body: "Exersează conducerea privind înainte, nu la picioare. Adaugă semnale (ridici mâna, strigi o culoare) ca jucătorul să fie nevoit să scaneze în timp ce conduce.",
+    source: "Ajax – modelul TIPS",
+  },
+  {
+    bands: ["U9-U12"],
+    theme: "Posesie",
+    title: "Păstrează mingea: 4v1, 5v2",
+    body: "Jocurile de posesie cu superioritate învață sprijinul, unghiurile de pasă și răbdarea. Cere „trei pase înainte de a ataca poarta”.",
+    source: "Joc pozițional (La Masia)",
+  },
+  {
+    bands: ["U9-U12"],
+    theme: "Caracter",
+    title: "Respect: salut și mulțumire",
+    body: "Construiește rituri de respect — salut, mulțumiri arbitrului, încurajări între coechipieri. Caracterul se antrenează ca tehnica și prinde rădăcini la această vârstă.",
+    source: "Valorile cluburilor de formare",
+  },
+
+  // U13–U15
+  {
+    bands: ["U13-U15"],
+    theme: "Presing",
+    title: "Presing pe declanșatori",
+    body: "Învață echipa CÂND să preseze: pasă spre lateral, control prost, spate întors. Presingul nu e despre alergat mult, ci despre alergat la momentul potrivit, împreună.",
+    source: "Presing pe declanșatori (metodologie modernă)",
+  },
+  {
+    bands: ["U13-U15"],
+    theme: "Construcție",
+    title: "Ieșirea de la portar",
+    body: "Antrenează construcția de la portar sub presiune ușoară. Curajul de a juca scurt, cu superioritate în prima fază, e o marcă a echipelor moderne.",
+    source: "Joc pozițional (Guardiola)",
+  },
+  {
+    bands: ["U13-U15"],
+    theme: "Prevenție",
+    title: "Încălzire care previne accidentări",
+    body: "Include rutine de mobilitate și activare (tip FIFA 11+). La creșterea accelerată din pubertate, prevenția accidentărilor face parte din performanță.",
+    source: "FIFA 11+ / știința sportivă",
+  },
+  {
+    bands: ["U13-U15"],
+    theme: "Roluri",
+    title: "Înțelege rolul, nu doar postul",
+    body: "Explică responsabilitățile fiecărui rol în atac și apărare. Un jucător care înțelege „de ce” ia decizii mai bune decât unul care memorează poziții.",
+    source: "Periodizare tactică",
+  },
+  {
+    bands: ["U13-U15"],
+    theme: "Reflecție",
+    title: "Trei întrebări după meci",
+    body: "După meci, pune trei întrebări: ce a mers, ce nu, ce schimbi. Reflecția ghidată transformă experiența în învățare și responsabilizează jucătorul.",
+    source: "Pedagogie reflexivă (academii de top)",
+  },
+
+  // U16–U19
+  {
+    bands: ["U16-U19"],
+    theme: "Faze fixe",
+    title: "Fazele fixe câștigă meciuri",
+    body: "Dedică timp săptămânal cornerelor, liberelor și marcajelor. La acest nivel, multe goluri vin din faze statice antrenate — e cel mai ieftin avantaj.",
+    source: "Analiză de performanță (cluburi de top)",
+  },
+  {
+    bands: ["U16-U19"],
+    theme: "Date",
+    title: "Măsoară 2–3 indicatori",
+    body: "Urmărește câțiva indicatori relevanți (sprinturi, recuperări, pase în treimea finală). Datele simple, discutate cu jucătorul, ghidează progresul mai bine ca impresiile.",
+    source: "Sport science / analiză video",
+  },
+  {
+    bands: ["U16-U19"],
+    theme: "Mentalitate",
+    title: "Antrenează reziliența",
+    body: "Creează scenarii de presiune (scor în minutul 85, om în minus). Mentalitatea se antrenează expunând jucătorii la disconfort controlat.",
+    source: "Psihologia performanței",
+  },
+  {
+    bands: ["U16-U19"],
+    theme: "Tranziție",
+    title: "Pregătește saltul la seniori",
+    body: "Confruntă-i ocazional cu intensitatea seniorilor (jocuri comune, sparring). Diferența principală e viteza deciziei sub presiune fizică — antreneaz-o din timp.",
+    source: "Player pathway (academii de elită)",
+  },
+  {
+    bands: ["U16-U19"],
+    theme: "Nutriție",
+    title: "Mâncarea ca antrenament",
+    body: "Educă-i despre alimentația pre și post-efort. La performanță, energia și recuperarea vin din obiceiuri zilnice, nu doar din ce se întâmplă pe teren.",
+    source: "Știința sportivă",
+  },
+
+  // Owner / leadership
+  {
+    bands: ["owner"],
+    theme: "Recrutare",
+    title: "Angajează caracter, formează competența",
+    body: "Caută antrenori cu empatie și etică de muncă — tehnica se poate forma. Cel mai mare impact asupra unui copil e relația cu antrenorul, nu schema tactică.",
+    source: "Filozofia cluburilor de formare",
+  },
+  {
+    bands: ["owner"],
+    theme: "Siguranță",
+    title: "Siguranța copilului, pe primul loc",
+    body: "Politici clare de protecție a copilului, comunicare transparentă cu părinții, antrenori verificați. Reputația academiei se clădește pe încredere, nu pe trofee.",
+    source: "Standarde de safeguarding",
+  },
+  {
+    bands: ["owner"],
+    theme: "Comunicare",
+    title: "Raport de dezvoltare, nu doar note",
+    body: "Oferă părinților un scurt raport periodic de dezvoltare (tehnic, social, atitudine). Părinții care văd progresul individual rămân loiali și relaxați.",
+    source: "Player pathway / comunicare",
+  },
+  {
+    bands: ["owner"],
+    theme: "Viziune lungă",
+    title: "Construiește pe 10 ani, nu pe un sezon",
+    body: "Cele mai bune academii gândesc în generații, nu în sezoane. Consecvența filozofiei, an după an, e ceea ce produce jucători — și reputație.",
+    source: "Filozofia La Masia / Ajax",
+  },
 ];
 
 export function tipsForBand(band: AgeBand): CoachingTip[] {
