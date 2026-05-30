@@ -45,6 +45,7 @@ import GroupsTab from "@/components/admin/GroupsTab";
 import NewsManager from "@/components/admin/NewsManager";
 import ScheduleOversight from "@/components/admin/ScheduleOversight";
 import ProposedMatchesQueue from "@/components/trainer/ProposedMatchesQueue";
+import CoachingTips from "@/components/trainer/CoachingTips";
 import NotificationManager from "@/components/admin/NotificationManager";
 import AtRiskTab from "@/components/admin/AtRiskTab";
 import LeadAnalyticsTab from "@/components/admin/LeadAnalyticsTab";
@@ -138,6 +139,10 @@ export default function Admin() {
           Gestionezi antrenorii, membrii și conținutul public al site-ului.
         </p>
       </header>
+
+      <div className="mt-6">
+        <CoachingTips recipientId={profile?.id ?? ""} />
+      </div>
 
       <Tabs value={tab} onValueChange={setTab} className="mt-6">
         <div className="relative">
