@@ -255,6 +255,7 @@ export default function Admin() {
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<AdminTab>("lead-uri");
   const [mobileHome, setMobileHome] = useState(true);
+  const [programRefreshKey, setProgramRefreshKey] = useState(0);
   const activeSection =
     ADMIN_SECTIONS.find(section => section.value === tab) ?? ADMIN_SECTIONS[0];
   const selectSection = (value: AdminTab) => {
@@ -442,8 +443,10 @@ export default function Admin() {
         <TabsContent value="program" className="mt-5">
           <LazyTab active={tab === "program"}>
             <div className="grid gap-5">
-              <ProposedMatchesQueue />
-              <ScheduleOversight />
+              <ProposedMatchesQueue
+                onChanged={() => setProgramRefreshKey(key => key + 1)}
+              />
+              <ScheduleOversight refreshKey={programRefreshKey} />
             </div>
           </LazyTab>
         </TabsContent>

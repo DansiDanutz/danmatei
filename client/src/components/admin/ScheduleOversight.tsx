@@ -6,15 +6,19 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Loader2,
   Calendar,
-  MapPin,
-  User,
-  Filter,
   CalendarPlus,
+  Filter,
+  Loader2,
+  MapPin,
+  Save,
+  Swords,
+  User,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import WeeklyScheduleEditor from "@/components/trainer/WeeklyScheduleEditor";
+import { TRAINING_BASES, OTHER_LOCATION } from "@/lib/locations";
 
 type EventRow = {
   id: string;
@@ -22,6 +26,7 @@ type EventRow = {
   kind: "training" | "match" | "tournament" | "other";
   starts_at: string;
   location: string | null;
+  opponent: string | null;
   trainer_id: string;
   trainer: { profile: { full_name: string } } | null;
 };
@@ -45,6 +50,9 @@ const KIND_PILL: Record<string, string> = {
   other: "bg-white/8 text-white/50 border-white/10",
 };
 
+const FIELD_CLS =
+  "h-11 rounded-xl border border-white/15 bg-white/[0.04] px-3 font-body text-sm text-white outline-none transition placeholder:text-white/25 focus:border-brand-cyan/50 focus:ring-2 focus:ring-brand-cyan/15";
+
 function weekdayTone(dateKey: string): string {
   const weekday = new Date(`${dateKey}T12:00:00+02:00`).getDay();
   if (weekday === 1) return "text-sky-300";
@@ -59,7 +67,11 @@ function weekdayRule(dateKey: string): string {
   return "from-brand-gold/35";
 }
 
-export default function ScheduleOversight() {
+export default function ScheduleOversight({
+  refreshKey = 0,
+}: {
+  refreshKey?: number;
+}) {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [filterTrainers, setFilterTrainers] = useState<TrainerOption[]>([]);
   const [scheduleTrainers, setScheduleTrainers] = useState<TrainerOption[]>([]);
@@ -89,7 +101,7 @@ export default function ScheduleOversight() {
       supabase
         .from("schedule_events")
         .select(
-          "id, title, kind, starts_at, location, trainer_id, trainer:trainers(profile:profiles(full_name))"
+          "id, title, kind, starts_at, location, opponent, trainer_id, trainer:trainers(profile:profiles(full_name))"
         )
         .gte("starts_at", from.toISOString())
         .lte("starts_at", to.toISOString())
@@ -119,6 +131,7 @@ export default function ScheduleOversight() {
       kind: r.kind,
       starts_at: r.starts_at,
       location: r.location,
+      opponent: r.opponent,
       trainer_id: r.trainer_id,
       trainer: r.trainer,
     }));
@@ -171,7 +184,13 @@ export default function ScheduleOversight() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
+
+  const handleMatchCreated = (localStartsAt: string) => {
+    setFilterDate(localStartsAt.slice(0, 10));
+    setFilterKind("match");
+    void load();
+  };
 
   const selectedScheduleTrainer = useMemo(
     () => scheduleTrainers.find(t => t.id === scheduleTrainerId) ?? null,
@@ -213,6 +232,14 @@ export default function ScheduleOversight() {
 
   return (
     <div className="grid gap-5">
+      <AdminMatchForm
+        trainerId={scheduleTrainerId}
+        trainers={scheduleTrainers}
+        disabled={loading || scheduleTrainers.length === 0}
+        onTrainerChange={setScheduleTrainerId}
+        onCreated={handleMatchCreated}
+      />
+
       <section className="grid gap-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -387,6 +414,11 @@ export default function ScheduleOversight() {
                   <span className="font-heading text-sm font-semibold text-white">
                     {e.title}
                   </span>
+                  {e.opponent && (
+                    <span className="rounded-full border border-brand-cyan/20 bg-brand-cyan/[0.06] px-2 py-0.5 font-body text-xs text-brand-cyan/85">
+                      vs {e.opponent}
+                    </span>
+                  )}
                   <span className="ml-auto flex items-center gap-1 font-body text-xs text-white/50">
                     <Calendar className="size-3 text-white/40" />
                     {timeFmt.format(new Date(e.starts_at))}
@@ -410,5 +442,213 @@ export default function ScheduleOversight() {
         ))}
       </div>
     </div>
+  );
+}
+
+function AdminMatchForm({
+  trainerId,
+  trainers,
+  disabled,
+  onTrainerChange,
+  onCreated,
+}: {
+  trainerId: string;
+  trainers: TrainerOption[];
+  disabled: boolean;
+  onTrainerChange: (trainerId: string) => void;
+  onCreated: (localStartsAt: string) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [opponent, setOpponent] = useState("");
+  const [locChoice, setLocChoice] = useState<string>(TRAINING_BASES[0]);
+  const [customLoc, setCustomLoc] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const selectedTrainer = trainers.find(t => t.id === trainerId) ?? null;
+
+  const submit = async () => {
+    if (!trainerId) {
+      toast.error("Alege un antrenor activ pentru meci.");
+      return;
+    }
+    if (!startsAt) {
+      toast.error("Alege data și ora meciului.");
+      return;
+    }
+
+    const cleanOpponent = opponent.trim();
+    const cleanTitle =
+      title.trim() || (cleanOpponent ? `Meci vs ${cleanOpponent}` : "Meci");
+    const location =
+      locChoice === OTHER_LOCATION ? customLoc.trim() || null : locChoice;
+
+    setSaving(true);
+    const { error } = await supabase.from("schedule_events").insert({
+      trainer_id: trainerId,
+      kind: "match",
+      title: cleanTitle,
+      starts_at: new Date(startsAt).toISOString(),
+      location,
+      opponent: cleanOpponent || null,
+      notes: notes.trim() || null,
+      approval_status: "approved",
+    });
+    setSaving(false);
+
+    if (error) {
+      toast.error("Nu am putut adăuga meciul", { description: error.message });
+      return;
+    }
+
+    setTitle("");
+    setStartsAt("");
+    setOpponent("");
+    setNotes("");
+    setCustomLoc("");
+    toast.success("Meci adăugat", {
+      description: selectedTrainer
+        ? `Apare la Program și la Meciuri pentru ${selectedTrainer.full_name}.`
+        : "Apare în Program și în Meciuri.",
+    });
+    onCreated(startsAt);
+  };
+
+  return (
+    <section className="rounded-3xl border border-amber-300/25 bg-amber-300/[0.05] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 font-heading text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200/90">
+            <Swords className="size-4" />
+            Adaugă meci
+          </p>
+          <h2 className="mt-1 font-heading text-xl font-bold text-white">
+            Meci nou pentru grupa selectată
+          </h2>
+        </div>
+        {selectedTrainer && (
+          <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 font-heading text-[10px] uppercase tracking-[0.14em] text-amber-100/85">
+            {selectedTrainer.full_name}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1.1fr_1fr_1fr]">
+        <label className="grid gap-1">
+          <span className="font-heading text-[10px] uppercase tracking-[0.1em] text-white/45">
+            Antrenor / grupă
+          </span>
+          <select
+            value={trainerId}
+            onChange={e => onTrainerChange(e.target.value)}
+            className={FIELD_CLS}
+            disabled={disabled || saving}
+          >
+            {trainers.map(trainer => (
+              <option key={trainer.id} value={trainer.id}>
+                {trainer.full_name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1">
+          <span className="font-heading text-[10px] uppercase tracking-[0.1em] text-white/45">
+            Titlu
+          </span>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Meci amical"
+            className={FIELD_CLS}
+            disabled={disabled || saving}
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="font-heading text-[10px] uppercase tracking-[0.1em] text-white/45">
+            Dată și oră
+          </span>
+          <input
+            type="datetime-local"
+            value={startsAt}
+            onChange={e => setStartsAt(e.target.value)}
+            className={FIELD_CLS}
+            disabled={disabled || saving}
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="font-heading text-[10px] uppercase tracking-[0.1em] text-white/45">
+            Adversar
+          </span>
+          <input
+            type="text"
+            value={opponent}
+            onChange={e => setOpponent(e.target.value)}
+            placeholder="ACS Sănătatea"
+            className={FIELD_CLS}
+            disabled={disabled || saving}
+          />
+        </label>
+      </div>
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+        <label className="grid gap-1">
+          <span className="font-heading text-[10px] uppercase tracking-[0.1em] text-white/45">
+            Locație
+          </span>
+          <select
+            value={locChoice}
+            onChange={e => setLocChoice(e.target.value)}
+            className={FIELD_CLS}
+            disabled={disabled || saving}
+          >
+            {TRAINING_BASES.map(base => (
+              <option key={base} value={base}>
+                {base}
+              </option>
+            ))}
+            <option value={OTHER_LOCATION}>{OTHER_LOCATION}</option>
+          </select>
+        </label>
+        <label className="grid gap-1">
+          <span className="font-heading text-[10px] uppercase tracking-[0.1em] text-white/45">
+            Note
+          </span>
+          <input
+            type="text"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="ex. convocare 17:00"
+            className={FIELD_CLS}
+            disabled={disabled || saving}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={disabled || saving}
+          className="mt-5 inline-flex h-11 min-w-[170px] items-center justify-center gap-2 rounded-xl bg-amber-300 px-4 font-heading text-[10px] font-bold uppercase tracking-[0.14em] text-[oklch(0.11_0.03_250)] transition-colors hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-55 lg:mt-auto"
+        >
+          {saving ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Save className="size-3.5" />
+          )}
+          Salvează meciul
+        </button>
+      </div>
+
+      {locChoice === OTHER_LOCATION && (
+        <input
+          type="text"
+          value={customLoc}
+          onChange={e => setCustomLoc(e.target.value)}
+          placeholder="Scrie locația…"
+          className={`${FIELD_CLS} mt-3 w-full`}
+          disabled={disabled || saving}
+        />
+      )}
+    </section>
   );
 }
