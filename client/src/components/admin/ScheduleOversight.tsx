@@ -14,10 +14,12 @@ import {
   Save,
   Swords,
   User,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import WeeklyScheduleEditor from "@/components/trainer/WeeklyScheduleEditor";
+import SetTeamModal, { type TeamEvent } from "@/components/admin/SetTeamModal";
 import { TRAINING_BASES, OTHER_LOCATION } from "@/lib/locations";
 
 type EventRow = {
@@ -78,6 +80,7 @@ export default function ScheduleOversight({
   const [scheduleTrainerId, setScheduleTrainerId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [teamEvent, setTeamEvent] = useState<TeamEvent | null>(null);
 
   const [filterTrainer, setFilterTrainer] = useState<string>("all");
   const [filterKind, setFilterKind] = useState<string>("all");
@@ -435,12 +438,40 @@ export default function ScheduleOversight({
                       {e.location}
                     </span>
                   )}
+                  {e.kind === "match" && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTeamEvent({
+                          id: e.id,
+                          title: e.title,
+                          opponent: e.opponent,
+                          starts_at: e.starts_at,
+                          trainer_id: e.trainer_id,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-full border border-brand-gold/40 bg-brand-gold/10 px-3 py-1 font-heading text-[10px] font-bold uppercase tracking-[0.12em] text-brand-gold transition-colors hover:bg-brand-gold/20"
+                    >
+                      <Users className="size-3" />
+                      Setează echipa
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           </section>
         ))}
       </div>
+
+      {teamEvent && (
+        <SetTeamModal
+          event={teamEvent}
+          onClose={() => setTeamEvent(null)}
+          onDone={() => {
+            void load();
+          }}
+        />
+      )}
     </div>
   );
 }
