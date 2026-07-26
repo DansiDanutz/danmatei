@@ -5,8 +5,23 @@
   "main": "./index.ts",
   "types": "./index.ts",
   "peerDependencies": {
-    "nativewind": "*",
-    "react": "*",
-    "react-native": "*"
+    "nativewind": "^4.2.3",
+    "react": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-safe-area-context": "5.7.0"
+  },
+  "peerDependenciesMeta": {
+    "nativewind": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-safe-area-context": {
+      "optional": true
+    }
   }
 }

@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm check && pnpm build",
+  "buildCommand": "pnpm audit:production && pnpm check && pnpm build",
   "outputDirectory": "dist/public",
   "framework": "vite",
   "functions": {

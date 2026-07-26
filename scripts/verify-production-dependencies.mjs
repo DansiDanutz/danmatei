@@ -19,15 +19,9 @@ try {
 }
 
 const blocking = [];
-const mobileOnly = [];
 for (const advisory of Object.values(report.advisories || {})) {
   if (!new Set(["critical", "high"]).has(advisory.severity)) continue;
-  const paths = advisory.findings?.flatMap((finding) => finding.paths || []) || [];
-  if (paths.length > 0 && paths.every((path) => path.startsWith("apps__mobile>"))) {
-    mobileOnly.push(advisory);
-  } else {
-    blocking.push(advisory);
-  }
+  blocking.push(advisory);
 }
 
 if (blocking.length) {
@@ -37,7 +31,4 @@ if (blocking.length) {
   process.exit(1);
 }
 
-console.log("Deployed web/API dependencies: 0 critical, 0 high advisories");
-console.log(
-  `Mobile toolchain hold: ${mobileOnly.length} high advisories isolated to the undeployed Expo 51 workspace`,
-);
+console.log("All production workspaces: 0 critical, 0 high advisories");

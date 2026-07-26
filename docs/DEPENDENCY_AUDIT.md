@@ -1,12 +1,10 @@
 # Dependency audit boundary
 
-The production Vercel application ships the root web and API dependency graph.
-Run `pnpm audit:production` as a blocking release gate; it rejects every critical
-or high advisory that reaches that deployed graph.
+Run `pnpm audit:production` as a blocking release gate for every production
+workspace. It rejects every critical or high advisory in the root web/API graph
+and the Expo mobile graph. Vercel runs this gate before its web build, and mobile
+releases must run the same command before an EAS build.
 
-The `apps/mobile` Expo 51 workspace is not deployed by Vercel. Its legacy CLI
-currently retains high advisories in build-time packages. The verifier reports
-that hold separately instead of hiding it or treating it as deployed-web risk.
-Do not release a mobile build until that workspace is upgraded to a supported
-Expo SDK and a full unfiltered `pnpm audit --prod` has no critical or high
-findings.
+The mobile workspace targets Expo SDK 57 with React Native 0.86 and the New
+Architecture. After changing any Expo or React Native package, run Expo's
+compatibility resolver and `expo-doctor` before producing a device build.
