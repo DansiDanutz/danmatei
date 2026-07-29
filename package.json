@@ -108,7 +108,7 @@
     "vite-plugin-manus-runtime": "^0.0.57",
     "vitest": "^4.1.6"
   },
-  "packageManager": "pnpm@10.33.4",
+  "packageManager": "pnpm@10.34.4",
   "engines": {
     "node": "22.x"
   },
@@ -136,11 +136,22 @@
       "lodash-es": "4.18.1",
       "@xmldom/xmldom": "0.9.10",
       "mdast-util-to-hast": "13.2.1",
-      "qs": "6.15.1",
+      "qs": "6.15.2",
       "postcss": "8.5.18",
       "js-yaml": "4.3.0",
       "react-native-worklets": "0.10.0",
-      "send": "0.19.0"
+      "send": "0.19.0",
+      "protobufjs": "7.6.5",
+      "uuid": "11.1.1",
+      "hono": "4.12.27",
+      "joi": "17.13.4",
+      "esbuild": "0.28.1",
+      "vite": "7.3.5",
+      "pnpm": "10.34.4",
+      "@babel/core": "7.29.6",
+      "adm-zip": "0.6.0",
+      "@hono/node-server": "2.0.10",
+      "sharp": "0.35.0"
     }
   }
 }
