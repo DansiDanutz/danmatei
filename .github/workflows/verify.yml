@@ -33,7 +33,7 @@ jobs:
       - name: Install the exact dependency graph
         run: pnpm install --frozen-lockfile
 
-      - name: Check environment and TypeScript contracts
+      - name: Check environment, web, API, and mobile TypeScript contracts
         run: pnpm check
 
       - name: Run behavior regressions
