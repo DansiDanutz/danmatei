@@ -43,4 +43,4 @@ jobs:
         run: pnpm build
 
       - name: Reject known dependency vulnerabilities
-        run: pnpm audit
+        run: pnpm audit:all

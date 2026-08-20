@@ -15,6 +15,7 @@
     "check:mobile": "pnpm --filter @danmatei/mobile check",
     "format": "prettier --write .",
     "test": "vitest run",
+    "audit:all": "node scripts/verify-production-dependencies.mjs --all",
     "audit:production": "node scripts/verify-production-dependencies.mjs",
     "test:e2e": "playwright test --config=playwright.config.ts",
     "test:e2e:audit": "playwright test --config=playwright.audit.config.ts",
@@ -66,7 +67,7 @@
     "livekit-client": "^2.5.0",
     "livekit-server-sdk": "^2.10.0",
     "lucide-react": "^0.453.0",
-    "nanoid": "^5.1.5",
+    "nanoid": "^5.1.16",
     "next-themes": "^0.4.6",
     "react": "^19.2.1",
     "react-day-picker": "^9.11.1",
@@ -97,9 +98,9 @@
     "add": "^2.0.6",
     "autoprefixer": "^10.4.20",
     "esbuild": "^0.25.12",
-    "hyperframes": "^0.5.5",
+    "hyperframes": "^0.8.4",
     "pnpm": "^10.33.4",
-    "postcss": "8.5.18",
+    "postcss": "8.5.23",
     "prettier": "^3.6.2",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.19.1",
@@ -115,10 +116,11 @@
   },
   "pnpm": {
     "patchedDependencies": {
-      "wouter@3.7.1": "patches/wouter@3.7.1.patch"
+      "wouter@3.7.1": "patches/wouter@3.7.1.patch",
+      "image-size@1.2.1": "patches/image-size@1.2.1.patch"
     },
     "overrides": {
-      "tailwindcss>nanoid": "3.3.7",
+      "tailwindcss>nanoid": "3.3.18",
       "rollup": "4.60.3",
       "tar": "7.5.22",
       "shell-quote": "1.10.0",
@@ -138,13 +140,13 @@
       "@xmldom/xmldom": "0.9.10",
       "mdast-util-to-hast": "13.2.1",
       "qs": "6.15.2",
-      "postcss": "8.5.18",
-      "js-yaml": "4.3.0",
+      "postcss": "8.5.23",
+      "js-yaml": "4.3.1",
       "react-native-worklets": "0.10.0",
       "send": "0.19.0",
       "protobufjs": "7.6.5",
       "uuid": "11.1.1",
-      "hono": "4.12.27",
+      "hono": "4.13.3",
       "joi": "17.13.4",
       "esbuild": "0.28.1",
       "vite": "7.3.5",
@@ -152,7 +154,10 @@
       "@babel/core": "7.29.6",
       "adm-zip": "0.6.0",
       "@hono/node-server": "2.0.10",
-      "sharp": "0.35.0"
+      "sharp": "0.35.0",
+      "brace-expansion": "5.0.9",
+      "ip-address": "10.5.0",
+      "nanoid": "5.1.16"
     }
   }
 }

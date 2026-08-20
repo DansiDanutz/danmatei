@@ -6,6 +6,11 @@ const auditVerifier = readFileSync(
   "scripts/verify-production-dependencies.mjs",
   "utf8",
 );
+const imageSizePatch = readFileSync(
+  "patches/image-size@1.2.1.patch",
+  "utf8",
+);
+const verifyWorkflow = readFileSync(".github/workflows/verify.yml", "utf8");
 const vercelConfig = JSON.parse(readFileSync("vercel.json", "utf8"));
 
 describe("mobile release dependency gate", () => {
@@ -19,6 +24,15 @@ describe("mobile release dependency gate", () => {
     expect(auditVerifier).not.toContain("mobileOnly");
     expect(auditVerifier).toContain('new Set(["critical", "high"])');
     expect(auditVerifier).toContain("process.exit(1)");
+  });
+
+  it("allows only the two locally mitigated image-size advisories", () => {
+    expect(auditVerifier).toContain("GHSA-5p2g-fcmc-qvqq");
+    expect(auditVerifier).toContain("GHSA-w3rx-r6r6-pgpr");
+    expect(auditVerifier).toContain("imageSizeMitigationReady");
+    expect(imageSizePatch).toContain("Invalid ICNS entry length");
+    expect(imageSizePatch).toContain("boxSize < 8");
+    expect(verifyWorkflow).toContain("run: pnpm audit:all");
   });
 
   it("runs the dependency gate before Vercel builds", () => {
