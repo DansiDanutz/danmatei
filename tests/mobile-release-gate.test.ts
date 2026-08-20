@@ -26,6 +26,12 @@ describe("mobile release dependency gate", () => {
     expect(auditVerifier).toContain("process.exit(1)");
   });
 
+  it("fails closed when the registry does not return an audit report", () => {
+    expect(auditVerifier).toContain("report.error");
+    expect(auditVerifier).toContain("!report.advisories");
+    expect(auditVerifier).toContain("!report.metadata");
+  });
+
   it("allows only the two locally mitigated image-size advisories", () => {
     expect(auditVerifier).toContain("GHSA-5p2g-fcmc-qvqq");
     expect(auditVerifier).toContain("GHSA-w3rx-r6r6-pgpr");

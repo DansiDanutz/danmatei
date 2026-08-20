@@ -21,6 +21,23 @@ try {
   process.exit(1);
 }
 
+if (
+  audit.error ||
+  audit.signal ||
+  report.error ||
+  !report.advisories ||
+  !report.metadata
+) {
+  console.error(
+    report.error?.summary ||
+      report.error?.message ||
+      audit.error?.message ||
+      audit.stderr ||
+      "pnpm audit did not return a complete advisory report",
+  );
+  process.exit(1);
+}
+
 const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 const imageSizePatchPath =
   packageJson.pnpm?.patchedDependencies?.["image-size@1.2.1"];
