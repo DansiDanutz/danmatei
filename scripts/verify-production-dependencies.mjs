@@ -1,6 +1,9 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
-const audit = spawnSync("pnpm", ["audit", "--prod", "--json"], {
+const auditAll = process.argv.includes("--all");
+const auditArgs = ["audit", ...(auditAll ? [] : ["--prod"]), "--json"];
+const audit = spawnSync("pnpm", auditArgs, {
   encoding: "utf8",
   maxBuffer: 20 * 1024 * 1024,
 });
@@ -18,9 +21,48 @@ try {
   process.exit(1);
 }
 
+if (
+  audit.error ||
+  audit.signal ||
+  report.error ||
+  !report.advisories ||
+  !report.metadata
+) {
+  console.error(
+    report.error?.summary ||
+      report.error?.message ||
+      audit.error?.message ||
+      audit.stderr ||
+      "pnpm audit did not return a complete advisory report",
+  );
+  process.exit(1);
+}
+
+const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+const imageSizePatchPath =
+  packageJson.pnpm?.patchedDependencies?.["image-size@1.2.1"];
+const imageSizePatch = imageSizePatchPath
+  ? readFileSync(imageSizePatchPath, "utf8")
+  : "";
+const imageSizeMitigationReady =
+  imageSizePatch.includes("Invalid ICNS entry length") &&
+  imageSizePatch.includes("boxSize < 8");
+const locallyMitigated = new Set([
+  "GHSA-5p2g-fcmc-qvqq",
+  "GHSA-w3rx-r6r6-pgpr",
+]);
+
 const blocking = [];
 for (const advisory of Object.values(report.advisories || {})) {
-  if (!new Set(["critical", "high"]).has(advisory.severity)) continue;
+  if (
+    imageSizeMitigationReady &&
+    locallyMitigated.has(advisory.github_advisory_id)
+  ) {
+    continue;
+  }
+  if (!auditAll && !new Set(["critical", "high"]).has(advisory.severity)) {
+    continue;
+  }
   blocking.push(advisory);
 }
 
@@ -31,4 +73,8 @@ if (blocking.length) {
   process.exit(1);
 }
 
-console.log("All production workspaces: 0 critical, 0 high advisories");
+console.log(
+  auditAll
+    ? "All workspaces: no unmitigated advisories"
+    : "All production workspaces: 0 critical, 0 high advisories",
+);
