@@ -84,21 +84,33 @@ select set_eq(
   'public_championship returns only display fields'
 );
 
+reset role;
+
+-- A small 2031 window, well under public_schedule's 200-row cap, holding one
+-- approved match, one approved training and one approved tournament (added
+-- after the championship checks so they don't change those counts).
+insert into fotbal.schedule_events (trainer_id, kind, title, starts_at, approval_status) values
+  ('00000000-0000-0000-0000-00000000ab01', 'match', 'Meci 2031', '2031-03-01', 'approved'),
+  ('00000000-0000-0000-0000-00000000ab01', 'training', 'Antrenament 2031', '2031-03-02', 'approved'),
+  ('00000000-0000-0000-0000-00000000ab01', 'tournament', 'Cupa 2031', '2031-03-03', 'approved');
+
+set local role anon;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
 select is(
-  (select count(*)::int from fotbal.public_schedule('-infinity', 'infinity', 'match')),
-  200,
-  'public_schedule filters by kind (capped at 200 rows)'
+  (select array_agg(title order by starts_at) from fotbal.public_schedule('2031-01-01', '2031-12-31', 'match')),
+  array['Meci 2031'],
+  'public_schedule with p_kind = match returns only the match, not the training or tournament'
 );
 select is(
-  (select count(*)::int from fotbal.public_schedule('2029-12-31', '2030-12-31')),
-  1,
-  'public_schedule (two-argument call) returns approved events only'
+  (select array_agg(title order by starts_at) from fotbal.public_schedule('2031-01-01', '2031-12-31')),
+  array['Meci 2031', 'Antrenament 2031', 'Cupa 2031'],
+  'public_schedule without p_kind (two-argument call) returns every approved kind'
 );
 
 select is(
   (select count(*)::int from fotbal.public_tournaments()),
-  1,
-  'public_tournaments returns the approved tournament'
+  2,
+  'public_tournaments returns the approved tournaments'
 );
 select ok(
   (select bool_and(x::text not like '%NOTA PRIVATA%') from fotbal.public_tournaments() x),
