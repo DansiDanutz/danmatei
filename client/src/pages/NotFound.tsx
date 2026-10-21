@@ -1,7 +1,18 @@
+import { useEffect } from "react";
 import { Link } from "wouter";
 import { Home } from "lucide-react";
 
 export default function NotFound() {
+  // The SPA rewrite serves every unknown URL with HTTP 200; keep those soft
+  // 404s out of search indexes.
+  useEffect(() => {
+    const meta = document.createElement("meta");
+    meta.name = "robots";
+    meta.content = "noindex";
+    document.head.appendChild(meta);
+    return () => meta.remove();
+  }, []);
+
   return (
     <div className="grid min-h-[100dvh] place-items-center bg-[oklch(0.08_0.02_250)] px-4">
       <div className="text-center">

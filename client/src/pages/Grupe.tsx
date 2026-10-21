@@ -12,6 +12,7 @@ import DemoBanner from "@/components/DemoBanner";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { fetchTrainerNames } from "@/lib/trainer-names";
 import { TRAINERS, type Trainer } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
 
@@ -58,7 +59,7 @@ export default function Grupe() {
         setLoading(false);
     }, 6000);
     void (async () => {
-      const [trainersRes, kidsRes] = await Promise.all([
+      const [trainersRes, kidsRes, trainerNames] = await Promise.all([
         supabase
           .from("trainers")
           .select(
@@ -67,6 +68,7 @@ export default function Grupe() {
           .eq("active", true)
           .order("display_order", { ascending: true }),
         supabase.from("children").select("trainer_id").eq("status", "active"),
+        fetchTrainerNames(),
       ]);
       const trainers = trainersRes.data;
       const kids = kidsRes.data;
@@ -80,7 +82,7 @@ export default function Grupe() {
       clearTimeout(timeoutId);
       const rows: GroupRow[] = (trainers as DBTrainer[] | null ?? []).map((t) => ({
         id: t.id,
-        name: t.profile?.full_name ?? "Antrenor",
+        name: trainerNames.get(t.id) ?? t.profile?.full_name ?? "Antrenor",
         position: t.position ?? `Antrenor U${t.age_min}–U${t.age_max}`,
         ageMin: t.age_min,
         ageMax: t.age_max,

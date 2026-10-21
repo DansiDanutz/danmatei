@@ -61,7 +61,7 @@ export default async function handler(req: Req, res: Res) {
   // Load the child + verify the caller is its parent.
   const { data: child, error: childErr } = await svc
     .from("children")
-    .select("id, full_name, dob, trainer_id, parent_id")
+    .select("id, full_name, dob, trainer_id, preferred_trainer_id, parent_id")
     .eq("id", parsed.data.childId)
     .single();
   if (childErr || !child) {
@@ -78,11 +78,14 @@ export default async function handler(req: Req, res: Res) {
   // active group's birth-year range contains the child.
   const trainerProfileIds = new Set<string>();
 
-  if (child.trainer_id) {
+  // The parent's pick is stored as preferred_trainer_id (migration 0033);
+  // trainer_id is only set once the child is accepted.
+  const pickedTrainerId = child.trainer_id ?? child.preferred_trainer_id;
+  if (pickedTrainerId) {
     const { data: t } = await svc
       .from("trainers")
       .select("profile_id")
-      .eq("id", child.trainer_id)
+      .eq("id", pickedTrainerId)
       .single();
     if (t?.profile_id) trainerProfileIds.add(t.profile_id as string);
   }

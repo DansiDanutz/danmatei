@@ -12,6 +12,7 @@ import { randomBytes } from "node:crypto";
 import { serviceClient, userClient, getJwtFromHeader } from "../_lib/supabase.js";
 import { sendWhatsappText } from "../_lib/whatsapp.js";
 import { createConvAILink } from "../_lib/elevenlabs.js";
+import { checkRateLimit } from "../_lib/ratelimit.js";
 
 const Body = z.object({
   childId: z.string().uuid(),
@@ -32,6 +33,7 @@ interface ChildLookup {
   id: string;
   full_name: string;
   trainer_id: string | null;
+  assignment_status: string;
   parent: { id: string; full_name: string; phone: string | null } | null;
   trainer: {
     id: string;
@@ -66,7 +68,7 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
   const childQ = await u
     .from("children")
     .select(
-      "id, full_name, trainer_id, " +
+      "id, full_name, trainer_id, assignment_status, " +
         "parent:profiles!children_parent_id_fkey(id, full_name, phone), " +
         "trainer:trainers!children_trainer_id_fkey(id, elevenlabs_agent_id, whatsapp_number, profile:profiles!trainers_profile_id_fkey(full_name))",
     )
@@ -77,42 +79,82 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
     return res.status(404).json({ error: "Child not found or not owned by caller" });
   }
 
+  // The message announces a group placement, and each call sends a WhatsApp
+  // plus mints an ElevenLabs link: only once per accepted child, rate-limited.
+  if (child.assignment_status !== "accepted") {
+    return res.status(409).json({ error: "Child not accepted into a group yet" });
+  }
+  if (!checkRateLimit(`welcome:${child.parent.id}`, 3, 24 * 60 * 60 * 1000).ok) {
+    return res.status(429).json({ error: "rate_limited" });
+  }
+
+  // Claim the child's welcome atomically: of two overlapping requests only
+  // one gets the row back. The claim is released below if delivery fails.
+  const svc = serviceClient();
+  const claim = await svc
+    .from("children")
+    .update({ welcome_claimed_at: new Date().toISOString() })
+    .eq("id", childId)
+    .is("welcome_claimed_at", null)
+    .select("id");
+  if (claim.error) {
+    return res.status(500).json({ error: claim.error.message });
+  }
+  if (!claim.data?.length) {
+    return res.status(409).json({ error: "Welcome already sent for this child" });
+  }
+  const releaseClaim = () =>
+    svc.from("children").update({ welcome_claimed_at: null }).eq("id", childId);
+
   const parentPhone = child.parent.phone;
   const trainerName = child.trainer?.profile?.full_name ?? "antrenorul tău";
   const agentId = child.trainer?.elevenlabs_agent_id ?? null;
 
-  // Build the ConvAI link + persist row via service client.
-  const shareToken = randomBytes(12).toString("base64url");
-  const linkResult = await createConvAILink(agentId, shareToken);
-
-  const svc = serviceClient();
-  const insertConvo = await svc
+  // A retry after a failed delivery reuses the link created the first time.
+  const previous = await svc
     .from("ai_conversations")
-    .insert({
-      parent_id: child.parent.id,
-      trainer_id: child.trainer_id,
-      child_id: childId,
-      elevenlabs_agent_id: linkResult.agentId,
-      share_link: linkResult.link,
-      share_token: shareToken,
-      status: "pending",
-    })
     .select("id, share_link")
-    .single();
-  if (insertConvo.error || !insertConvo.data) {
-    return res
-      .status(500)
-      .json({ error: insertConvo.error?.message ?? "Could not store conversation" });
-  }
+    .eq("child_id", childId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let convo = previous.data as { id: string; share_link: string } | null;
 
-  // Notification (in-app)
-  await svc.from("notifications").insert({
-    recipient_id: child.parent.id,
-    kind: "ai_link_ready",
-    title: "Bun venit în academie!",
-    body: `Apasă pentru o scurtă conversație cu asistentul nostru — ${trainerName} va primi rezumatul.`,
-    link: insertConvo.data.share_link,
-  });
+  if (!convo) {
+    // Build the ConvAI link + persist row via service client.
+    const shareToken = randomBytes(12).toString("base64url");
+    const linkResult = await createConvAILink(agentId, shareToken);
+
+    const insertConvo = await svc
+      .from("ai_conversations")
+      .insert({
+        parent_id: child.parent.id,
+        trainer_id: child.trainer_id,
+        child_id: childId,
+        elevenlabs_agent_id: linkResult.agentId,
+        share_link: linkResult.link,
+        share_token: shareToken,
+        status: "pending",
+      })
+      .select("id, share_link")
+      .single();
+    if (insertConvo.error || !insertConvo.data) {
+      await releaseClaim();
+      return res
+        .status(500)
+        .json({ error: insertConvo.error?.message ?? "Could not store conversation" });
+    }
+    convo = insertConvo.data;
+
+    // Notification (in-app)
+    await svc.from("notifications").insert({
+      recipient_id: child.parent.id,
+      kind: "ai_link_ready",
+      title: "Bun venit în academie!",
+      body: `Apasă pentru o scurtă conversație cu asistentul nostru — ${trainerName} va primi rezumatul.`,
+      link: convo.share_link,
+    });
+  }
 
   // WhatsApp (skipped silently when not configured)
   let whatsappResult: { sent: boolean; reason?: string } = { sent: false, reason: "no_phone" };
@@ -124,20 +166,21 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
       "",
       "Înainte să ne auzim, asistentul nostru îți va pune câteva întrebări scurte (vârstă, experiență, așteptări). Conversația durează ~5 minute. Apasă linkul de mai jos pentru a începe:",
       "",
-      insertConvo.data.share_link,
+      convo.share_link,
       "",
       "După conversație, antrenorul tău primește un rezumat și te contactează aici pe WhatsApp. Mulțumim!",
     ].join("\n");
     whatsappResult = await sendWhatsappText(parentPhone, body);
   }
+  if (!whatsappResult.sent) await releaseClaim();
 
   return res.status(200).json({
     // Top-level success mirrors `whatsapp.sent` so the UI can decide whether
     // to show a "we couldn't text you, here's your link" fallback CTA without
     // peeking into the nested whatsapp object.
     success: whatsappResult.sent,
-    conversationId: insertConvo.data.id,
-    link: insertConvo.data.share_link,
+    conversationId: convo.id,
+    link: convo.share_link,
     whatsapp: whatsappResult,
   });
 }

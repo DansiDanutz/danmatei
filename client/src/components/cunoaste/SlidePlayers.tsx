@@ -61,7 +61,7 @@ type DisplayGroup = {
   description: string;
   birthYearMin: number;
   birthYearMax: number;
-  players: { id: string; name: string; yearOfBirth: number }[];
+  players: { name: string; yearOfBirth: number }[];
   childCount: number;
   trainer: { initials: string; name: string } | null;
 };
@@ -73,7 +73,7 @@ type ApiGroup = {
   birthYearMax: number;
   trainerName: string | null;
   childCount: number;
-  players: { id: string; name: string; yearOfBirth: number }[];
+  players: { name: string; yearOfBirth: number }[];
 };
 
 function trainerFromEditorial(
@@ -296,9 +296,9 @@ function GroupCard({
 
           {preview.length > 0 ? (
             <ul className="grid gap-1.5">
-              {preview.map((p) => (
+              {preview.map((p, i) => (
                 <li
-                  key={p.id}
+                  key={`${p.name}-${p.yearOfBirth}-${i}`}
                   className="flex items-center gap-2 rounded-lg border border-white/8 bg-white/[0.025] p-1.5"
                 >
                   <span

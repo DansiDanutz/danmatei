@@ -122,6 +122,17 @@ export default async function handler(req: Req, res: Res) {
         .status(400)
         .json({ error: "Invalid body", issues: del.error.issues });
     }
+    // Only trainer accounts may be removed here — never owners, parents, or
+    // users of other apps sharing this Supabase project.
+    const { data: target } = await svc
+      .from("trainers")
+      .select("id, profile:profiles!trainers_profile_id_fkey(role)")
+      .eq("profile_id", del.data.profileId)
+      .maybeSingle();
+    const targetRole = (target?.profile as { role?: string } | null)?.role;
+    if (!target || targetRole !== "trainer") {
+      return res.status(404).json({ error: "Trainer not found" });
+    }
     const result = await authAdmin.deleteUser(del.data.profileId);
     if (result.error) {
       const msg = result.error.message || "Delete failed";

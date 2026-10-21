@@ -26,6 +26,7 @@
  */
 import { AccessToken } from "livekit-server-sdk";
 import { serviceClient } from "../_lib/supabase.js";
+import { checkRateLimit } from "../_lib/ratelimit.js";
 import {
   isLeadLinkSigningConfigured,
   verifyToken,
@@ -71,6 +72,11 @@ export default async function handler(req: Req, res: Res) {
   }
   const verified = verifyToken(token);
   if (!verified) return res.status(401).json({ error: "invalid_token" });
+  // Links are valid for 24h and reusable; each start dispatches a paid voice
+  // agent, so cap how often one lead can open a call.
+  if (!checkRateLimit(`voice:${verified.leadId}`, 3, 60 * 60 * 1000).ok) {
+    return res.status(429).json({ error: "rate_limited" });
+  }
 
   const livekitUrl = process.env.LIVEKIT_URL;
   const apiKey = process.env.LIVEKIT_API_KEY;

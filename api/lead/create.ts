@@ -18,11 +18,26 @@ import { publicBaseUrlFromHeaders } from "../_lib/public-url.js";
 import { serviceClient } from "../_lib/supabase.js";
 import { sendWhatsappText } from "../_lib/whatsapp.js";
 import { isLeadLinkSigningConfigured, signToken } from "../_lib/sign-token.js";
+import { checkRateLimit } from "../_lib/ratelimit.js";
+
+const PERSON_NAME = /^[\p{L}][\p{L}\p{M} .'-]*$/u;
+// Letters on both sides of a dot ("www.site.ro") is a domain, not an initial
+// ("Ion I. Pop") — reject it so the WhatsApp copy can't carry a link.
+const DOMAIN_LIKE = /\p{L}\.\p{L}/u;
+const personName = z
+  .string()
+  .trim()
+  .min(2)
+  .max(120)
+  .regex(PERSON_NAME)
+  .refine(v => !DOMAIN_LIKE.test(v), "name must not contain a web address");
 
 const Body = z.object({
-  parentName: z.string().trim().min(2).max(120),
+  // Both names are echoed into a WhatsApp sent from the academy's number, so
+  // keep them to plain names — no links or arbitrary text.
+  parentName: personName,
   parentPhone: z.string().trim().min(7).max(32),
-  childName: z.string().trim().min(2).max(120),
+  childName: personName,
   childAge: z.coerce.number().int().min(4).max(18),
   childPosition: z.string().trim().max(60).optional().nullable(),
   source: z.enum(["web", "app"]).default("web"),
@@ -136,6 +151,14 @@ async function tryEvolution(
 export default async function handler(req: Req, res: Res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
+  }
+
+  // Per-IP cap on top of the per-phone one below: rotating target numbers
+  // must not turn this public form into a WhatsApp relay.
+  const fwd = req.headers?.["x-forwarded-for"];
+  const ip = (Array.isArray(fwd) ? fwd[0] : fwd)?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(`lead:${ip}`, 5, 60 * 60 * 1000).ok) {
+    return res.status(429).json({ error: "rate_limited" });
   }
 
   const parsed = Body.safeParse(req.body ?? {});
