@@ -1,0 +1,83 @@
+{
+  "name": "Andra — Academia Dan Matei (interviu părinți)",
+  "tags": ["danmatei", "lead-interview"],
+  "conversation_config": {
+    "agent": {
+      "language": "ro",
+      "first_message": "Bună, {{parent_name}}! Sunt Andra, consilier la Academia de Fotbal Dan Matei. Apelul este înregistrat pentru calitatea serviciului. Mă bucur că te interesezi de {{child_name}} — avem trei minute împreună.",
+      "dynamic_variables": {
+        "dynamic_variable_placeholders": {
+          "parent_name": "Maria",
+          "child_name": "Alex",
+          "child_age": 8,
+          "is_existing_parent": false,
+          "previous_calls_count": 0,
+          "call_token": ""
+        }
+      },
+      "prompt": {
+        "prompt": "@prompt.ro.md",
+        "llm": "gemini-2.5-flash",
+        "temperature": 0.4,
+        "built_in_tools": {
+          "end_call": {
+            "type": "system",
+            "name": "end_call",
+            "description": "Închide apelul după închiderea oficială sau când părintele a cerut să încheie.",
+            "params": { "system_tool_type": "end_call" }
+          }
+        }
+      }
+    },
+    "tts": {
+      "model_id": "eleven_flash_v2_5",
+      "voice_id": "hpp4J3VqNfWAUOO0d1Us"
+    },
+    "turn": {
+      "turn_timeout": 8,
+      "silence_end_call_timeout": 30
+    },
+    "conversation": {
+      "max_duration_seconds": 210
+    }
+  },
+  "platform_settings": {
+    "auth": { "enable_auth": true },
+    "summary_language": "ro",
+    "data_collection": {
+      "intent": {
+        "type": "string",
+        "description": "Ce vrea părintele, ca un singur cuvânt din lista: register (vrea să-și înscrie copilul), info (cere informații generale), visit (vrea să vină la un antrenament/vizită), price (întreabă de cost), schedule (întreabă de program), other.",
+        "enum": ["register", "info", "visit", "price", "schedule", "other"]
+      },
+      "next_steps": {
+        "type": "string",
+        "description": "Acțiunile concrete pentru antrenor rezultate din apel, în română, separate prin punct și virgulă. Exemplu: Trimite programul U9; Programează vizită joi la 16:00. Gol dacă nu există."
+      },
+      "child_experience": {
+        "type": "string",
+        "description": "Experiența copilului cu fotbalul, pe scurt, în română (ex. începător, a jucat 2 ani la alt club)."
+      },
+      "availability": {
+        "type": "string",
+        "description": "Zilele și orele în care copilul poate veni la antrenament, așa cum le-a spus părintele, în română."
+      }
+    },
+    "evaluation": {
+      "criteria": [
+        {
+          "id": "romanian_only",
+          "name": "Doar în română",
+          "type": "prompt",
+          "conversation_goal_prompt": "Agentul a vorbit exclusiv în limba română (cu excepția numelor proprii) pe tot parcursul apelului."
+        },
+        {
+          "id": "collected_basics",
+          "name": "Informații de bază",
+          "type": "prompt",
+          "conversation_goal_prompt": "Agentul a aflat dacă copilul este deja înscris sau la primul contact, experiența copilului și disponibilitatea, sau a explicat că antrenorul va reveni pentru detalii."
+        }
+      ]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 /**
  * POST /api/voice/webhook
  *
- * The LiveKit voice agent posts end-of-call payloads here. We:
+ * The legacy LiveKit voice agent posts end-of-call payloads here. We:
  *   1. Verify the HMAC signature.
  *   2. Insert a `lead_calls` row (transcript + summary + intent + recording).
  *   3. Update the parent `leads` row → status='transcribed' → 'routed'.
@@ -13,8 +13,8 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { serviceClient } from "../_lib/supabase.js";
-import { sendWhatsappText } from "../_lib/whatsapp.js";
 import { verifyHmac } from "../_lib/webhook-hmac.js";
+import { LEAD_CALL_INTENTS, recordLeadCall } from "../_lib/lead-call-result.js";
 
 const TranscriptTurn = z.object({
   role: z.enum(["agent", "parent", "system"]),
@@ -40,17 +40,9 @@ const Body = z.object({
   recording_url: z.string().url().nullish(),
   transcript: z.array(TranscriptTurn).default([]),
   summary: z.string().nullish(),
-  intent: z
-    .enum(["register", "info", "visit", "price", "schedule", "other"])
-    .nullish(),
+  intent: z.enum(LEAD_CALL_INTENTS).nullish(),
   next_steps: z.array(z.string()).default([]),
 });
-
-const TRAINER_NAMES: Record<string, string> = {
-  "t-sopi": "Răzvan Soporan",
-  "t-kelemen": "Kelemen Andrei",
-  "t-dan": "Dan Matei",
-};
 
 // Disable Vercel's default JSON body parser — we need the raw request
 // bytes verbatim to HMAC them. If we let Vercel parse + we re-stringify,
@@ -103,15 +95,6 @@ function toTimestamp(value: number | string | undefined): string | null {
 
 function fallbackVendorCallId(rawBody: Buffer): string {
   return `payload-sha256:${createHash("sha256").update(rawBody).digest("hex")}`;
-}
-
-function isUniqueViolation(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code?: string }).code === "23505"
-  );
 }
 
 export default async function handler(req: Req, res: Res) {
@@ -182,160 +165,20 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
-  // Pull the lead so we know who to notify.
-  const { data: lead, error: leadErr } = await supabase
-    .from("leads")
-    .select(
-      "id, parent_name, parent_phone_e164, child_name, child_age, assigned_trainer_id, cc_trainer_ids"
-    )
-    .eq("id", data.leadId)
-    .single();
-  if (leadErr || !lead) {
-    return res
-      .status(404)
-      .json({ error: "lead_not_found", detail: leadErr?.message });
-  }
-
-  const recipients = Array.from(
-    new Set([lead.assigned_trainer_id, ...(lead.cc_trainer_ids ?? [])]).values()
-  );
-
-  const { data: existingCall, error: existingCallErr } = await supabase
-    .from("lead_calls")
-    .select("id")
-    .eq("vendor", "pipecat")
-    .eq("vendor_call_id", vendorCallId)
-    .maybeSingle();
-  if (existingCallErr) {
-    return res.status(500).json({
-      error: "call_lookup_failed",
-      detail: existingCallErr.message,
-    });
-  }
-  if (existingCall) {
-    return res.status(200).json({
-      ok: true,
-      duplicate: true,
-      leadId: data.leadId,
-      callId: existingCall.id,
-      recipients,
-    });
-  }
-
-  // Insert the call record.
-  const { data: callRow, error: callErr } = await supabase
-    .from("lead_calls")
-    .insert({
-      lead_id: data.leadId,
-      vendor: "pipecat",
-      vendor_call_id: vendorCallId,
-      started_at: toTimestamp(data.started_at ?? undefined),
-      ended_at: toTimestamp(data.ended_at ?? undefined),
-      duration_seconds: data.duration_seconds ?? null,
-      status: data.status,
-      recording_url: data.recording_url ?? null,
-      transcript: data.transcript,
-      summary: data.summary ?? null,
-      intent: data.intent ?? null,
-      next_steps: data.next_steps,
-      raw_payload: data,
-    })
-    .select("id")
-    .single();
-  if (callErr || !callRow) {
-    if (isUniqueViolation(callErr)) {
-      const { data: duplicate } = await supabase
-        .from("lead_calls")
-        .select("id")
-        .eq("vendor", "pipecat")
-        .eq("vendor_call_id", vendorCallId)
-        .maybeSingle();
-      if (duplicate) {
-        return res.status(200).json({
-          ok: true,
-          duplicate: true,
-          leadId: data.leadId,
-          callId: duplicate.id,
-          recipients,
-        });
-      }
-    }
-    return res
-      .status(500)
-      .json({ error: "call_insert_failed", detail: callErr?.message });
-  }
-
-  // Mark lead routed.
-  await supabase
-    .from("leads")
-    .update({ status: "routed" })
-    .eq("id", data.leadId);
-
-  // Notification fanout — push/WhatsApp/email/inapp.
-  const summary = data.summary ?? "Apel nou — vezi transcrierea în aplicație.";
-
-  for (const trainerId of recipients) {
-    const trainerLabel = TRAINER_NAMES[trainerId] ?? trainerId;
-    const payload = {
-      leadId: data.leadId,
-      callId: callRow.id,
-      parentName: lead.parent_name,
-      childName: lead.child_name,
-      childAge: lead.child_age,
-      summary,
-      intent: data.intent ?? null,
-      nextSteps: data.next_steps,
-      recordingUrl: data.recording_url ?? null,
-    };
-
-    // In-app + push (rows in lead_notifications drive both).
-    await supabase.from("lead_notifications").insert([
-      {
-        recipient_trainer_id: trainerId,
-        channel: "inapp",
-        type: "new_lead_transcript",
-        payload,
-      },
-      {
-        recipient_trainer_id: trainerId,
-        channel: "push",
-        type: "new_lead_transcript",
-        payload,
-      },
-      {
-        recipient_trainer_id: trainerId,
-        channel: "email",
-        type: "new_lead_transcript",
-        payload,
-      },
-      {
-        recipient_trainer_id: trainerId,
-        channel: "whatsapp",
-        type: "new_lead_transcript",
-        payload,
-      },
-    ]);
-
-    // Best-effort WhatsApp summary to the trainer (skipped silently if no creds).
-    const trainerPhoneEnv =
-      process.env[
-        `TRAINER_PHONE_${trainerId.replace(/-/g, "_").toUpperCase()}`
-      ];
-    if (trainerPhoneEnv) {
-      const body = [
-        `🆕 Lead nou pentru ${trainerLabel}`,
-        `${lead.parent_name} (${lead.parent_phone_e164}) — copil: ${lead.child_name}, ${lead.child_age} ani`,
-        "",
-        summary,
-        data.next_steps.length
-          ? `\nPași: ${data.next_steps.map(s => `• ${s}`).join("\n")}`
-          : "",
-      ].join("\n");
-      await sendWhatsappText(trainerPhoneEnv, body);
-    }
-  }
-
-  return res
-    .status(200)
-    .json({ ok: true, leadId: data.leadId, callId: callRow.id, recipients });
+  const outcome = await recordLeadCall(supabase, {
+    leadId: data.leadId,
+    vendor: "pipecat",
+    vendorCallId,
+    startedAt: toTimestamp(data.started_at ?? undefined),
+    endedAt: toTimestamp(data.ended_at ?? undefined),
+    durationSeconds: data.duration_seconds ?? null,
+    status: data.status,
+    recordingUrl: data.recording_url ?? null,
+    transcript: data.transcript,
+    summary: data.summary ?? null,
+    intent: data.intent ?? null,
+    nextSteps: data.next_steps,
+    rawPayload: data,
+  });
+  return res.status(outcome.status).json(outcome.body);
 }

@@ -1,233 +1,96 @@
-# AI-Call Lead Flow - LiveKit Voice Agent
+# AI-Call Lead Flow - ElevenLabs Conversational AI
 
 When an interested parent leaves a phone number, the academy responds with a
-WhatsApp link to a browser call. The parent joins a LiveKit room from
-`/apel/:token`, and LiveKit auto-dispatches the `danmatei-voice-agent` worker.
-The worker speaks Romanian, captures transcript/summary/intent, then posts a
-signed webhook back to Vercel so trainers can follow up quickly.
+link to a browser call (by WhatsApp when configured, and always on screen).
+The parent opens `/apel/:token` and talks to **Andra**, an ElevenLabs
+Conversational AI agent, in Romanian. When the call ends, ElevenLabs posts the
+transcript and its post-call analysis to Vercel, which records the call and
+notifies the trainers.
 
-This flow is WebRTC-first: no PSTN number is required. Twilio/Vonage-style phone
-calling can be added later as a fallback, but production readiness for the
-current app is based on browser audio plus WhatsApp delivery.
+The flow is WebRTC/WebSocket in the browser: no phone number, no PSTN costs,
+and no server of our own to run for the voice part.
 
-## Current Stack
+## Stack
 
 | Layer | Choice | Notes |
 | --- | --- | --- |
-| Voice worker | LiveKit Agents Python worker | Auto-dispatched from `api/voice/start.ts` with `roomConfig.agents` |
-| Speech-to-text | Deepgram Nova-3 | Romanian STT via direct provider key |
-| LLM | OpenAI-compatible endpoint | Defaults to Gemini OpenAI-compatible endpoint; can point at OpenAI/OpenRouter/etc. |
-| TTS | ElevenLabs | Direct provider key; default model `eleven_turbo_v2_5` |
-| Transport | LiveKit Cloud or self-hosted LiveKit | Parent browser joins the same room as the worker |
-| WhatsApp | Evolution API | Sends the `/apel/:token` link and optional trainer summaries |
-| Database | Supabase | Leads, call rows, notifications, push subscriptions |
-| Push | Web Push (VAPID) | Trainer/admin browser notifications when configured |
-| Hosting | Vercel + Fly.io | Vercel for web/API, Fly for the persistent worker |
-
-The repository no longer uses a separate `/spawn` HTTP service or local
-Ollama/Whisper/Piper sidecars for the production voice flow. The
-`PIPECAT_WEBHOOK_SECRET` name is kept only for backwards compatibility with the
-existing signed webhook.
+| Voice agent | ElevenLabs Conversational AI | Speech-to-text, LLM (`gemini-2.5-flash`), voice (`eleven_flash_v2_5`), turn-taking |
+| Agent config | `services/elevenlabs-agent/` | `agent.json` + `prompt.ro.md`, applied by `scripts/elevenlabs-agent.mjs` |
+| Browser client | `@elevenlabs/react` | Audio worklets self-hosted (CSP `script-src 'self'`), see `client/src/lib/elevenlabs-audio.ts` |
+| Post-call data | ElevenLabs analysis | Romanian summary, `intent`, `next_steps`, experience, availability |
+| WhatsApp | Evolution API → Meta Cloud API fallback | Sends the `/apel/:token` link |
+| Database | Supabase | `leads`, `lead_calls`, `lead_notifications` |
 
 ## End-to-end Flow
 
 ```text
-Parent            Web/App           Vercel API          Evolution API       LiveKit/Fly Worker      Supabase        Trainer UI
-  |                 |                   |                    |                    |                   |                |
-  | form submit --->| POST /api/lead/create                 |                    |                   |                |
-  |                 |------------------>| insert lead + signed token             |                   | lead row       |
-  |                 |                   | WhatsApp link ---->| send to parent     |                   |                |
-  |<---------------- WhatsApp message with /apel/<token> -----------------------|                   |                |
-  | tap link -------------------------> /apel/<token>                           |                   |                |
-  |                 | GET /api/voice/start ---------------->| create LiveKit room metadata + token   |                |
-  | joins room -----------------------> LiveKit room                             | auto-dispatch job | lead calling   |
-  |<---------------- Romanian voice conversation over WebRTC ------------------>|                   |                |
-  |                 |                   | POST /api/voice/webhook <--------------| signed transcript |                |
-  |                 |                   | insert lead_calls + notifications ---------------------->| realtime ---->|
+Parent        /programare        Vercel API               ElevenLabs               Supabase / trainers
+  | form ------> POST /api/lead/create ------------------------------------------> lead row
+  |<------------ link on screen (+ WhatsApp when configured)
+  | /apel/<token> -> POST /api/voice/start
+  |                 verify token, get signed URL ------> get-signed-url
+  |<---------------- signedUrl + dynamic variables (names, call_token)
+  | browser <================ voice conversation ================> agent "Andra"
+  |                                               call ends
+  |                 POST /api/voice/elevenlabs-webhook <-- post_call_transcription (HMAC)
+  |                 verify signature + call_token ------------------------------> lead_calls,
+  |                                                                               lead → routed,
+  |                                                                               trainer notifications
 ```
+
+## Security
+
+- The ElevenLabs API key stays on Vercel. The browser only gets a short-lived
+  signed URL, and the agent has `auth.enable_auth = true`, so it can't be
+  called without one.
+- `/api/voice/start` mints a 2-hour `call_token` (same HMAC scheme as the
+  `/apel` link) and passes it as a dynamic variable. The webhook attaches the
+  call to the lead in that token, so a call can't be attributed to another
+  lead. The token is never used in the prompt.
+- The webhook verifies `ElevenLabs-Signature: t=<secs>,v0=<hex>` =
+  HMAC-SHA256(`ELEVENLABS_WEBHOOK_SECRET`, `t.body`) with a 30-minute window.
+  Other event types and calls without a valid token are acknowledged and
+  ignored.
+
+## Setup
+
+1. Create or update the agent and its post-call webhook (needs an ElevenLabs
+   API key with agent + workspace-webhook write access):
+
+   ```bash
+   ELEVENLABS_API_KEY=... node scripts/elevenlabs-agent.mjs
+   ```
+
+   It writes `ELEVENLABS_INTERVIEW_AGENT_ID`, `ELEVENLABS_POST_CALL_WEBHOOK_ID`
+   and the new webhook's `ELEVENLABS_WEBHOOK_SECRET` to
+   `services/elevenlabs-agent/.output.local.json` (gitignored). To change the
+   prompt or settings later, edit `services/elevenlabs-agent/` and re-run with
+   `ELEVENLABS_INTERVIEW_AGENT_ID` and `ELEVENLABS_POST_CALL_WEBHOOK_ID` set.
+
+2. Set on Vercel (production): `ELEVENLABS_API_KEY`,
+   `ELEVENLABS_INTERVIEW_AGENT_ID`, `ELEVENLABS_WEBHOOK_SECRET`,
+   `LEAD_LINK_SIGNING_SECRET`. Optional: `EVOLUTION_API_URL`,
+   `EVOLUTION_API_KEY`, `EVOLUTION_API_INSTANCE` to send the link by WhatsApp.
+
+Without the ElevenLabs variables `/api/voice/start` returns
+`voice_not_configured` and the page tells the parent the trainer will contact
+them on WhatsApp.
 
 ## Routing Rules
 
-Age routing is enforced when the lead is created:
+Age routing happens when the lead is created (`trainer_slug_for_age`), with
+Dan Matei CC'd on every lead he isn't already assigned to.
 
-```text
-child_age 5-9   -> Sopi (t-sopi)
-child_age 10-13 -> Kelemen Andrei (t-kelemen)
-child_age 14-15 -> Dan Matei (t-dan)
-always CC       -> Dan Matei (t-dan)
-```
+## Legacy LiveKit worker
 
-The current source of truth is the trainer/age configuration used by the lead
-creation API and landing data.
+`services/voice-agent/` (LiveKit Agents on Fly.io) and `/api/voice/webhook`
+are no longer used by `/apel`. They stay until the ElevenLabs flow has run in
+production, so rolling back is a revert; then delete both and the Fly app.
 
-## Repository Layout
+## Privacy
 
-```text
-api/
-  lead/
-    create.ts            # create lead, route trainer, send WhatsApp link
-    list.ts              # trainer/admin lead inbox data
-    reply-draft.ts       # AI-assisted response draft
-    status.ts            # lead status updates
-  voice/
-    start.ts             # verify call token, create LiveKit access token/room metadata
-    webhook.ts           # signed end-of-call webhook from the worker
-  whatsapp/
-    send-welcome.ts      # WhatsApp helper endpoint
-
-services/
-  voice-agent/
-    agent.py             # LiveKit Agents worker
-    prompt.ro.md         # Romanian system prompt for Andra
-    Dockerfile
-    requirements.txt
-    fly.toml
-    README.md
-
-client/src/
-  pages/
-    Programare.tsx       # public lead-capture page
-    Apel.tsx             # /apel/:token call page
-  components/
-    leads/LeadForm.tsx
-    MicTest.tsx
-    SpeakerTest.tsx
-
-supabase/migrations/
-  0006_ai_call_leads.sql
-  0025_webhook_idempotency.sql
-```
-
-## Data Model
-
-`0006_ai_call_leads.sql` defines the lead-call tables:
-
-- `fotbal.leads`: parent/child lead details, trainer routing, status.
-- `fotbal.lead_calls`: one row per voice call, including transcript, summary,
-  intent, next steps, and `vendor_call_id`.
-- `fotbal.lead_notifications`: outbox rows for trainer/boss in-app, push,
-  email, and WhatsApp fanout.
-
-`0025_webhook_idempotency.sql` adds a unique partial index on
-`(vendor, vendor_call_id)` so retried end-of-call webhooks do not duplicate
-trainer notifications. If an older worker omits `vendor_call_id`, the webhook
-uses a SHA-256 hash of the signed raw payload as a fallback id.
-
-## API Contracts
-
-- `POST /api/lead/create`: validates lead form input, normalizes phone number,
-  assigns trainer/CC, inserts the lead, signs the call link, and sends WhatsApp.
-- `POST /api/voice/start`: verifies the call token, creates/updates LiveKit room
-  metadata, includes `roomConfig.agents` for auto-dispatch, and returns a parent
-  join token.
-- `POST /api/voice/webhook`: verifies HMAC signature + timestamp, upserts one
-  call result by `vendor_call_id`, marks the lead routed, inserts
-  `lead_notifications`, and sends best-effort WhatsApp summaries.
-
-The webhook expects these headers:
-
-```text
-X-Pipecat-Timestamp: <unix epoch milliseconds>
-X-Pipecat-Signature: hex HMAC-SHA256(PIPECAT_WEBHOOK_SECRET, "{timestamp}.{raw_body}")
-```
-
-## Voice Worker Runtime
-
-The worker reads LiveKit room metadata set by `api/voice/start.ts`:
-
-```json
-{
-  "leadId": "uuid",
-  "callId": "lead-...",
-  "parentName": "Maria",
-  "childName": "Alex",
-  "childAge": 8,
-  "isExistingParent": false,
-  "previousCallsCount": 0
-}
-```
-
-At startup it connects to LiveKit using `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and
-`LIVEKIT_API_SECRET`. For each dispatched call it creates a LiveKit Agents
-session:
-
-- Deepgram STT: `LIVEKIT_STT_MODEL`, `LIVEKIT_STT_LANGUAGE`,
-  `LIVEKIT_STT_ENDPOINTING_MS`.
-- LLM: `LIVEKIT_LLM_BASE_URL`, `LIVEKIT_LLM_API_KEY` or `GEMINI_API_KEY`, and
-  `LIVEKIT_LLM_MODEL`.
-- ElevenLabs TTS: `ELEVENLABS_API_KEY` or `ELEVEN_API_KEY`,
-  `LIVEKIT_TTS_MODEL`, `LIVEKIT_TTS_VOICE`.
-
-The prompt in `services/voice-agent/prompt.ro.md` tells Andra to:
-
-- introduce the recording/transcription notice;
-- greet parent and child by name;
-- ask short Romanian questions about interest, schedule, and needs;
-- avoid repeating the "new or already enrolled" branch for returning parents;
-- confirm next steps before ending the call.
-
-## Required Production Environment
-
-Vercel needs:
-
-```text
-VITE_SUPABASE_URL
-VITE_SUPABASE_ANON_KEY
-SUPABASE_URL
-SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE
-VITE_APP_URL
-PUBLIC_BASE_URL
-LEAD_LINK_SIGNING_SECRET
-LIVEKIT_URL
-LIVEKIT_API_KEY
-LIVEKIT_API_SECRET
-LIVEKIT_AGENT_NAME
-PIPECAT_WEBHOOK_SECRET
-EVOLUTION_API_URL
-EVOLUTION_API_KEY
-EVOLUTION_API_INSTANCE
-CRON_SECRET
-VAPID_PUBLIC_KEY
-VAPID_PRIVATE_KEY
-VAPID_SUBJECT
-```
-
-Fly needs:
-
-```text
-LIVEKIT_URL
-LIVEKIT_API_KEY
-LIVEKIT_API_SECRET
-DEEPGRAM_API_KEY
-LIVEKIT_LLM_BASE_URL
-LIVEKIT_LLM_API_KEY
-LIVEKIT_LLM_MODEL
-GEMINI_API_KEY
-ELEVENLABS_API_KEY
-ELEVEN_API_KEY
-PIPECAT_WEBHOOK_SECRET
-API_BASE
-MAX_CALL_SECONDS
-```
-
-See `.env.example`, `docs/OPERATIONALIZE.md`, and
-`services/voice-agent/README.md` for the full deployment checklist.
-
-## Privacy And Legal
-
-- Parent must accept GDPR consent on the lead form.
-- The call opening states that the conversation is recorded/transcribed for
-  service quality.
-- Trainer/admin access is controlled by Supabase RLS and service-role-only
-  server APIs.
-- Production retention/deletion policy still needs a live operational owner
-  before launch.
-
-## Cost Shape
-
-There is no PSTN per-minute charge in the current WebRTC flow. Marginal cost is
-provider usage for Deepgram, the configured OpenAI-compatible LLM endpoint,
-ElevenLabs, Evolution/WhatsApp hosting, Supabase, Vercel, and the always-on Fly
-worker. At launch readiness, validate those quotas and billing caps in the live
-provider dashboards.
+- The parent accepts GDPR consent on the lead form, and the agent's first
+  message says the call is recorded.
+- Transcripts are stored in `lead_calls` and in the ElevenLabs workspace; set
+  a retention period in the ElevenLabs agent's privacy settings to match the
+  academy's policy.

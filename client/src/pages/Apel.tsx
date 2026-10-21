@@ -1,48 +1,31 @@
 /**
- * /apel/:token — entry page for the AI voice call.
+ * /apel/:token — entry page for the AI interview call.
  *
  * The token is a signed lead identifier produced by /api/lead/create. We
  * POST it to /api/voice/start which:
  *   - verifies the token + resolves the lead,
- *   - creates a LiveKit room,
- *   - tells the Pipecat agent to join with the lead context,
- *   - returns a short-lived LiveKit JWT for the parent's browser.
+ *   - returns a signed ElevenLabs Conversational AI URL for the interview
+ *     agent (Andra) plus the call's dynamic variables.
  *
- * The page then renders a LiveKitRoom that the parent connects to with
- * their microphone. The Pipecat agent speaks; the parent answers; on
- * disconnect the agent posts the transcript to /api/voice/webhook.
+ * The page then opens the conversation in the browser with the parent's
+ * microphone. When it ends, ElevenLabs posts the transcript + analysis to
+ * /api/voice/elevenlabs-webhook, which notifies the trainers.
  */
-import "@livekit/components-styles";
-import {
-  LiveKitRoom,
-  RoomAudioRenderer,
-  useConnectionState,
-  useRoomContext,
-  useTracks,
-  useVoiceAssistant,
-} from "@livekit/components-react";
-import { ConnectionState, Track } from "livekit-client";
+import { ConversationProvider, useConversation } from "@elevenlabs/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRoute } from "wouter";
 import { CheckCircle2 } from "lucide-react";
 import StepIndicator from "@/components/leads/StepIndicator";
 import MicTest from "@/components/MicTest";
 import SpeakerTest from "@/components/SpeakerTest";
+import { ELEVENLABS_AUDIO_ASSETS } from "@/lib/elevenlabs-audio";
 
 type SessionData = {
   ok: true;
   leadId: string;
-  livekitUrl: string;
-  room: string;
-  token: string;
-  // New auto-dispatch shape (current). LiveKit Cloud dispatches the named
-  // agent when the parent joins — no separate spawn step on our side.
-  agentDispatch?: { mode: "livekit-auto-dispatch"; agentName: string };
-  // Legacy fields kept for back-compat with older deploys; safe to drop
-  // once /api/voice/start.ts has been on auto-dispatch for a while.
-  agentSpawned?: boolean;
-  agentReason?: string | null;
+  signedUrl: string;
+  dynamicVariables: Record<string, string | number | boolean>;
 };
 
 type Phase = "idle" | "starting" | "asking_mic" | "live" | "ended" | "error";
@@ -86,9 +69,12 @@ export default function Apel() {
 
       if (!r.ok || !("ok" in j)) {
         const errCode = "error" in j ? j.error : `HTTP ${r.status}`;
-        if (errCode === "voice_not_configured") {
+        if (
+          errCode === "voice_not_configured" ||
+          errCode === "voice_unavailable"
+        ) {
           setError(
-            "Apelul live nu este încă disponibil. Antrenorul te va contacta direct pe WhatsApp."
+            "Apelul live nu este disponibil acum. Antrenorul te va contacta direct pe WhatsApp."
           );
         } else if (errCode === "invalid_token" || errCode === "missing_token") {
           setError(
@@ -96,6 +82,10 @@ export default function Apel() {
           );
         } else if (errCode === "lead_not_found") {
           setError("Nu am găsit cererea ta. Reia procesul din /programare.");
+        } else if (errCode === "rate_limited") {
+          setError(
+            "Ai încercat de prea multe ori într-o oră. Încearcă din nou puțin mai târziu."
+          );
         } else {
           setError(`Eroare la conectare (${errCode}).`);
         }
@@ -119,34 +109,16 @@ export default function Apel() {
         </div>
 
         {phase === "live" && session ? (
-          <LiveKitRoom
-            serverUrl={session.livekitUrl}
-            token={session.token}
-            audio
-            video={false}
-            connect
-            onDisconnected={() =>
-              setPhase(p => (p === "error" ? "error" : "ended"))
-            }
-            onError={e => {
-              setError(e.message || "Conexiune întreruptă.");
-              setPhase("error");
-            }}
-            className="contents"
-          >
+          <ConversationProvider>
             <CallStage
-              autoDispatch={Boolean(session.agentDispatch)}
-              legacySpawnFailed={
-                session.agentSpawned === false && !session.agentDispatch
-              }
-              onAgentNoShow={() => {
-                setError(
-                  "Andra nu a putut intra în apel. Antrenorul tău va primi notificare și te va contacta direct. Mulțumim pentru încercare."
-                );
+              session={session}
+              onEnded={() => setPhase(p => (p === "error" ? "error" : "ended"))}
+              onFailed={message => {
+                setError(message);
                 setPhase("error");
               }}
             />
-          </LiveKitRoom>
+          </ConversationProvider>
         ) : (
           <CallShell phase={phase} error={error} onStart={start} />
         )}
@@ -328,141 +300,115 @@ function PreflightChecklist({
 }
 
 /**
- * Renders inside <LiveKitRoom>. Watches connection + agent state so the UI
- * can show "the agent is here, speak" or "connecting".
+ * Runs the ElevenLabs conversation and shows who is talking.
  */
 function CallStage({
-  autoDispatch,
-  legacySpawnFailed,
-  onAgentNoShow,
+  session,
+  onEnded,
+  onFailed,
 }: {
-  autoDispatch: boolean;
-  legacySpawnFailed: boolean;
-  onAgentNoShow: () => void;
+  session: SessionData;
+  onEnded: () => void;
+  onFailed: (message: string) => void;
 }) {
-  const connection = useConnectionState();
-  const room = useRoomContext();
-  const { state: agentState } = useVoiceAssistant();
-  const tracks = useTracks([Track.Source.Microphone], {
-    onlySubscribed: false,
-  });
-  const agentTrack = tracks.find(
-    t =>
-      t.participant.isAgent === true ||
-      t.participant.identity === "andra-agent" ||
-      t.participant.identity?.startsWith("agent-")
-  );
-
   const [speakerMuted, setSpeakerMuted] = useState(false);
   const [ending, setEnding] = useState(false);
-  // Latches true the first time Andra joins the room; lets us detect when
-  // she leaves (hard-cap, finish_call tool, crash) so we can also disconnect
-  // the parent's side instead of leaving them on a stale "Vorbim acum" UI.
-  const [agentSeen, setAgentSeen] = useState(false);
+  const failedRef = useRef(false);
+  const fail = (message: string) => {
+    if (failedRef.current) return;
+    failedRef.current = true;
+    onFailed(message);
+  };
 
-  // Mirrors the agent's MAX_CALL_SECONDS env var (currently 180s = 3 min)
-  // — the worker hard-caps server-side regardless, so this is purely for
-  // the UI countdown. If the two ever drift, the server wins.
+  const conversation = useConversation({
+    onDisconnect: () => {
+      if (!failedRef.current) onEnded();
+    },
+    onError: message => {
+      fail(message ? `Conexiune întreruptă: ${message}` : "Conexiune întreruptă.");
+    },
+  });
+  const connected = conversation.status === "connected";
+  const agentSpeaking = connected && conversation.isSpeaking;
+  const agentListening = connected && !conversation.isSpeaking;
+
+  // Mirrors the agent's 3-minute script; ElevenLabs enforces the real cap
+  // (max_duration_seconds in services/elevenlabs-agent/agent.json).
   const CALL_DURATION_S = 180;
+  const WRAP_UP_AT_S = 150;
 
-  // End-call handler: politely ask Andra to close instead of yanking the
-  // call. We send a `user_end_call_request` data message; the agent
-  // responds with a short motivational close (see agent.py `graceful_close`)
-  // then disconnects the room itself. The parent's <LiveKitRoom>
-  // `onDisconnected` then flips Apel to the `ended` phase.
-  //
-  // A safety net forces a local disconnect after 12s in case the data
-  // message can't reach the agent (network issue, agent already gone).
-  const endCall = async () => {
+  // Start once per session; end the call if the parent leaves the page.
+  const conversationRef = useRef(conversation);
+  conversationRef.current = conversation;
+  useEffect(() => {
+    conversationRef.current.startSession({
+      signedUrl: session.signedUrl,
+      connectionType: "websocket",
+      dynamicVariables: session.dynamicVariables,
+      ...ELEVENLABS_AUDIO_ASSETS,
+    });
+    return () => conversationRef.current.endSession();
+  }, [session]);
+
+  // If Andra hasn't connected within 20s, stop waiting.
+  useEffect(() => {
+    if (connected) return;
+    const t = window.setTimeout(() => {
+      fail(
+        "Andra nu a putut intra în apel. Antrenorul tău va primi notificare și te va contacta direct. Mulțumim pentru încercare."
+      );
+      conversationRef.current.endSession();
+    }, 20_000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected]);
+
+  // Nudge Andra to wrap up before the cap so the call ends with her closing
+  // line instead of being cut off.
+  useEffect(() => {
+    if (!connected) return;
+    const t = window.setTimeout(() => {
+      conversationRef.current.sendContextualUpdate(
+        "Au trecut aproape trei minute. Încheie acum conversația politicos, cu formula de închidere, apoi închide apelul."
+      );
+    }, WRAP_UP_AT_S * 1000);
+    return () => window.clearTimeout(t);
+  }, [connected]);
+
+  useEffect(() => {
+    conversationRef.current.setVolume({ volume: speakerMuted ? 0 : 1 });
+  }, [speakerMuted]);
+
+  // End-call handler: ask Andra to say goodbye instead of cutting her off.
+  // She closes and ends the call herself; a safety net ends it locally after
+  // 12s in case that doesn't happen.
+  const endCall = () => {
     if (ending) return;
     setEnding(true);
     try {
-      const payload = new TextEncoder().encode(
-        JSON.stringify({ event: "user_end_call_request" })
+      conversation.sendUserMessage(
+        "[Părintele a apăsat butonul de încheiere a apelului.]"
       );
-      await room.localParticipant.publishData(payload, { reliable: true });
     } catch {
-      // If we can't send the data message (no connection / no remote
-      // participants), fall back to an immediate local disconnect.
-      try {
-        await room.disconnect();
-      } catch {
-        // disconnect throws if already disconnecting — onDisconnected fires anyway
-      }
+      conversation.endSession();
       return;
     }
-    // Safety net for the rare case the agent doesn't disconnect itself.
-    window.setTimeout(() => {
-      room.disconnect().catch(() => {});
-    }, 12000);
+    window.setTimeout(() => conversationRef.current.endSession(), 12_000);
   };
 
-  useEffect(() => {
-    if (agentTrack && !agentSeen) setAgentSeen(true);
-  }, [agentTrack, agentSeen]);
-
-  // Once we've connected to LiveKit and 20s have passed without the agent
-  // track appearing, surface a clean error and disconnect the room so the
-  // parent isn't left waiting forever on auto-dispatch failures.
-  useEffect(() => {
-    if (connection !== ConnectionState.Connected) return;
-    if (agentSeen) return;
-    const t = window.setTimeout(() => {
-      onAgentNoShow();
-      room.disconnect().catch(() => {});
-    }, 20_000);
-    return () => window.clearTimeout(t);
-  }, [connection, agentSeen, room, onAgentNoShow]);
-
-  // Auto-disconnect when Andra leaves the room. The server-side hard-cap
-  // disconnects only the agent participant; without this hook the parent
-  // would be stuck on "Așteptăm consilierul Andra..." indefinitely with
-  // their mic still hot. 1.5s grace covers transient track drops.
-  useEffect(() => {
-    if (!agentSeen) return;
-    if (agentTrack) return;
-    if (connection !== ConnectionState.Connected) return;
-    const t = window.setTimeout(() => {
-      room.disconnect().catch(() => {});
-    }, 1500);
-    return () => window.clearTimeout(t);
-  }, [agentSeen, agentTrack, connection, room]);
-
-  const agentSpeaking = agentState === "speaking";
-  const agentListening = agentState === "listening";
-
-  const statusLine =
-    connection !== ConnectionState.Connected
-      ? "Se conectează..."
-      : legacySpawnFailed
-        ? "Consilierul nu a putut fi pornit — antrenorul te va contacta direct."
-        : agentSpeaking
-          ? "Andra vorbește..."
-          : agentListening
-            ? "Andra te ascultă. Răspunde firesc."
-            : agentState === "thinking"
-              ? "Se gândește..."
-              : agentTrack
-                ? "Andra este conectată."
-                : autoDispatch
-                  ? "Așteptăm consilierul Andra să intre în apel..."
-                  : "Se așteaptă Andra...";
+  const statusLine = !connected
+    ? "Așteptăm consilierul Andra să intre în apel..."
+    : agentSpeaking
+      ? "Andra vorbește..."
+      : "Andra te ascultă. Răspunde firesc.";
 
   return (
     <div>
-      {/* Controls audio output volume — speakerMuted=true sets volume=0. */}
-      <RoomAudioRenderer volume={speakerMuted ? 0 : 1} />
-
       <div className="flex items-center justify-center gap-4 mb-6 flex-wrap">
         <h1 className="font-heading text-3xl sm:text-4xl uppercase leading-[0.95]">
           <span className="text-gradient-cyan">Vorbim acum</span>
         </h1>
-        <CallCountdown
-          durationSeconds={CALL_DURATION_S}
-          running={
-            connection === ConnectionState.Connected && Boolean(agentTrack)
-          }
-        />
+        <CallCountdown durationSeconds={CALL_DURATION_S} running={connected} />
       </div>
 
       {/* Two cards facing each other across the gap:
@@ -477,7 +423,7 @@ function CallStage({
           src="/black-white.png"
           fallbackInitial="A"
           accent="cyan"
-          active={agentSpeaking || agentState === "thinking"}
+          active={agentSpeaking}
         />
         <ParticipantCard
           name="Tu"
@@ -491,16 +437,8 @@ function CallStage({
         />
 
         <ConversationBall
-          target={
-            agentSpeaking || agentState === "thinking"
-              ? "andra"
-              : agentListening
-                ? "user"
-                : "idle"
-          }
-          visible={
-            connection === ConnectionState.Connected && Boolean(agentTrack)
-          }
+          target={agentSpeaking ? "andra" : agentListening ? "user" : "idle"}
+          visible={connected}
         />
       </div>
 
@@ -544,7 +482,7 @@ function CallStage({
         <button
           type="button"
           onClick={endCall}
-          disabled={ending || connection !== ConnectionState.Connected}
+          disabled={ending || !connected}
           aria-label="Încheie apelul"
           className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading text-xs uppercase tracking-[0.16em] bg-red-500/15 border border-red-400/50 text-red-200 hover:bg-red-500/25 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -554,9 +492,7 @@ function CallStage({
       </div>
 
       <p className="mt-6 text-[10px] uppercase tracking-[0.22em] text-white/35">
-        {connection === ConnectionState.Connected
-          ? "În direct"
-          : "Se conectează"}
+        {connected ? "În direct" : "Se conectează"}
       </p>
     </div>
   );
@@ -917,4 +853,3 @@ function EndCallIcon() {
 function _unused(phase: Phase) {
   return phase;
 }
-void useEffect; // keep import warm for future extensions
