@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Create or update the AI interview agent (Andra) on ElevenLabs from
  * services/elevenlabs-agent/agent.json + prompt.ro.md, and wire its post-call
