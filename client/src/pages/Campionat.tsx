@@ -4,8 +4,8 @@
  *
  * Reads:
  *   - fotbal.trainers (with profile name) for each group
- *   - public_schedule(kind='match') + public_match_results (migration 0036):
- *     visitors can't read schedule_events / match_results directly (RLS)
+ *   - public_championship (migration 0038): every approved match with its
+ *     score; visitors can't read schedule_events / match_results (RLS)
  */
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,32 +16,20 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { fetchTrainerNames } from "@/lib/trainer-names";
+import { startPublicLoad } from "@/lib/public-load";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
+import {
+  buildChampionshipGroups,
+  type ChampionshipRow,
+  type GroupBlock,
+  type GroupSeed,
+  type MatchRow,
+} from "@/lib/championship";
+import LoadErrorState from "@/components/LoadErrorState";
 import { TRAINERS } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
 
-interface MatchRow {
-  event_id: string;
-  title: string;
-  starts_at: string;
-  location: string | null;
-  opponent: string | null;
-  our_score: number | null;
-  opponent_score: number | null;
-  recap_md: string | null;
-}
-
-interface GroupBlock {
-  trainerId: string;
-  trainerName: string;
-  ageMin: number;
-  ageMax: number;
-  matches: MatchRow[];
-  w: number;
-  d: number;
-  l: number;
-  gf: number;
-  ga: number;
-}
+type ChampionshipData = { groups: GroupBlock[]; fallback: boolean };
 
 const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "2-digit",
@@ -54,152 +42,62 @@ export default function Campionat() {
   const [groups, setGroups] = useState<GroupBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-
-        if (!isSupabaseConfigured) {
-                setUsingFallback(true);
-                const fallbackGroups: GroupBlock[] = TRAINERS.map((t) => ({
-                          trainerId: t.id,
-                          trainerName: t.name,
-                          ageMin: t.ageMin,
-                          ageMax: t.ageMax,
-                          matches: [],
-                          w: 0, d: 0, l: 0, gf: 0, ga: 0,
-                }));
-                setGroups(fallbackGroups);
-                setLoading(false);
-                return;
-        }
-
-        const timeoutId = setTimeout(() => {
-                if (cancelled) return;
-          setUsingFallback(true);
-          setGroups(TRAINERS.map((t) => ({ trainerId: t.id, trainerName: t.name, ageMin: t.ageMin, ageMax: t.ageMax, matches: [], w: 0, d: 0, l: 0, gf: 0, ga: 0 })));
-                setLoading(false);
-        }, 6000);
-    void (async () => {
-      const [trainersRes, eventsRes, resultsRes, trainerNames] = await Promise.all([
-        supabase
-          .from("trainers")
-          .select(
-            "id, age_min, age_max, profile:profiles!trainers_profile_id_fkey(full_name)",
-          )
-          .eq("active", true)
-          .order("display_order", { ascending: true }),
-        supabase.rpc("public_schedule", {
-          p_from: "-infinity",
-          p_to: "infinity",
-          p_kind: "match",
-        }),
-        supabase.rpc("public_match_results", { p_limit: 500 }),
-        fetchTrainerNames(),
-      ]);
-      type DbScheduleRow = {
-        id: string;
-        trainer_id: string | null;
-        title: string;
-        starts_at: string;
-        location: string | null;
-        opponent: string | null;
-      };
-      type DbResult = {
-        event_id: string;
-        our_score: number;
-        opponent_score: number;
-        recap_md: string | null;
-      };
-      const trainers = trainersRes.data;
-      // Newest first, with each match's result attached by event id.
-      const resultByEvent = new Map(
-        ((resultsRes.data ?? []) as DbResult[]).map((r) => [r.event_id, r])
-      );
-      const events: DbEvent[] = ((eventsRes.data ?? []) as DbScheduleRow[])
-        .map((e) => {
-          const r = resultByEvent.get(e.id);
-          return {
-            ...e,
-            results: r
-              ? [{ our_score: r.our_score, opponent_score: r.opponent_score, recap_md: r.recap_md }]
-              : null,
-          };
-        })
-        .sort((a, b) => b.starts_at.localeCompare(a.starts_at));
-
-      if (cancelled) return;
-
-      type DbTrainer = { id: string; age_min: number; age_max: number; profile: { full_name: string } | null };
-      type DbEvent = {
-        id: string;
-        trainer_id: string | null;
-        title: string;
-        starts_at: string;
-        location: string | null;
-        opponent: string | null;
-        results: { our_score: number; opponent_score: number; recap_md: string | null }[] | null;
-      };
-
-      const trainerList = ((trainers as DbTrainer[] | null) ?? []).map((t) => ({
-        trainerId: t.id,
-        trainerName: trainerNames.get(t.id) ?? t.profile?.full_name ?? "Antrenor",
-        ageMin: t.age_min,
-        ageMax: t.age_max,
-      }));
-
-      // Fallback to static TRAINERS when DB is empty so the page is never blank.
-      const fallback = trainerList.length === 0;
-      setUsingFallback(fallback);
-      const seeds = fallback
-        ? TRAINERS.map((t) => ({
-            trainerId: t.id,
-            trainerName: t.name,
-            ageMin: t.ageMin,
-            ageMax: t.ageMax,
-          }))
-        : trainerList;
-
-      const blocks: GroupBlock[] = seeds.map((s) => {
-        const ms: MatchRow[] = events
-          .filter((e) => e.trainer_id === s.trainerId)
-          .map((e) => {
-            const r = e.results?.[0];
-            return {
-              event_id: e.id,
-              title: e.title,
-              starts_at: e.starts_at,
-              location: e.location,
-              opponent: e.opponent,
-              our_score: r?.our_score ?? null,
-              opponent_score: r?.opponent_score ?? null,
-              recap_md: r?.recap_md ?? null,
-            };
-          });
-        let w = 0;
-        let d = 0;
-        let l = 0;
-        let gf = 0;
-        let ga = 0;
-        for (const m of ms) {
-          if (m.our_score == null || m.opponent_score == null) continue;
-          gf += m.our_score;
-          ga += m.opponent_score;
-          if (m.our_score > m.opponent_score) w++;
-          else if (m.our_score === m.opponent_score) d++;
-          else l++;
-        }
-        return { ...s, matches: ms, w, d, l, gf, ga };
-      });
-
-      setGroups(blocks);
-              clearTimeout(timeoutId);
+    if (!isSupabaseConfigured) {
+      setLoadFailed(true);
       setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-            clearTimeout(timeoutId);
-    };
+      return;
+    }
+    return startPublicLoad<ChampionshipData>(
+      async () => {
+        const [trainersRes, matchesRes, trainerNames] = await Promise.all([
+          supabase
+            .from("trainers")
+            .select("id, age_min, age_max, profile:profiles!trainers_profile_id_fkey(full_name)")
+            .eq("active", true)
+            .order("display_order", { ascending: true }),
+          // Visitors can't read schedule_events / match_results (RLS);
+          // public_championship (migration 0038) returns every approved match
+          // with its score. Page through it so totals use the full history.
+          fetchAllPages<ChampionshipRow>((from, to) =>
+            supabase.rpc("public_championship").range(from, to)
+          ),
+          fetchTrainerNames(),
+        ]);
+        const error = trainersRes.error ?? matchesRes.error;
+        if (error) return { data: null, error };
+
+        type DbTrainer = { id: string; age_min: number; age_max: number; profile: { full_name: string } | null };
+        const trainerList: GroupSeed[] = ((trainersRes.data as DbTrainer[] | null) ?? []).map((t) => ({
+          trainerId: t.id,
+          trainerName: trainerNames.get(t.id) ?? t.profile?.full_name ?? "Antrenor",
+          ageMin: t.age_min,
+          ageMax: t.age_max,
+        }));
+        // No active trainers in the DB yet: list the static roster so the page
+        // isn't blank (marked with the demo banner).
+        const fallback = trainerList.length === 0;
+        const seeds = fallback
+          ? TRAINERS.map((t) => ({ trainerId: t.id, trainerName: t.name, ageMin: t.ageMin, ageMax: t.ageMax }))
+          : trainerList;
+        return {
+          data: [{ groups: buildChampionshipGroups(seeds, matchesRes.data), fallback }],
+          error: null,
+        };
+      },
+      (state) => {
+        if (state.status === "loading") return;
+        setLoadFailed(state.status === "failed");
+        if (state.status === "ready") {
+          setGroups(state.rows[0]?.groups ?? []);
+          setUsingFallback(state.rows[0]?.fallback ?? false);
+        }
+        setLoading(false);
+      }
+    );
   }, []);
 
   return (
@@ -209,6 +107,7 @@ export default function Campionat() {
       pageDescription="Câștigate, egaluri, pierdute. Toate meciurile oficiale ale grupelor academiei."
     >
       {usingFallback && <DemoBanner />}
+      {!loading && loadFailed && <LoadErrorState what="rezultatele grupelor" />}
 
       {loading && (
         <div className="space-y-3">
@@ -291,7 +190,7 @@ export default function Campionat() {
         })}
       </div>
 
-      {groups.length === 0 && !loading && (
+      {groups.length === 0 && !loading && !loadFailed && (
         <EmptyState
           icon={<ListOrdered className="size-6" />}
           title="Nu sunt grupe active"
