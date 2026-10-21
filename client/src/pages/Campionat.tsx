@@ -4,8 +4,9 @@
  *
  * Reads:
  *   - fotbal.trainers (with profile name) for each group
- *   - public_championship (migration 0038): every approved match with its
- *     score; visitors can't read schedule_events / match_results (RLS)
+ *   - public_championship (migration 0039): every approved match with its
+ *     score, as one snapshot; visitors can't read schedule_events /
+ *     match_results (RLS)
  */
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,7 +18,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { fetchTrainerNames } from "@/lib/trainer-names";
 import { startPublicLoad } from "@/lib/public-load";
-import { fetchAllPages } from "@/lib/fetch-all-pages";
 import {
   buildChampionshipGroups,
   type ChampionshipRow,
@@ -60,11 +60,10 @@ export default function Campionat() {
             .eq("active", true)
             .order("display_order", { ascending: true }),
           // Visitors can't read schedule_events / match_results (RLS);
-          // public_championship (migration 0038) returns every approved match
-          // with its score. Page through it so totals use the full history.
-          fetchAllPages<ChampionshipRow>((from, to) =>
-            supabase.rpc("public_championship").range(from, to)
-          ),
+          // public_championship (migration 0039) returns every approved match
+          // with its score as one JSON snapshot, so totals use the full,
+          // consistent history.
+          supabase.rpc("public_championship"),
           fetchTrainerNames(),
         ]);
         const error = trainersRes.error ?? matchesRes.error;
@@ -84,7 +83,15 @@ export default function Campionat() {
           ? TRAINERS.map((t) => ({ trainerId: t.id, trainerName: t.name, ageMin: t.ageMin, ageMax: t.ageMax }))
           : trainerList;
         return {
-          data: [{ groups: buildChampionshipGroups(seeds, matchesRes.data), fallback }],
+          data: [
+            {
+              groups: buildChampionshipGroups(
+                seeds,
+                (matchesRes.data ?? []) as ChampionshipRow[]
+              ),
+              fallback,
+            },
+          ],
           error: null,
         };
       },

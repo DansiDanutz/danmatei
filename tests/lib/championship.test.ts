@@ -1,63 +1,12 @@
 /**
- * /campionat shows per-group totals, so it must read the complete match
- * history (no silent truncation past one response) and count every scored
- * match.
+ * /campionat shows per-group totals built from the complete match history,
+ * so every scored match must be counted in its own group.
  */
 import { describe, expect, it } from "vitest";
-import { fetchAllPages } from "../../client/src/lib/fetch-all-pages";
 import {
   buildChampionshipGroups,
   type ChampionshipRow,
 } from "../../client/src/lib/championship";
-
-const pager = (total: number, failAtFrom?: number) => {
-  const calls: [number, number][] = [];
-  const fetchPage = async (from: number, to: number) => {
-    calls.push([from, to]);
-    if (from === failAtFrom) return { data: null, error: { message: "boom" } };
-    const end = Math.min(to + 1, total);
-    const data = Array.from({ length: Math.max(0, end - from) }, (_, i) => from + i);
-    return { data, error: null };
-  };
-  return { calls, fetchPage };
-};
-
-describe("fetchAllPages", () => {
-  it("reads past the per-response cap until a short page", async () => {
-    const { calls, fetchPage } = pager(2500);
-    const { data, error } = await fetchAllPages(fetchPage, 1000);
-    expect(error).toBeNull();
-    expect(data).toHaveLength(2500);
-    expect(data[2499]).toBe(2499);
-    expect(calls).toEqual([
-      [0, 999],
-      [1000, 1999],
-      [2000, 2999],
-    ]);
-  });
-
-  it("asks once more when the total is an exact multiple of the page size", async () => {
-    const { calls, fetchPage } = pager(2000);
-    const { data, error } = await fetchAllPages(fetchPage, 1000);
-    expect(error).toBeNull();
-    expect(data).toHaveLength(2000);
-    expect(calls).toHaveLength(3);
-  });
-
-  it("handles an empty result", async () => {
-    const { data, error } = await fetchAllPages(pager(0).fetchPage, 1000);
-    expect(error).toBeNull();
-    expect(data).toEqual([]);
-  });
-
-  it("stops and reports an error from a later page", async () => {
-    const { calls, fetchPage } = pager(2500, 1000);
-    const { data, error } = await fetchAllPages(fetchPage, 1000);
-    expect(error).toEqual({ message: "boom" });
-    expect(data).toHaveLength(1000);
-    expect(calls).toHaveLength(2);
-  });
-});
 
 const row = (over: Partial<ChampionshipRow>): ChampionshipRow => ({
   id: "m",
