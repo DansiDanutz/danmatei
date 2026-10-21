@@ -54,20 +54,38 @@ const locallyMitigated = new Set([
   "GHSA-w3rx-r6r6-pgpr",
 ]);
 
-// Advisories with no upstream release, reachable only through the Expo CLI
-// developer toolchain (never bundled into the web app or the mobile runtime).
-// Accepted only while every finding path stays inside that toolchain.
+// Advisories accepted only while every finding path starts with one of the
+// listed prefixes. None reaches the web app or /api; a new path fails the gate.
 const toolchainOnly = new Map([
-  ["GHSA-86w9-cpqp-85rv", "apps__mobile>expo>@expo/cli>"], // node-forge
-  ["GHSA-vfj7-8cjw-p6xm", "apps__mobile>expo>@expo/cli>"], // braces
+  // node-forge, braces: no upstream release; Expo CLI developer toolchain.
+  ["GHSA-86w9-cpqp-85rv", ["apps__mobile>expo>@expo/cli>"]],
+  ["GHSA-vfj7-8cjw-p6xm", ["apps__mobile>expo>@expo/cli>"]],
+  // sprintf-js: no upstream release; hyperframes video-render CLI only.
+  [
+    "GHSA-hp3w-g68c-fv3c",
+    [".>hyperframes>", "apps__mobile>hyperframes>"],
+  ],
+  // decode-uri-component: the fix (>=0.5) is ESM-only and breaks the
+  // CommonJS query-string@7 that expo-router requires. Mobile app only.
+  ["GHSA-vcc3-ghjq-m6fr", ["apps__mobile>expo-router>query-string>"]],
+  // postcss-selector-parser: the fix (>=7.1.6) is a major that Tailwind 3 /
+  // NativeWind don't support. Mobile build-time CSS only.
+  [
+    "GHSA-rj75-hqrm-r3gf",
+    [
+      "apps__mobile>tailwindcss>",
+      "apps__mobile>nativewind>",
+      "apps__mobile>react-native-css-interop>",
+    ],
+  ],
 ]);
 const isToolchainOnly = (advisory) => {
-  const prefix = toolchainOnly.get(advisory.github_advisory_id);
+  const prefixes = toolchainOnly.get(advisory.github_advisory_id);
   const paths = (advisory.findings || []).flatMap((f) => f.paths || []);
   return (
-    Boolean(prefix) &&
+    Boolean(prefixes) &&
     paths.length > 0 &&
-    paths.every((path) => path.startsWith(prefix))
+    paths.every((path) => prefixes.some((prefix) => path.startsWith(prefix)))
   );
 };
 
