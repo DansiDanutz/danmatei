@@ -19,7 +19,7 @@ import {
 import { verifyHmac } from "../_lib/webhook-hmac.js";
 
 // Disable Vercel's default JSON body parser — we need the raw request bytes
-// verbatim to HMAC them. Matches the pattern in api/voice/webhook.ts.
+// verbatim to HMAC them. Matches the pattern in api/voice/elevenlabs-webhook.ts.
 export const config = { api: { bodyParser: false } };
 
 const MAX_BODY_BYTES = 256 * 1024; // 256 KiB
@@ -135,7 +135,7 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
   if (!verifyResult.ok) {
     // The original returned a capitalised "Invalid signature" for bad
     // signatures specifically — keep that for back-compat. Map the other
-    // reasons to the same shape used by voice/webhook.
+    // reasons to the same shape used by voice/elevenlabs-webhook.
     const error =
       verifyResult.reason === "invalid_signature"
         ? "Invalid signature"

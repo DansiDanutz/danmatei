@@ -9,7 +9,7 @@
  *   3. The mic is producing sound (live RMS)
  *
  * Granting here doesn't double-prompt later — the same permission
- * propagates to the LiveKit room. We release the stream on unmount so
+ * propagates to the call. We release the stream on unmount so
  * the mic LED turns off if the parent navigates away without starting
  * the call.
  *

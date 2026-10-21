@@ -2,11 +2,12 @@
 
 Step-by-step deploy guide. End state: a real parent submits `/programare`,
 gets a WhatsApp link with the agent within seconds, taps it, talks to
-**Andra** (Romanian voice agent) for 3-5 min, and the transcript lands
+**Andra** (Romanian voice agent) for up to 3 minutes, and the transcript lands
 in `/antrenor → Inbox AI` for the right trainer.
 
-The media/agent pipeline is self-hostable on LiveKit, while speech/LLM/TTS
-providers are called directly (Deepgram, OpenAI-compatible LLM, ElevenLabs).
+The voice part runs on **ElevenLabs Conversational AI** (no server of our
+own). The only self-hosted piece is the WhatsApp gateway (Evolution API).
+See `docs/AI_CALL_FLOW.md` for how the pieces fit.
 
 ---
 
@@ -14,9 +15,11 @@ providers are called directly (Deepgram, OpenAI-compatible LLM, ElevenLabs).
 
 - A Supabase project (free tier is fine)
 - A Vercel project (already at `www.danmatei.ro`)
-- One small host that can run Docker, or a Fly.io app for the voice worker.
-- A domain + DNS A record if you self-host LiveKit/WhatsApp (so LiveKit can use
-  `wss://` and Evolution API can receive HTTPS traffic).
+- An ElevenLabs account (a paid plan for commercial use) and an API key with
+  agent write and webhook write permissions.
+- One small host that can run Docker, for the WhatsApp gateway.
+- A domain + DNS A record for that host, so Evolution API can receive HTTPS
+  traffic.
 - A WhatsApp-eligible phone number you can scan with a QR code (for
   Evolution API to log in to WhatsApp Web).
 
@@ -45,7 +48,7 @@ All three should return zero rows (not an error).
 
 ---
 
-## Step 2 — Bring up the voice stack on the host
+## Step 2 — Bring up the WhatsApp gateway on the host
 
 ```bash
 # 1. Clone the repo
@@ -55,19 +58,12 @@ cd danmatei
 # 2. Create .env from the template
 cp .env.example .env
 # Edit .env and set:
-#  - LIVEKIT_API_KEY        (any string, e.g. "academia-livekit")
-#  - LIVEKIT_API_SECRET     (32-char random)
-#  - PIPECAT_WEBHOOK_SECRET (32-char random)
-#  - EVOLUTION_API_KEY      (32-char random)
-#  - LEAD_LINK_SIGNING_SECRET (32-char random)
-#  - DEEPGRAM_API_KEY, LIVEKIT_LLM_API_KEY, ELEVENLABS_API_KEY
+#  - EVOLUTION_API_KEY        (32-char random)
+#  - API_BASE                 (https://www.danmatei.ro — where inbound
+#                              WhatsApp messages are posted)
 
-# 3. Start everything (LiveKit, LiveKit voice-agent worker, Evolution API)
+# 3. Start Evolution API
 docker compose --env-file .env up -d
-
-# 4. Check health
-curl http://localhost:8082/         # voice-agent health/debug server
-curl http://localhost:7880/         # livekit (returns 404, that's fine)
 ```
 
 ### Public TLS (optional, recommended once you go live)
@@ -75,10 +71,9 @@ curl http://localhost:7880/         # livekit (returns 404, that's fine)
 For prod self-hosting, point a domain at the host and let Caddy provision TLS:
 
 ```bash
-# DNS: A record voice.example.com → <your-host-ip>
+# DNS: A record wa.example.com → <your-host-ip>
 PUBLIC_HOST=example.com docker compose --profile public --env-file .env up -d caddy
 
-# livekit   → https://livekit.example.com   (use wss://livekit.example.com in env)
 # evolution → https://wa.example.com        (admin UI)
 ```
 
@@ -121,29 +116,40 @@ curl -X POST http://localhost:8081/message/sendText/academia \
 
 ---
 
-## Step 4 — Set Vercel environment variables
+## Step 4 — Create the interview agent (Andra)
+
+```bash
+ELEVENLABS_API_KEY=... node scripts/elevenlabs-agent.mjs
+```
+
+It creates the agent from `services/elevenlabs-agent/` and a post-call
+webhook pointing at `https://www.danmatei.ro/api/voice/elevenlabs-webhook`,
+and writes the agent id, webhook id and webhook secret to
+`services/elevenlabs-agent/.output.local.json` (gitignored).
+
+---
+
+## Step 5 — Set Vercel environment variables
 
 In the Vercel dashboard → `danmatei` project → **Settings → Environment
-Variables**, add (paste from your local `.env`):
+Variables**, add:
 
-| Variable                   | Scope      | Value                       |
-| -------------------------- | ---------- | --------------------------- |
-| `VITE_APP_URL`             | Production | `https://www.danmatei.ro`   |
-| `PUBLIC_BASE_URL`          | Production | `https://www.danmatei.ro`   |
-| `LEAD_LINK_SIGNING_SECRET` | Production | (same as host)              |
-| `LIVEKIT_URL`              | Production | `wss://livekit.example.com` |
-| `LIVEKIT_API_KEY`          | Production | (same as host)              |
-| `LIVEKIT_API_SECRET`       | Production | (same as host)              |
-| `LIVEKIT_AGENT_NAME`       | Production | `danmatei-voice-agent`      |
-| `PIPECAT_WEBHOOK_SECRET`   | Production | (same as host)              |
-| `EVOLUTION_API_URL`        | Production | `https://wa.example.com`    |
-| `EVOLUTION_API_KEY`        | Production | (same as host)              |
-| `EVOLUTION_API_INSTANCE`   | Production | `academia`                  |
-| `TRAINER_PHONE_T_SOPI`     | Production | `+407xxxxxxxx`              |
-| `TRAINER_PHONE_T_KELEMEN`  | Production | `+407xxxxxxxx`              |
-| `TRAINER_PHONE_T_DAN`      | Production | `+407xxxxxxxx`              |
+| Variable                        | Scope      | Value                       |
+| ------------------------------- | ---------- | --------------------------- |
+| `VITE_APP_URL`                  | Production | `https://www.danmatei.ro`   |
+| `PUBLIC_BASE_URL`               | Production | `https://www.danmatei.ro`   |
+| `LEAD_LINK_SIGNING_SECRET`      | Production | 32-char random              |
+| `ELEVENLABS_API_KEY`            | Production | your ElevenLabs key         |
+| `ELEVENLABS_INTERVIEW_AGENT_ID` | Production | from Step 4                 |
+| `ELEVENLABS_WEBHOOK_SECRET`     | Production | from Step 4                 |
+| `EVOLUTION_API_URL`             | Production | `https://wa.example.com`    |
+| `EVOLUTION_API_KEY`             | Production | (same as host)              |
+| `EVOLUTION_API_INSTANCE`        | Production | `academia`                  |
+| `TRAINER_PHONE_T_SOPI`          | Production | `+407xxxxxxxx`              |
+| `TRAINER_PHONE_T_KELEMEN`       | Production | `+407xxxxxxxx`              |
+| `TRAINER_PHONE_T_DAN`           | Production | `+407xxxxxxxx`              |
 
-Also set the Supabase, cron, Web Push, text-LLM and ElevenLabs variables from
+Also set the Supabase, cron, Web Push and text-LLM variables from
 `.env.example` in Vercel. The two app-origin variables above are important:
 they keep invite links, Google OAuth redirects, WhatsApp call links and
 assistant fallback links on the custom domain instead of the Vercel preview URL.
@@ -157,7 +163,7 @@ vercel --prod
 
 ---
 
-## Step 5 — End-to-end smoke test
+## Step 6 — End-to-end smoke test
 
 ```bash
 # 1. Submit a lead with your own phone
@@ -181,12 +187,13 @@ Expect:
 - Hang up → check `https://www.danmatei.ro/antrenor` → tab **Inbox AI**
   → the transcript + summary is there
 
-If the agent doesn't speak:
+If Andra doesn't answer:
 
-- `docker compose logs voice-agent` should show "starting call lead=…"
-- Make sure `LIVEKIT_URL` is reachable from both the browser AND the
-  voice-agent container. The browser uses `wss://`; the agent uses the
-  same URL.
+- `/apel` shows "not available" → `ELEVENLABS_API_KEY` or
+  `ELEVENLABS_INTERVIEW_AGENT_ID` is missing on Vercel.
+- The call connects but no transcript arrives → check the post-call webhook
+  in the ElevenLabs dashboard (URL and recent deliveries) and that
+  `ELEVENLABS_WEBHOOK_SECRET` matches its secret.
 
 If the WhatsApp message doesn't arrive:
 
@@ -199,9 +206,8 @@ If the WhatsApp message doesn't arrive:
 
 - Vercel: existing tier
 - Supabase: existing tier
-- Fly voice worker: always-on shared CPU machine (see `services/voice-agent/fly.toml`)
-- WhatsApp + voice AI: no PSTN per-minute cost; usage depends on Evolution
-  hosting plus Deepgram / LLM / ElevenLabs provider quotas
+- ElevenLabs: per-minute agent usage on your plan
+- WhatsApp: Evolution API hosting; no PSTN per-minute cost
 
 Compare to Twilio + Vapi: ~€0.15-0.30 per 5-min call.
 

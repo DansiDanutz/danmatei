@@ -6,31 +6,33 @@
  * Flow:
  *   1. Verify the signed token from /api/lead/create (HMAC + expiry).
  *   2. Resolve the lead row.
- *   3. Generate a LiveKit room name from the lead id.
- *   4. Embed the lead context in room metadata and request LiveKit agent
- *      auto-dispatch via roomConfig.agents.
- *   5. Issue a short-lived LiveKit JWT for the parent's browser.
- *   6. Return the parent's join token + LiveKit URL to the browser.
- *
- * The token-signing scheme matches `api/lead/create.ts`.
+ *   3. Ask ElevenLabs for a signed WebSocket URL for the interview agent
+ *      (the API key never reaches the browser).
+ *   4. Return it with the call's dynamic variables: parent/child context for
+ *      the agent's prompt, plus a short-lived `call_token` that
+ *      /api/voice/elevenlabs-webhook verifies to attach the finished call to
+ *      this lead.
  *
  * Env required (production):
- *   - LIVEKIT_URL                 (wss://...)
- *   - LIVEKIT_API_KEY
- *   - LIVEKIT_API_SECRET
- *   - LIVEKIT_AGENT_NAME          (defaults to danmatei-voice-agent)
- *   - LEAD_LINK_SIGNING_SECRET    (matches api/lead/create.ts)
+ *   - ELEVENLABS_API_KEY
+ *   - ELEVENLABS_INTERVIEW_AGENT_ID   (created by scripts/elevenlabs-agent.mjs)
+ *   - LEAD_LINK_SIGNING_SECRET        (matches api/lead/create.ts)
  *
- * In dev/preview without these vars, returns 503 and the page falls back
- * to a "voice agent not configured" message.
+ * Without the ElevenLabs vars it returns 503 `voice_not_configured` and the
+ * page tells the parent the trainer will contact them on WhatsApp.
  */
-import { AccessToken } from "livekit-server-sdk";
 import { serviceClient } from "../_lib/supabase.js";
 import { checkRateLimit } from "../_lib/ratelimit.js";
 import {
   isLeadLinkSigningConfigured,
+  signToken,
   verifyToken,
 } from "../_lib/sign-token.js";
+
+const ELEVENLABS_API = "https://api.elevenlabs.io/v1";
+// Long enough for the call (capped at a few minutes by the agent) plus
+// ElevenLabs' post-call analysis before the webhook arrives.
+const CALL_TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
 
 type Req = {
   method?: string;
@@ -78,13 +80,9 @@ export default async function handler(req: Req, res: Res) {
     return res.status(429).json({ error: "rate_limited" });
   }
 
-  const livekitUrl = process.env.LIVEKIT_URL;
-  const apiKey = process.env.LIVEKIT_API_KEY;
-  const apiSecret = process.env.LIVEKIT_API_SECRET;
-  // Auto-dispatch agent name — must match the registered LIVEKIT_AGENT_NAME
-  // on the Fly-hosted worker (services/voice-agent/agent.py).
-  const agentName = process.env.LIVEKIT_AGENT_NAME || "danmatei-voice-agent";
-  if (!livekitUrl || !apiKey || !apiSecret) {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  const agentId = process.env.ELEVENLABS_INTERVIEW_AGENT_ID;
+  if (!apiKey || !agentId) {
     return res.status(503).json({ error: "voice_not_configured" });
   }
 
@@ -128,33 +126,17 @@ export default async function handler(req: Req, res: Res) {
   }
   const isExistingParent = previousCallsCount > 0;
 
-  const room = `lead-${verified.leadId.slice(0, 8)}-${Date.now().toString(36)}`;
-
-  // Lead context that the agent reads from room.metadata on connect.
-  const roomMetadata = JSON.stringify({
-    leadId: lead.id,
-    callId: room,
-    parentName: lead.parent_name,
-    childName: lead.child_name,
-    childAge: lead.child_age,
-    isExistingParent,
-    previousCallsCount,
-  });
-
-  // Mint the parent's token with LiveKit auto-dispatch wired up: when the
-  // parent joins this room, LiveKit dispatches the agent worker named
-  // `agentName` against the same room. No /spawn HTTP call needed.
-  const parentToken = await mintToken({
-    apiKey,
-    apiSecret,
-    room,
-    identity: `parent-${verified.leadId.slice(0, 8)}`,
-    name: lead.parent_name,
-    ttlSeconds: 60 * 30, // 30 min
-    metadata: JSON.stringify({ role: "parent", leadId: lead.id }),
-    agentName,
-    roomMetadata,
-  });
+  const signed = await fetch(
+    `${ELEVENLABS_API}/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(agentId)}`,
+    { headers: { "xi-api-key": apiKey } }
+  ).catch(() => null);
+  const signedJson = signed?.ok
+    ? ((await signed.json().catch(() => null)) as { signed_url?: string } | null)
+    : null;
+  if (!signedJson?.signed_url) {
+    console.error("[voice/start] ElevenLabs signed URL failed", signed?.status);
+    return res.status(502).json({ error: "voice_unavailable" });
+  }
 
   // Move the lead to 'calling' status (best effort)
   await supabase
@@ -165,59 +147,15 @@ export default async function handler(req: Req, res: Res) {
   return res.status(200).json({
     ok: true,
     leadId: lead.id,
-    livekitUrl,
-    room,
-    token: parentToken,
-    agentDispatch: { mode: "livekit-auto-dispatch", agentName },
+    signedUrl: signedJson.signed_url,
+    // Referenced as {{name}} in the agent's prompt / first message.
+    dynamicVariables: {
+      parent_name: lead.parent_name ?? "",
+      child_name: lead.child_name ?? "",
+      child_age: lead.child_age ?? "",
+      is_existing_parent: isExistingParent,
+      previous_calls_count: previousCallsCount,
+      call_token: signToken(lead.id, { ttlMs: CALL_TOKEN_TTL_MS }),
+    },
   });
-}
-
-async function mintToken(opts: {
-  apiKey: string;
-  apiSecret: string;
-  room: string;
-  identity: string;
-  name: string;
-  ttlSeconds: number;
-  metadata?: string;
-  // When set, LiveKit Cloud auto-dispatches the named agent into the room
-  // as soon as the participant joins. `roomMetadata` is attached to the
-  // room (separate from the participant's `metadata`) and is what the
-  // agent reads to learn about the lead.
-  agentName?: string;
-  roomMetadata?: string;
-}): Promise<string> {
-  const at = new AccessToken(opts.apiKey, opts.apiSecret, {
-    identity: opts.identity,
-    name: opts.name,
-    ttl: opts.ttlSeconds,
-    metadata: opts.metadata,
-  });
-  at.addGrant({
-    roomJoin: true,
-    room: opts.room,
-    canPublish: true,
-    canSubscribe: true,
-  });
-  if (opts.agentName) {
-    // Cast through `never` — `roomConfig` is part of the JWT claims spec
-    // but isn't typed on the older AccessToken class. The LiveKit server
-    // reads it and creates the room with these settings.
-    //
-    // We attach lead context as BOTH:
-    //   - `agents[0].metadata` → becomes `ctx.job.metadata` on the agent
-    //     (per-dispatch, set reliably before entrypoint runs)
-    //   - `roomConfig.metadata` → becomes `ctx.room.metadata` (back-compat
-    //     and useful for multi-agent or telephony scenarios)
-    (at as unknown as { roomConfig: unknown }).roomConfig = {
-      agents: [
-        {
-          agentName: opts.agentName,
-          metadata: opts.roomMetadata,
-        },
-      ],
-      metadata: opts.roomMetadata,
-    };
-  }
-  return at.toJwt();
 }
