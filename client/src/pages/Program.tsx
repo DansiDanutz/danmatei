@@ -7,10 +7,11 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, Dumbbell, MapPin, Swords, Trophy } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import DemoBanner from "@/components/DemoBanner";
+import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { startPublicLoad } from "@/lib/public-load";
 import { expoOut } from "@/lib/motion";
 
 type Kind = "training" | "match" | "tournament" | "other";
@@ -24,48 +25,6 @@ interface EventRow {
   location: string | null;
   opponent: string | null;
 }
-
-const FALLBACK: EventRow[] = (() => {
-  const now = Date.now();
-  return [
-    {
-      id: "demo-1",
-      kind: "training",
-      title: "Antrenament U7–U9",
-      starts_at: new Date(now + 86400000).toISOString(),
-      ends_at: new Date(now + 86400000 + 60 * 60 * 1000).toISOString(),
-      location: "Baza Unirea, Mănăștur",
-      opponent: null,
-    },
-    {
-      id: "demo-2",
-      kind: "training",
-      title: "Antrenament U10–U13",
-      starts_at: new Date(now + 86400000 + 60 * 60 * 1000).toISOString(),
-      ends_at: new Date(now + 86400000 + 2.5 * 60 * 60 * 1000).toISOString(),
-      location: "Baza Unirea, Mănăștur",
-      opponent: null,
-    },
-    {
-      id: "demo-3",
-      kind: "match",
-      title: "U13 vs ACS Sănătatea",
-      starts_at: new Date(now + 5 * 86400000).toISOString(),
-      ends_at: new Date(now + 5 * 86400000 + 90 * 60 * 1000).toISOString(),
-      location: "Stadion Cetatea",
-      opponent: "ACS Sănătatea",
-    },
-    {
-      id: "demo-4",
-      kind: "tournament",
-      title: "Cupa Transilvaniei — U11",
-      starts_at: new Date(now + 12 * 86400000).toISOString(),
-      ends_at: null,
-      location: "Cluj Arena",
-      opponent: null,
-    },
-  ];
-})();
 
 const dayFormatter = new Intl.DateTimeFormat("ro-RO", {
   weekday: "long",
@@ -106,45 +65,33 @@ function weekdayRule(date: Date): string {
 export default function Program() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
     if (!isSupabaseConfigured) {
-      setUsingFallback(true);
-      setEvents(FALLBACK);
+      setLoadFailed(true);
       setLoading(false);
       return;
     }
-
-    const timeoutId = setTimeout(() => {
-      if (cancelled) return;
-      setUsingFallback(true);
-      setEvents(FALLBACK);
-      setLoading(false);
-    }, 6000);
+    const from = new Date().toISOString();
     const horizon = new Date(Date.now() + 14 * 86400000).toISOString();
-    void (async () => {
-      const { data } = await supabase
-        .from("schedule_events")
-        .select("id, kind, title, starts_at, ends_at, location, opponent")
-        .gte("starts_at", new Date().toISOString())
-        .lte("starts_at", horizon)
-        .order("starts_at", { ascending: true })
-        .limit(60);
-      if (cancelled) return;
-      clearTimeout(timeoutId);
-      const rows = (data as EventRow[] | null) ?? [];
-      const fallback = rows.length === 0;
-      setUsingFallback(fallback);
-      setEvents(fallback ? FALLBACK : rows);
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-    };
+    return startPublicLoad<EventRow>(
+      async () => {
+        // Visitors can't read schedule_events directly (RLS); public_schedule
+        // (migration 0035) returns approved, non-cancelled events.
+        const { data, error } = await supabase.rpc("public_schedule", {
+          p_from: from,
+          p_to: horizon,
+        });
+        return { data: data as EventRow[] | null, error };
+      },
+      (state) => {
+        if (state.status === "loading") return;
+        setLoadFailed(state.status === "failed");
+        if (state.status === "ready") setEvents(state.rows);
+        setLoading(false);
+      }
+    );
   }, []);
 
   const days = useMemo(() => {
@@ -164,7 +111,7 @@ export default function Program() {
       pageTitle="Următoarele două săptămâni"
       pageDescription="Antrenamente, meciuri și turnee planificate pentru toate grupele."
     >
-      {usingFallback && <DemoBanner />}
+      {!loading && loadFailed && <LoadErrorState what="programul" />}
 
       {loading && (
         <div className="grid gap-3">
@@ -243,7 +190,7 @@ export default function Program() {
         ))}
       </div>
 
-      {!loading && events.length === 0 && (
+      {!loading && !loadFailed && events.length === 0 && (
         <EmptyState
           icon={<Calendar className="size-6" />}
           title="Niciun eveniment programat"

@@ -1,20 +1,20 @@
 /**
  * /copii — Children directory.
  *
- *  - Logged-out visitors see a public preview of the academy's roster,
- *    grouped by U-code, drawn from the static `AGE_GROUPS` data.
+ *  - Logged-out visitors see a login prompt; children's profiles are
+ *    private to their parents and trainers.
  *  - Logged-in parents see THEIR own children (`fotbal.children` filtered
  *    by parent_id via RLS) with a CTA to add another child.
  *  - Trainers and the owner see all active children in their scope.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Cake, ShieldCheck, UserPlus } from "lucide-react";
+import { ArrowRight, Cake, Lock, ShieldCheck, UserPlus } from "lucide-react";
 import { Link } from "wouter";
 import PublicShell from "@/components/PublicShell";
 import { BrandSpinner } from "@/components/ui/brand-spinner";
 import { supabase } from "@/lib/supabase";
-import { AGE_GROUPS } from "@/data/landing";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useAuth } from "@/lib/auth";
 import { currentAge } from "@/lib/age";
 import { expoOut } from "@/lib/motion";
@@ -62,18 +62,13 @@ export default function Copii() {
     };
   }, [user]);
 
-  const totalRoster = useMemo(
-    () => AGE_GROUPS.reduce((sum, g) => sum + (g.players?.length ?? 0), 0),
-    []
-  );
-
   // ── Public preview (logged-out) ────────────────────────────────────────
   if (!loading && !user) {
     return (
       <PublicShell
         pageKicker="Copii"
         pageTitle="Familia academiei"
-        pageDescription={`${totalRoster} copii din ${AGE_GROUPS.length} grupe — viitorul fotbalului clujean începe aici.`}
+        pageDescription="Viitorul fotbalului clujean începe aici."
       >
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-cyan/25 bg-brand-cyan/[0.05] p-4 sm:p-5">
           <p className="font-body text-sm text-white/75">
@@ -89,64 +84,11 @@ export default function Copii() {
           </Link>
         </div>
 
-        <div className="grid gap-5">
-          {AGE_GROUPS.map((g, gi) => (
-            <motion.section
-              key={g.code}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: gi * 0.05, ease: expoOut }}
-              className="rounded-3xl border border-white/8 bg-[oklch(0.13_0.03_250)]/50 p-5 sm:p-6"
-            >
-              <header className="mb-4 flex items-baseline justify-between gap-3">
-                <div>
-                  <span className="font-heading text-3xl font-bold tabular-nums tracking-tight text-brand-cyan sm:text-4xl">
-                    {g.code}
-                  </span>
-                  <span className="ml-3 font-heading text-[11px] uppercase tracking-[0.22em] text-white/45">
-                    {g.label}
-                  </span>
-                </div>
-                <span className="font-heading text-[10px] uppercase tracking-[0.18em] text-white/45">
-                  {g.childCount} copii
-                </span>
-              </header>
-              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {(g.players ?? []).map(p => {
-                  const initials = p.name
-                    .split(" ")
-                    .map(part => part[0])
-                    .slice(0, 2)
-                    .join("");
-                  return (
-                    <li key={p.id}>
-                      <Link
-                        href={`/copil/${p.id}`}
-                        className="group flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3 transition-all hover:border-brand-cyan/30 hover:bg-brand-cyan/5"
-                      >
-                        <span className="grid size-9 shrink-0 place-items-center rounded-md bg-brand-cyan/15 font-heading text-xs font-bold text-brand-cyan transition-colors group-hover:bg-brand-cyan/25">
-                          {initials}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-heading text-sm font-semibold uppercase tracking-[0.04em] text-white/90">
-                            {p.name}
-                          </div>
-                          <div className="truncate font-heading text-[10px] uppercase tracking-[0.14em] text-white/50">
-                            {p.position}
-                            <span className="mx-1.5 text-white/25">·</span>
-                            <span className="tabular-nums text-white/70">
-                              {p.yearOfBirth}
-                            </span>
-                          </div>
-                        </div>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </motion.section>
-          ))}
-        </div>
+        <EmptyState
+          icon={<Lock className="size-6" />}
+          title="Lista copiilor este privată"
+          description="Profilurile copiilor sunt vizibile doar părinților și antrenorilor lor. Conectează-te ca să vezi copilul tău."
+        />
       </PublicShell>
     );
   }

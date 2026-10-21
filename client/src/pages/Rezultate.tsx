@@ -8,11 +8,23 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Trophy, TrendingUp } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import DemoBanner from "@/components/DemoBanner";
+import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { startPublicLoad } from "@/lib/public-load";
 import { expoOut } from "@/lib/motion";
+
+interface PublicResultRow {
+  id: string;
+  our_score: number;
+  opponent_score: number;
+  recap_md: string | null;
+  title: string;
+  starts_at: string;
+  location: string | null;
+  opponent: string | null;
+}
 
 interface ResultRow {
   id: string;
@@ -26,45 +38,6 @@ interface ResultRow {
     opponent: string | null;
   } | null;
 }
-
-const FALLBACK: ResultRow[] = [
-  {
-    id: "demo-1",
-    our_score: 4,
-    opponent_score: 1,
-    recap_md: "U13 împotriva ACS Sănătatea — control total în repriza a doua.",
-    event: {
-      title: "U13 vs ACS Sănătatea",
-      starts_at: new Date(Date.now() - 86400000 * 6).toISOString(),
-      location: "Stadion Cetatea",
-      opponent: "ACS Sănătatea",
-    },
-  },
-  {
-    id: "demo-2",
-    our_score: 2,
-    opponent_score: 2,
-    recap_md: "U11 — meci echilibrat, două goluri în ultimele 10 minute.",
-    event: {
-      title: "U11 vs LPS Cluj",
-      starts_at: new Date(Date.now() - 86400000 * 13).toISOString(),
-      location: "Baza Unirea, Mănăștur",
-      opponent: "LPS Cluj",
-    },
-  },
-  {
-    id: "demo-3",
-    our_score: 5,
-    opponent_score: 0,
-    recap_md: "U9 — cinci goluri, primul curat din partea grupei mici.",
-    event: {
-      title: "U9 vs CSȘ Cluj",
-      starts_at: new Date(Date.now() - 86400000 * 20).toISOString(),
-      location: "Baza Unirea, Mănăștur",
-      opponent: "CSȘ Cluj",
-    },
-  },
-];
 
 const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "numeric",
@@ -82,44 +55,42 @@ function outcome(our: number, opp: number): "W" | "D" | "L" {
 export default function Rezultate() {
   const [results, setResults] = useState<ResultRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-        if (!isSupabaseConfigured) {
-                setUsingFallback(true);
-                setResults(FALLBACK);
-                setLoading(false);
-                return;
-        }
-
-        const timeoutId = setTimeout(() => {
-                if (cancelled) return;
-                setUsingFallback(true);
-                setResults(FALLBACK);
-                setLoading(false);
-        }, 6000);
-    void (async () => {
-      const { data } = await supabase
-        .from("match_results")
-        .select(
-          "id, our_score, opponent_score, recap_md, event:schedule_events!event_id(title, starts_at, location, opponent)"
-        )
-        .order("created_at", { ascending: false })
-        .limit(40);
-      if (cancelled) return;
-              clearTimeout(timeoutId);
-      const rows = (data as ResultRow[] | null) ?? [];
-      const fallback = rows.length === 0;
-      setUsingFallback(fallback);
-      setResults(fallback ? FALLBACK : rows);
+    if (!isSupabaseConfigured) {
+      setLoadFailed(true);
       setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-            clearTimeout(timeoutId);
-    };
+      return;
+    }
+    return startPublicLoad<ResultRow>(
+      async () => {
+        // Visitors can't read schedule_events / match_results directly (RLS);
+        // public_match_results (migration 0035) returns the display fields.
+        const { data, error } = await supabase.rpc("public_match_results", {
+          p_limit: 40,
+        });
+        const rows = ((data ?? []) as PublicResultRow[]).map((r) => ({
+          id: r.id,
+          our_score: r.our_score,
+          opponent_score: r.opponent_score,
+          recap_md: r.recap_md,
+          event: {
+            title: r.title,
+            starts_at: r.starts_at,
+            location: r.location,
+            opponent: r.opponent,
+          },
+        }));
+        return { data: rows, error };
+      },
+      (state) => {
+        if (state.status === "loading") return;
+        setLoadFailed(state.status === "failed");
+        if (state.status === "ready") setResults(state.rows);
+        setLoading(false);
+      }
+    );
   }, []);
 
   const wins = results.filter(r => r.our_score > r.opponent_score).length;
@@ -134,31 +105,34 @@ export default function Rezultate() {
       pageTitle="Meciuri & scoruri"
       pageDescription="Cele mai recente rezultate ale grupelor școlii — campionat, turnee, amicale."
     >
-      {usingFallback && <DemoBanner />}
+      {!loading && loadFailed && <LoadErrorState what="rezultatele" />}
 
-      {/* Win/draw/loss strip */}
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        {[
-          { label: "Victorii", value: wins, accent: "text-brand-cyan" },
-          { label: "Egaluri", value: draws, accent: "text-white/85" },
-          { label: "Înfrângeri", value: losses, accent: "text-rose-300/85" },
-          { label: "Rată victorii", value: `${winRate}%`, accent: "text-brand-gold" },
-        ].map(s => (
-          <div
-            key={s.label}
-            className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/55 p-4 text-center sm:p-5"
-          >
+      {/* Win/draw/loss strip — only for loaded data, so an outage never
+          reads as a 0-0-0 record. */}
+      {!loading && !loadFailed && (
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          {[
+            { label: "Victorii", value: wins, accent: "text-brand-cyan" },
+            { label: "Egaluri", value: draws, accent: "text-white/85" },
+            { label: "Înfrângeri", value: losses, accent: "text-rose-300/85" },
+            { label: "Rată victorii", value: `${winRate}%`, accent: "text-brand-gold" },
+          ].map(s => (
             <div
-              className={`font-heading text-2xl font-bold tabular-nums sm:text-3xl ${s.accent}`}
+              key={s.label}
+              className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/55 p-4 text-center sm:p-5"
             >
-              {s.value}
+              <div
+                className={`font-heading text-2xl font-bold tabular-nums sm:text-3xl ${s.accent}`}
+              >
+                {s.value}
+              </div>
+              <div className="mt-1 font-body text-[11px] uppercase tracking-[0.15em] text-white/40">
+                {s.label}
+              </div>
             </div>
-            <div className="mt-1 font-body text-[11px] uppercase tracking-[0.15em] text-white/40">
-              {s.label}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {loading && (
         <div className="grid gap-3 sm:gap-4">
@@ -168,7 +142,7 @@ export default function Rezultate() {
         </div>
       )}
 
-      {!loading && results.length === 0 && (
+      {!loading && !loadFailed && results.length === 0 && (
         <EmptyState
           icon={<TrendingUp className="size-6" />}
           title="Niciun rezultat încă"

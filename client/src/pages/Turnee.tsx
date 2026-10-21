@@ -7,12 +7,24 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Trophy, Users } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import DemoBanner from "@/components/DemoBanner";
+import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { fetchTrainerNames } from "@/lib/trainer-names";
+import { startPublicLoad } from "@/lib/public-load";
 import { expoOut } from "@/lib/motion";
+
+interface PublicTournamentRow {
+  id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string | null;
+  location: string | null;
+  trainer_id: string | null;
+  age_min: number | null;
+  age_max: number | null;
+  trainer_name: string | null;
+}
 
 interface TournamentRow {
   id: string;
@@ -20,38 +32,8 @@ interface TournamentRow {
   starts_at: string;
   ends_at: string | null;
   location: string | null;
-  notes: string | null;
   trainer: { id?: string; age_min: number; age_max: number; profile: { full_name: string } | null } | null;
 }
-
-const FALLBACK: TournamentRow[] = [
-  {
-    id: "demo-1",
-    title: "Cupa Transilvaniei — U13",
-    starts_at: "2026-05-15T09:00:00Z",
-    ends_at: "2026-05-17T18:00:00Z",
-    location: "Cluj-Arena, Cluj-Napoca",
-    notes: "Turneu inter-academii, 16 echipe, 3 zile.",
-    trainer: {
-      age_min: 12,
-      age_max: 13,
-      profile: { full_name: "Cristian Ilea" },
-    },
-  },
-  {
-    id: "demo-2",
-    title: "Memorialul „Dan Matei” — U10",
-    starts_at: "2026-06-08T10:00:00Z",
-    ends_at: "2026-06-08T17:00:00Z",
-    location: "Baza Unirea, Mănăștur",
-    notes: "Tradiția anului. 8 echipe locale invitate.",
-    trainer: {
-      age_min: 10,
-      age_max: 11,
-      profile: { full_name: "Radu Mureșan" },
-    },
-  },
-];
 
 const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "numeric",
@@ -63,54 +45,43 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
 export default function Turnee() {
   const [rows, setRows] = useState<TournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-        if (!isSupabaseConfigured) {
-                setUsingFallback(true);
-                setRows(FALLBACK);
-                setLoading(false);
-                return;
-        }
-
-        const timeoutId = setTimeout(() => {
-                if (cancelled) return;
-                setUsingFallback(true);
-                setRows(FALLBACK);
-                setLoading(false);
-        }, 6000);
-    void (async () => {
-      const [{ data }, trainerNames] = await Promise.all([
-        supabase
-          .from("schedule_events")
-          .select(
-            "id, title, starts_at, ends_at, location, notes, trainer:trainers!schedule_events_trainer_id_fkey(id, age_min, age_max, profile:profiles!trainers_profile_id_fkey(full_name))",
-          )
-          .eq("kind", "tournament")
-          .order("starts_at", { ascending: false }),
-        fetchTrainerNames(),
-      ]);
-      if (cancelled) return;
-              clearTimeout(timeoutId);
-      const items = ((data as unknown as TournamentRow[] | null) ?? []).map(
-        (r) => {
-          const name = r.trainer?.id ? trainerNames.get(r.trainer.id) : undefined;
-          return r.trainer && name
-            ? { ...r, trainer: { ...r.trainer, profile: { full_name: name } } }
-            : r;
-        }
-      );
-      const fallback = items.length === 0;
-      setUsingFallback(fallback);
-      setRows(fallback ? FALLBACK : items);
+    if (!isSupabaseConfigured) {
+      setLoadFailed(true);
       setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-            clearTimeout(timeoutId);
-    };
+      return;
+    }
+    return startPublicLoad<TournamentRow>(
+      async () => {
+        // Visitors can't read schedule_events directly (RLS);
+        // public_tournaments (migration 0035) returns the display fields.
+        const { data, error } = await supabase.rpc("public_tournaments");
+        const rows = ((data ?? []) as PublicTournamentRow[]).map((r) => ({
+          id: r.id,
+          title: r.title,
+          starts_at: r.starts_at,
+          ends_at: r.ends_at,
+          location: r.location,
+          trainer: r.trainer_id
+            ? {
+                id: r.trainer_id,
+                age_min: r.age_min ?? 0,
+                age_max: r.age_max ?? 0,
+                profile: r.trainer_name ? { full_name: r.trainer_name } : null,
+              }
+            : null,
+        }));
+        return { data: rows, error };
+      },
+      (state) => {
+        if (state.status === "loading") return;
+        setLoadFailed(state.status === "failed");
+        if (state.status === "ready") setRows(state.rows);
+        setLoading(false);
+      }
+    );
   }, []);
 
   const { upcoming, past } = useMemo(() => {
@@ -131,7 +102,7 @@ export default function Turnee() {
       pageTitle="Turnee & evenimente"
       pageDescription="Turneele la care participă grupele academiei. Calendar complet, locație și grupa implicată."
     >
-      {usingFallback && <DemoBanner />}
+      {!loading && loadFailed && <LoadErrorState what="turneele" />}
 
       {loading && (
         <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
@@ -141,7 +112,7 @@ export default function Turnee() {
         </div>
       )}
 
-      {!loading && upcoming.length === 0 && past.length === 0 && (
+      {!loading && !loadFailed && upcoming.length === 0 && past.length === 0 && (
         <EmptyState
           icon={<Trophy className="size-6" />}
           title="Niciun turneu programat"
@@ -220,12 +191,6 @@ function TournamentCard({ t, delay, highlight = false }: TournamentCardProps) {
           )}
         </div>
       </header>
-
-      {t.notes && (
-        <p className="mt-3 font-body text-sm leading-relaxed text-white/65">
-          {t.notes}
-        </p>
-      )}
 
       <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-white/60">
         <span className="inline-flex items-center gap-1.5">
