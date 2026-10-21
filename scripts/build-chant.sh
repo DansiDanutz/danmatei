@@ -3,7 +3,8 @@
 # build-chant.sh — bake a "crowd of kids shouting Unu, Doi, Trei, Dan Matei!"
 # audio track and mux it onto the supplied football hero video.
 #
-# Inputs (in client/public, already in the repo from a prior pass):
+# Inputs (in scripts/chant-stems — kept out of client/public so they aren't
+# deployed with the site):
 #   chant-part1.wav   — single voice "Unu"      (~0.41s)
 #   chant-part2.wav   — single voice "Doi"      (~0.41s)
 #   chant-part3.wav   — single voice "Trei"     (~0.40s)
@@ -34,16 +35,17 @@ fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PUB="$ROOT/client/public"
+STEMS="$ROOT/scripts/chant-stems"
 OUT="$PUB/hero-chant.mp4"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-P1="$PUB/chant-part1.wav"   # Unu
-P2="$PUB/chant-part2.wav"   # Doi
-P3="$PUB/chant-part3.wav"   # Trei
-P4="$PUB/chant-part4.wav"   # Dan Matei
-BED="$PUB/crowd-base.wav"
-ROAR="$PUB/crowd-roar.wav"
+P1="$STEMS/chant-part1.wav"   # Unu
+P2="$STEMS/chant-part2.wav"   # Doi
+P3="$STEMS/chant-part3.wav"   # Trei
+P4="$STEMS/chant-part4.wav"   # Dan Matei
+BED="$STEMS/crowd-base.wav"
+ROAR="$STEMS/crowd-roar.wav"
 for f in "$P1" "$P2" "$P3" "$P4" "$BED" "$ROAR"; do
   [[ -f "$f" ]] || { echo "missing $f" >&2; exit 1; }
 done
