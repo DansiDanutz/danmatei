@@ -12,7 +12,19 @@ import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { startPublicLoad } from "@/lib/public-load";
 import { expoOut } from "@/lib/motion";
+
+interface PublicResultRow {
+  id: string;
+  our_score: number;
+  opponent_score: number;
+  recap_md: string | null;
+  title: string;
+  starts_at: string;
+  location: string | null;
+  opponent: string | null;
+}
 
 interface ResultRow {
   id: string;
@@ -46,43 +58,39 @@ export default function Rezultate() {
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-        if (!isSupabaseConfigured) {
-                setLoadFailed(true);
-                setLoading(false);
-                return;
-        }
-
-        const timeoutId = setTimeout(() => {
-                if (cancelled) return;
-                setLoadFailed(true);
-                setLoading(false);
-        }, 6000);
-    void (async () => {
-      const { data, error } = await supabase
-        .from("match_results")
-        .select(
-          "id, our_score, opponent_score, recap_md, event:schedule_events!event_id(title, starts_at, location, opponent)"
-        )
-        .order("created_at", { ascending: false })
-        .limit(40);
-      if (cancelled) return;
-              clearTimeout(timeoutId);
-      if (error) {
-        setLoadFailed(true);
-        setLoading(false);
-        return;
-      }
-      setLoadFailed(false);
-      const rows = (data as unknown as ResultRow[] | null) ?? [];
-      setResults(rows);
+    if (!isSupabaseConfigured) {
+      setLoadFailed(true);
       setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-            clearTimeout(timeoutId);
-    };
+      return;
+    }
+    return startPublicLoad<ResultRow>(
+      async () => {
+        // Visitors can't read schedule_events / match_results directly (RLS);
+        // public_match_results (migration 0035) returns the display fields.
+        const { data, error } = await supabase.rpc("public_match_results", {
+          p_limit: 40,
+        });
+        const rows = ((data ?? []) as PublicResultRow[]).map((r) => ({
+          id: r.id,
+          our_score: r.our_score,
+          opponent_score: r.opponent_score,
+          recap_md: r.recap_md,
+          event: {
+            title: r.title,
+            starts_at: r.starts_at,
+            location: r.location,
+            opponent: r.opponent,
+          },
+        }));
+        return { data: rows, error };
+      },
+      (state) => {
+        if (state.status === "loading") return;
+        setLoadFailed(state.status === "failed");
+        if (state.status === "ready") setResults(state.rows);
+        setLoading(false);
+      }
+    );
   }, []);
 
   const wins = results.filter(r => r.our_score > r.opponent_score).length;
@@ -99,29 +107,32 @@ export default function Rezultate() {
     >
       {!loading && loadFailed && <LoadErrorState what="rezultatele" />}
 
-      {/* Win/draw/loss strip */}
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        {[
-          { label: "Victorii", value: wins, accent: "text-brand-cyan" },
-          { label: "Egaluri", value: draws, accent: "text-white/85" },
-          { label: "Înfrângeri", value: losses, accent: "text-rose-300/85" },
-          { label: "Rată victorii", value: `${winRate}%`, accent: "text-brand-gold" },
-        ].map(s => (
-          <div
-            key={s.label}
-            className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/55 p-4 text-center sm:p-5"
-          >
+      {/* Win/draw/loss strip — only for loaded data, so an outage never
+          reads as a 0-0-0 record. */}
+      {!loading && !loadFailed && (
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          {[
+            { label: "Victorii", value: wins, accent: "text-brand-cyan" },
+            { label: "Egaluri", value: draws, accent: "text-white/85" },
+            { label: "Înfrângeri", value: losses, accent: "text-rose-300/85" },
+            { label: "Rată victorii", value: `${winRate}%`, accent: "text-brand-gold" },
+          ].map(s => (
             <div
-              className={`font-heading text-2xl font-bold tabular-nums sm:text-3xl ${s.accent}`}
+              key={s.label}
+              className="rounded-2xl border border-white/8 bg-[oklch(0.13_0.03_250)]/55 p-4 text-center sm:p-5"
             >
-              {s.value}
+              <div
+                className={`font-heading text-2xl font-bold tabular-nums sm:text-3xl ${s.accent}`}
+              >
+                {s.value}
+              </div>
+              <div className="mt-1 font-body text-[11px] uppercase tracking-[0.15em] text-white/40">
+                {s.label}
+              </div>
             </div>
-            <div className="mt-1 font-body text-[11px] uppercase tracking-[0.15em] text-white/40">
-              {s.label}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {loading && (
         <div className="grid gap-3 sm:gap-4">

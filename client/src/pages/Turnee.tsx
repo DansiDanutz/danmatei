@@ -11,8 +11,21 @@ import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { fetchTrainerNames } from "@/lib/trainer-names";
+import { startPublicLoad } from "@/lib/public-load";
 import { expoOut } from "@/lib/motion";
+
+interface PublicTournamentRow {
+  id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string | null;
+  location: string | null;
+  notes: string | null;
+  trainer_id: string | null;
+  age_min: number | null;
+  age_max: number | null;
+  trainer_name: string | null;
+}
 
 interface TournamentRow {
   id: string;
@@ -37,53 +50,41 @@ export default function Turnee() {
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-        if (!isSupabaseConfigured) {
-                setLoadFailed(true);
-                setLoading(false);
-                return;
-        }
-
-        const timeoutId = setTimeout(() => {
-                if (cancelled) return;
-                setLoadFailed(true);
-                setLoading(false);
-        }, 6000);
-    void (async () => {
-      const [{ data, error }, trainerNames] = await Promise.all([
-        supabase
-          .from("schedule_events")
-          .select(
-            "id, title, starts_at, ends_at, location, notes, trainer:trainers!schedule_events_trainer_id_fkey(id, age_min, age_max, profile:profiles!trainers_profile_id_fkey(full_name))",
-          )
-          .eq("kind", "tournament")
-          .order("starts_at", { ascending: false }),
-        fetchTrainerNames(),
-      ]);
-      if (cancelled) return;
-              clearTimeout(timeoutId);
-      if (error) {
-        setLoadFailed(true);
-        setLoading(false);
-        return;
-      }
-      setLoadFailed(false);
-      const items = ((data as unknown as TournamentRow[] | null) ?? []).map(
-        (r) => {
-          const name = r.trainer?.id ? trainerNames.get(r.trainer.id) : undefined;
-          return r.trainer && name
-            ? { ...r, trainer: { ...r.trainer, profile: { full_name: name } } }
-            : r;
-        }
-      );
-      setRows(items);
+    if (!isSupabaseConfigured) {
+      setLoadFailed(true);
       setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-            clearTimeout(timeoutId);
-    };
+      return;
+    }
+    return startPublicLoad<TournamentRow>(
+      async () => {
+        // Visitors can't read schedule_events directly (RLS);
+        // public_tournaments (migration 0035) returns the display fields.
+        const { data, error } = await supabase.rpc("public_tournaments");
+        const rows = ((data ?? []) as PublicTournamentRow[]).map((r) => ({
+          id: r.id,
+          title: r.title,
+          starts_at: r.starts_at,
+          ends_at: r.ends_at,
+          location: r.location,
+          notes: r.notes,
+          trainer: r.trainer_id
+            ? {
+                id: r.trainer_id,
+                age_min: r.age_min ?? 0,
+                age_max: r.age_max ?? 0,
+                profile: r.trainer_name ? { full_name: r.trainer_name } : null,
+              }
+            : null,
+        }));
+        return { data: rows, error };
+      },
+      (state) => {
+        if (state.status === "loading") return;
+        setLoadFailed(state.status === "failed");
+        if (state.status === "ready") setRows(state.rows);
+        setLoading(false);
+      }
+    );
   }, []);
 
   const { upcoming, past } = useMemo(() => {

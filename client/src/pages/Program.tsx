@@ -11,6 +11,7 @@ import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { startPublicLoad } from "@/lib/public-load";
 import { expoOut } from "@/lib/motion";
 
 type Kind = "training" | "match" | "tournament" | "other";
@@ -67,44 +68,30 @@ export default function Program() {
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
     if (!isSupabaseConfigured) {
       setLoadFailed(true);
       setLoading(false);
       return;
     }
-
-    const timeoutId = setTimeout(() => {
-      if (cancelled) return;
-      setLoadFailed(true);
-      setLoading(false);
-    }, 6000);
+    const from = new Date().toISOString();
     const horizon = new Date(Date.now() + 14 * 86400000).toISOString();
-    void (async () => {
-      const { data, error } = await supabase
-        .from("schedule_events")
-        .select("id, kind, title, starts_at, ends_at, location, opponent")
-        .gte("starts_at", new Date().toISOString())
-        .lte("starts_at", horizon)
-        .order("starts_at", { ascending: true })
-        .limit(60);
-      if (cancelled) return;
-      clearTimeout(timeoutId);
-      if (error) {
-        setLoadFailed(true);
+    return startPublicLoad<EventRow>(
+      async () => {
+        // Visitors can't read schedule_events directly (RLS); public_schedule
+        // (migration 0035) returns approved, non-cancelled events.
+        const { data, error } = await supabase.rpc("public_schedule", {
+          p_from: from,
+          p_to: horizon,
+        });
+        return { data: data as EventRow[] | null, error };
+      },
+      (state) => {
+        if (state.status === "loading") return;
+        setLoadFailed(state.status === "failed");
+        if (state.status === "ready") setEvents(state.rows);
         setLoading(false);
-        return;
       }
-      setLoadFailed(false);
-      const rows = (data as EventRow[] | null) ?? [];
-      setEvents(rows);
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-    };
+    );
   }, []);
 
   const days = useMemo(() => {

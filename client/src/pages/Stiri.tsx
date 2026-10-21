@@ -12,6 +12,7 @@ import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { startPublicLoad } from "@/lib/public-load";
 import { expoOut } from "@/lib/motion";
 
 function resolveNewsCoverUrl(path: string | null): string | undefined {
@@ -42,54 +43,28 @@ export default function Stiri() {
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-    // If Supabase is not configured there is nothing to load.
     if (!isSupabaseConfigured) {
       setLoadFailed(true);
       setLoading(false);
       return;
     }
-
-    // Race the DB query against a 6-second timeout so users never see
-    // an infinite spinner when the backend is unreachable.
-    const timeoutId = setTimeout(() => {
-      if (cancelled) return;
-      setLoadFailed(true);
-      setLoading(false);
-    }, 6000);
-
-    void (async () => {
-      try {
+    return startPublicLoad<NewsRow>(
+      async () => {
         const { data, error } = await supabase
           .from("news")
           .select("id, title, body_md, cover_path, audience, published_at")
           .not("published_at", "is", null)
           .order("published_at", { ascending: false })
           .limit(40);
-
-        if (cancelled) return;
-        clearTimeout(timeoutId);
-
-        if (error || !data) {
-          setLoadFailed(true);
-        } else {
-          setLoadFailed(false);
-          setPosts(data as NewsRow[]);
-        }
-      } catch {
-        if (cancelled) return;
-        clearTimeout(timeoutId);
-        setLoadFailed(true);
-      } finally {
-        if (!cancelled) setLoading(false);
+        return { data: data as NewsRow[] | null, error };
+      },
+      (state) => {
+        if (state.status === "loading") return;
+        setLoadFailed(state.status === "failed");
+        if (state.status === "ready") setPosts(state.rows);
+        setLoading(false);
       }
-    })();
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-    };
+    );
   }, []);
 
   return (
