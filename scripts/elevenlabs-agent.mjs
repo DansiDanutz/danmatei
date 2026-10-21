@@ -46,6 +46,23 @@ async function call(method, path, apiKey, body) {
   return text ? JSON.parse(text) : {};
 }
 
+// Merge into the output file from earlier runs: an update run has no new
+// webhook secret and must not drop the one recorded when it was created.
+function saveOutput(values) {
+  const outFile = join(DIR, ".output.local.json");
+  let previous = {};
+  try {
+    previous = JSON.parse(readFileSync(outFile, "utf8"));
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+  writeFileSync(
+    outFile,
+    JSON.stringify({ ...previous, ...values }, null, 2) + "\n"
+  );
+  return outFile;
+}
+
 async function main() {
   const body = buildAgentBody();
   if (process.argv.includes("--dry-run")) {
@@ -55,8 +72,6 @@ async function main() {
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY is required");
-  const output = {};
-
   let webhookId = process.env.ELEVENLABS_POST_CALL_WEBHOOK_ID;
   if (!webhookId) {
     const created = await call("POST", "/workspace/webhooks", apiKey, {
@@ -67,10 +82,14 @@ async function main() {
       },
     });
     webhookId = created.webhook_id;
-    output.ELEVENLABS_POST_CALL_WEBHOOK_ID = webhookId;
-    if (created.webhook_secret) {
-      output.ELEVENLABS_WEBHOOK_SECRET = created.webhook_secret;
-    }
+    // Save now: the secret is only returned once, and the agent step below
+    // can still fail.
+    saveOutput({
+      ELEVENLABS_POST_CALL_WEBHOOK_ID: webhookId,
+      ...(created.webhook_secret
+        ? { ELEVENLABS_WEBHOOK_SECRET: created.webhook_secret }
+        : {}),
+    });
     console.log(`Created post-call webhook ${webhookId} → ${WEBHOOK_URL}`);
   }
 
@@ -87,23 +106,9 @@ async function main() {
     agentId = created.agent_id;
     console.log(`Created agent ${agentId}`);
   }
-  output.ELEVENLABS_INTERVIEW_AGENT_ID = agentId;
-
-  // Merge with earlier runs: an update run has no new webhook secret to save
-  // and must not drop the one recorded when the webhook was created.
-  const outFile = join(DIR, ".output.local.json");
-  let previous = {};
-  try {
-    previous = JSON.parse(readFileSync(outFile, "utf8"));
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
-  }
-  writeFileSync(
-    outFile,
-    JSON.stringify({ ...previous, ...output }, null, 2) + "\n"
-  );
+  const outFile = saveOutput({ ELEVENLABS_INTERVIEW_AGENT_ID: agentId });
   console.log(
-    `Wrote ${Object.keys(output).join(", ")} to ${outFile} — set them on Vercel (production).`
+    `Saved the agent and webhook ids (and any new webhook secret) to ${outFile} — set them on Vercel (production).`
   );
 }
 
