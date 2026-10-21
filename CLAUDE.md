@@ -18,7 +18,7 @@ This is a **pnpm workspace**. `pnpm-workspace.yaml` declares `apps/*` and `packa
 - `shared/` — code imported from both client and api. Path alias `@shared`.
 - `apps/mobile/` — React Native / Expo app (NativeWind, same brand identity).
 - `packages/ui/` — shared UI primitives (Avatar, Button, Card, Input, Screen) consumed by `apps/mobile`.
-- `services/voice-agent/` — standalone voice agent service.
+- `services/elevenlabs-agent/` — the AI interview agent (Andra) config + prompt for ElevenLabs Conversational AI, applied by `scripts/elevenlabs-agent.mjs`.
 - `supabase/` — migrations (`migrations/0001_init.sql`), seed, and temp files. Schema namespace is `fotbal` with 12 tables (profiles, trainers, children, news, schedule_events, match_results, match_participations, player_events, media, messages, notifications, landing_content) and 3 storage buckets (`fotbal-media-private`, `fotbal-trainer-public`, `fotbal-news-public`). `player_events` is append-only.
 - `e2e/` — Playwright specs.
 - `patches/` — pnpm patches; notably `wouter@3.7.1.patch` (custom routing). Patched deps and `nanoid@3.3.7` pin live in `package.json` under `pnpm.patchedDependencies` / `pnpm.overrides`.

@@ -4,7 +4,7 @@
  * Why this matters: `signToken` mints the HMAC the parent's "speak to the
  * agent" link is signed with. If verifyToken ever accepts a forged or
  * expired token, anyone who guesses (or scrapes) a lead id can drop into
- * the LiveKit room and impersonate a parent.
+ * the AI interview call and impersonate a parent.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 

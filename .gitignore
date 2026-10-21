@@ -130,3 +130,6 @@ test-results/
 playwright-report/
 .env*.local
 package-lock.json
+
+# ElevenLabs agent setup output (contains the webhook signing secret)
+services/elevenlabs-agent/.output.local.json

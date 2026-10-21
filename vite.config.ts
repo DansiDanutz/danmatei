@@ -227,8 +227,7 @@ export default defineConfig({
           vendor: ["react", "react-dom", "wouter"],
           motion: ["framer-motion"],
           supabase: ["@supabase/supabase-js"],
-          livekitClient: ["livekit-client"],
-          livekitReact: ["@livekit/components-react"],
+          elevenlabs: ["@elevenlabs/react"],
           ui: [
             "@radix-ui/react-tabs",
             "@radix-ui/react-popover",

@@ -21,22 +21,18 @@ vi.mock("../../api/_lib/elevenlabs.js", () => ({
   transcriptSummary: vi.fn(() => "summary"),
 }));
 
-const VOICE_SECRET = "voice-secret";
 const ELEVENLABS_SECRET = "elevenlabs-secret";
 
-function signedVoiceReq(body: unknown) {
+function signedInterviewReq(body: unknown) {
   const raw = Buffer.from(JSON.stringify(body), "utf8");
-  const ts = String(Date.now());
-  const sig = createHmac("sha256", VOICE_SECRET)
-    .update(`${ts}.`)
+  const t = Math.floor(Date.now() / 1000);
+  const v0 = createHmac("sha256", ELEVENLABS_SECRET)
+    .update(`${t}.`)
     .update(raw)
     .digest("hex");
   return {
     method: "POST",
-    headers: {
-      "x-pipecat-timestamp": ts,
-      "x-pipecat-signature": sig,
-    },
+    headers: { "elevenlabs-signature": `t=${t},v0=${v0}` },
     async *[Symbol.asyncIterator]() {
       yield raw;
     },
@@ -90,13 +86,13 @@ describe("webhook idempotency", () => {
     mocks.serviceClient.mockReset();
     mocks.sendWhatsappText.mockReset();
     mocks.fetchTranscript.mockReset();
-    vi.stubEnv("PIPECAT_WEBHOOK_SECRET", VOICE_SECRET);
+    vi.stubEnv("LEAD_LINK_SIGNING_SECRET", "test-lead-link-secret");
     vi.stubEnv("ELEVENLABS_WEBHOOK_SECRET", ELEVENLABS_SECRET);
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("VERCEL_ENV", "development");
   });
 
-  it("treats a repeated Pipecat call id as already processed", async () => {
+  it("treats a repeated ElevenLabs interview conversation as already processed", async () => {
     const leadId = "11111111-1111-4111-8111-111111111111";
     const lead = {
       id: leadId,
@@ -119,14 +115,22 @@ describe("webhook idempotency", () => {
     };
     mocks.serviceClient.mockReturnValue(supabase);
 
-    const { default: handler } = await import("../../api/voice/webhook");
+    const { signToken } = await import("../../api/_lib/sign-token");
+    const { default: handler } = await import(
+      "../../api/voice/elevenlabs-webhook"
+    );
     const { res, calls } = resRecorder();
     await handler(
-      signedVoiceReq({
-        leadId,
-        vendor_call_id: "lk-room-1",
-        status: "completed",
-        transcript: [],
+      signedInterviewReq({
+        type: "post_call_transcription",
+        data: {
+          conversation_id: "conv-interview-1",
+          status: "done",
+          transcript: [],
+          conversation_initiation_client_data: {
+            dynamic_variables: { call_token: signToken(leadId) },
+          },
+        },
       }),
       res
     );

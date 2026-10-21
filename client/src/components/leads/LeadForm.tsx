@@ -140,9 +140,10 @@ export default function LeadForm() {
             Apasă aici - începe apelul →
           </a>
 
-          {!result.whatsapp.sent && result.whatsapp.reason ? (
-            <p className="text-xs text-white/40 mt-4">
-              (WhatsApp: {result.whatsapp.reason})
+          {!result.whatsapp.sent ? (
+            <p className="text-xs text-white/50 mt-4">
+              Nu am putut trimite linkul pe WhatsApp, dar apelul funcționează
+              direct de aici.
             </p>
           ) : null}
         </div>
