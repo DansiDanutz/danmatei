@@ -88,50 +88,73 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
     return res.status(429).json({ error: "rate_limited" });
   }
 
+  // Claim the child's welcome atomically: of two overlapping requests only
+  // one gets the row back. The claim is released below if delivery fails.
   const svc = serviceClient();
-  const existing = await svc
-    .from("ai_conversations")
-    .select("id", { head: true, count: "exact" })
-    .eq("child_id", childId);
-  if ((existing.count ?? 0) > 0) {
+  const claim = await svc
+    .from("children")
+    .update({ welcome_claimed_at: new Date().toISOString() })
+    .eq("id", childId)
+    .is("welcome_claimed_at", null)
+    .select("id");
+  if (claim.error) {
+    return res.status(500).json({ error: claim.error.message });
+  }
+  if (!claim.data?.length) {
     return res.status(409).json({ error: "Welcome already sent for this child" });
   }
+  const releaseClaim = () =>
+    svc.from("children").update({ welcome_claimed_at: null }).eq("id", childId);
 
   const parentPhone = child.parent.phone;
   const trainerName = child.trainer?.profile?.full_name ?? "antrenorul tău";
   const agentId = child.trainer?.elevenlabs_agent_id ?? null;
 
-  // Build the ConvAI link + persist row via service client.
-  const shareToken = randomBytes(12).toString("base64url");
-  const linkResult = await createConvAILink(agentId, shareToken);
-
-  const insertConvo = await svc
+  // A retry after a failed delivery reuses the link created the first time.
+  const previous = await svc
     .from("ai_conversations")
-    .insert({
-      parent_id: child.parent.id,
-      trainer_id: child.trainer_id,
-      child_id: childId,
-      elevenlabs_agent_id: linkResult.agentId,
-      share_link: linkResult.link,
-      share_token: shareToken,
-      status: "pending",
-    })
     .select("id, share_link")
-    .single();
-  if (insertConvo.error || !insertConvo.data) {
-    return res
-      .status(500)
-      .json({ error: insertConvo.error?.message ?? "Could not store conversation" });
-  }
+    .eq("child_id", childId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let convo = previous.data as { id: string; share_link: string } | null;
 
-  // Notification (in-app)
-  await svc.from("notifications").insert({
-    recipient_id: child.parent.id,
-    kind: "ai_link_ready",
-    title: "Bun venit în academie!",
-    body: `Apasă pentru o scurtă conversație cu asistentul nostru — ${trainerName} va primi rezumatul.`,
-    link: insertConvo.data.share_link,
-  });
+  if (!convo) {
+    // Build the ConvAI link + persist row via service client.
+    const shareToken = randomBytes(12).toString("base64url");
+    const linkResult = await createConvAILink(agentId, shareToken);
+
+    const insertConvo = await svc
+      .from("ai_conversations")
+      .insert({
+        parent_id: child.parent.id,
+        trainer_id: child.trainer_id,
+        child_id: childId,
+        elevenlabs_agent_id: linkResult.agentId,
+        share_link: linkResult.link,
+        share_token: shareToken,
+        status: "pending",
+      })
+      .select("id, share_link")
+      .single();
+    if (insertConvo.error || !insertConvo.data) {
+      await releaseClaim();
+      return res
+        .status(500)
+        .json({ error: insertConvo.error?.message ?? "Could not store conversation" });
+    }
+    convo = insertConvo.data;
+
+    // Notification (in-app)
+    await svc.from("notifications").insert({
+      recipient_id: child.parent.id,
+      kind: "ai_link_ready",
+      title: "Bun venit în academie!",
+      body: `Apasă pentru o scurtă conversație cu asistentul nostru — ${trainerName} va primi rezumatul.`,
+      link: convo.share_link,
+    });
+  }
 
   // WhatsApp (skipped silently when not configured)
   let whatsappResult: { sent: boolean; reason?: string } = { sent: false, reason: "no_phone" };
@@ -143,20 +166,21 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
       "",
       "Înainte să ne auzim, asistentul nostru îți va pune câteva întrebări scurte (vârstă, experiență, așteptări). Conversația durează ~5 minute. Apasă linkul de mai jos pentru a începe:",
       "",
-      insertConvo.data.share_link,
+      convo.share_link,
       "",
       "După conversație, antrenorul tău primește un rezumat și te contactează aici pe WhatsApp. Mulțumim!",
     ].join("\n");
     whatsappResult = await sendWhatsappText(parentPhone, body);
   }
+  if (!whatsappResult.sent) await releaseClaim();
 
   return res.status(200).json({
     // Top-level success mirrors `whatsapp.sent` so the UI can decide whether
     // to show a "we couldn't text you, here's your link" fallback CTA without
     // peeking into the nested whatsapp object.
     success: whatsappResult.sent,
-    conversationId: insertConvo.data.id,
-    link: insertConvo.data.share_link,
+    conversationId: convo.id,
+    link: convo.share_link,
     whatsapp: whatsappResult,
   });
 }

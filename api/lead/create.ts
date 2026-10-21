@@ -21,13 +21,23 @@ import { isLeadLinkSigningConfigured, signToken } from "../_lib/sign-token.js";
 import { checkRateLimit } from "../_lib/ratelimit.js";
 
 const PERSON_NAME = /^[\p{L}][\p{L}\p{M} .'-]*$/u;
+// Letters on both sides of a dot ("www.site.ro") is a domain, not an initial
+// ("Ion I. Pop") — reject it so the WhatsApp copy can't carry a link.
+const DOMAIN_LIKE = /\p{L}\.\p{L}/u;
+const personName = z
+  .string()
+  .trim()
+  .min(2)
+  .max(120)
+  .regex(PERSON_NAME)
+  .refine(v => !DOMAIN_LIKE.test(v), "name must not contain a web address");
 
 const Body = z.object({
   // Both names are echoed into a WhatsApp sent from the academy's number, so
   // keep them to plain names — no links or arbitrary text.
-  parentName: z.string().trim().min(2).max(120).regex(PERSON_NAME),
+  parentName: personName,
   parentPhone: z.string().trim().min(7).max(32),
-  childName: z.string().trim().min(2).max(120).regex(PERSON_NAME),
+  childName: personName,
   childAge: z.coerce.number().int().min(4).max(18),
   childPosition: z.string().trim().max(60).optional().nullable(),
   source: z.enum(["web", "app"]).default("web"),
