@@ -20,7 +20,6 @@ interface PublicTournamentRow {
   starts_at: string;
   ends_at: string | null;
   location: string | null;
-  notes: string | null;
   trainer_id: string | null;
   age_min: number | null;
   age_max: number | null;
@@ -33,7 +32,6 @@ interface TournamentRow {
   starts_at: string;
   ends_at: string | null;
   location: string | null;
-  notes: string | null;
   trainer: { id?: string; age_min: number; age_max: number; profile: { full_name: string } | null } | null;
 }
 
@@ -66,7 +64,6 @@ export default function Turnee() {
           starts_at: r.starts_at,
           ends_at: r.ends_at,
           location: r.location,
-          notes: r.notes,
           trainer: r.trainer_id
             ? {
                 id: r.trainer_id,
@@ -194,12 +191,6 @@ function TournamentCard({ t, delay, highlight = false }: TournamentCardProps) {
           )}
         </div>
       </header>
-
-      {t.notes && (
-        <p className="mt-3 font-body text-sm leading-relaxed text-white/65">
-          {t.notes}
-        </p>
-      )}
 
       <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-white/60">
         <span className="inline-flex items-center gap-1.5">
