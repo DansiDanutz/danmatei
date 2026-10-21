@@ -7,7 +7,7 @@
  *   2. Resolve the lead from the `call_token` dynamic variable that
  *      /api/voice/start signed for this call — never from an unsigned id.
  *   3. Map the transcript + post-call analysis to a `lead_calls` row and
- *      notify the lead's trainers (shared with the legacy LiveKit webhook).
+ *      notify the lead's trainers (api/_lib/lead-call-result.ts).
  *
  * Other event types (audio, initiation failures) are acknowledged and
  * ignored so ElevenLabs doesn't retry them.

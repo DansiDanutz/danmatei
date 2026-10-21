@@ -31,9 +31,8 @@
  *                           base URL is Gemini and the model still has the
  *                           gpt-* default — avoids 404s after a half-set env.
  *
- * Mirrors the same provider-agnostic pattern used in the voice agent
- * (services/voice-agent/agent.py) so both sides can be pointed at the
- * academy's free / flat-fee provider stack instead of pay-per-token OpenAI.
+ * Provider-agnostic, so it can be pointed at the academy's free / flat-fee
+ * provider stack instead of pay-per-token OpenAI.
  *
  * Graceful degradation: if OPENAI_API_KEY is missing, `isConfigured()`
  * returns false and `generateText()` throws a typed error so callers can

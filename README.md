@@ -24,7 +24,7 @@ _Academia care formează fotbaliști — și oameni._
 ![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres_·_Auth_·_Realtime-3FCF8E?logo=supabase&logoColor=white)
-![LiveKit](https://img.shields.io/badge/LiveKit-Voice_AI-FF6B35)
+![ElevenLabs](https://img.shields.io/badge/ElevenLabs-Voice_AI-000000)
 ![Vercel](https://img.shields.io/badge/Vercel-Serverless-000000?logo=vercel&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -185,16 +185,16 @@ Parent submits /programare form
 Parent opens /apel/<signed-token>  ──►  mic + speaker pre-flight checks
         │
         ▼
-/api/voice/start  ──► mints LiveKit room JWTs + auto-dispatches the agent
+/api/voice/start  ──► signed ElevenLabs URL + call context (never the API key)
         │
         ▼
-"Andra"  ──►  Deepgram STT (RO)  ►  LLM  ►  ElevenLabs TTS   (LiveKit WebRTC, real-time)
+"Andra"  ──►  ElevenLabs Conversational AI in Romanian (browser audio, real-time)
         │
         ▼
-/api/voice/webhook  ──► transcript + summary + intent + next-steps  ──► coach inbox + push + WhatsApp
+/api/voice/elevenlabs-webhook  ──► transcript + Romanian summary + intent + next-steps  ──► coach inbox + push + WhatsApp
 ```
 
-The agent (`services/voice-agent/agent.py`) is a **LiveKit Agents** Python worker deployed on **Fly.io** (Frankfurt). Tokens are minted securely server-side; lead links are **HMAC-signed**. The same OpenAI-compatible LLM layer also drafts training recaps, weekly news posts and coach reply messages.
+The agent is defined as code in `services/elevenlabs-agent/` (prompt, voice, data collection) and applied with `scripts/elevenlabs-agent.mjs`; there is no voice server to run. Lead and call links are **HMAC-signed**, and the post-call webhook is signature-verified. The same OpenAI-compatible LLM layer also drafts training recaps, weekly news posts and coach reply messages.
 
 ---
 
@@ -207,11 +207,11 @@ The agent (`services/voice-agent/agent.py`) is a **LiveKit Agents** Python worke
 | **Forms / data viz** | React Hook Form + Zod, Embla Carousel, Recharts, Sonner toasts                                                          |
 | **Backend (data)**   | [Supabase](https://supabase.com) — Postgres + Auth + Storage + Realtime (dedicated `fotbal` schema, RLS on every table) |
 | **Backend (logic)**  | Vercel **serverless functions** (`/api`, `@vercel/node`); Express static host for self-hosting                          |
-| **Voice AI**         | LiveKit (WebRTC + server SDK), a Python **LiveKit Agents** worker, Deepgram STT, ElevenLabs TTS/ConvAI                  |
+| **Voice AI**         | ElevenLabs Conversational AI (`@elevenlabs/react`, signed URLs, post-call webhook)                                       |
 | **Messaging**        | WhatsApp via Evolution API (self-host) or Meta Cloud API; Web Push (VAPID)                                              |
 | **AI text**          | Provider-agnostic OpenAI-compatible LLM (OpenAI / Gemini / OpenRouter / local Ollama)                                   |
 | **Tooling**          | pnpm 10, Node 22, Playwright + Vitest, Prettier, ESLint-free strict TS                                                  |
-| **Hosting**          | Vercel (web + API + cron) · Fly.io / Docker (voice agent)                                                               |
+| **Hosting**          | Vercel (web + API + cron) · Docker (optional WhatsApp gateway)                                                          |
 
 ---
 
@@ -237,9 +237,8 @@ flowchart TB
         RT["Realtime · chat + notifications"]
     end
 
-    subgraph voice["Voice agent — Fly.io / Docker"]
-        LK["LiveKit WebRTC"]
-        ANDRA["Andra — Deepgram → LLM → ElevenLabs"]
+    subgraph voice["Voice agent — ElevenLabs"]
+        ANDRA["Andra — Conversational AI"]
     end
 
     WA["WhatsApp — Evolution / Meta Cloud"]
@@ -269,7 +268,7 @@ flowchart TB
 
 - **Single shared Supabase project**, isolated under a dedicated `fotbal` Postgres schema so it never collides with other apps' `public` tables.
 - **RLS everywhere.** The browser talks to Postgres directly with the anon key; every privileged write (inviting coaches, fan-out notifications, lead routing) goes through `/api` with the service-role key.
-- **Security-conscious by default** — HMAC-signed call links, server-minted LiveKit JWTs, signed webhooks, signed Storage URLs for private media.
+- **Security-conscious by default** — HMAC-signed call links, server-issued ElevenLabs signed URLs, signed webhooks, signed Storage URLs for private media.
 
 ---
 
@@ -294,12 +293,11 @@ danmatei/
 │       └── contexts/
 ├── api/                     # Vercel serverless functions
 │   ├── _lib/                # supabase, openai, elevenlabs, whatsapp, push helpers
-│   ├── lead/  ai/  voice/   # lead funnel · ConvAI · LiveKit voice agent
+│   ├── lead/  ai/  voice/   # lead funnel · ConvAI · AI interview (ElevenLabs)
 │   ├── push/ messages/ news/ training/ schedule/ attendance/
 │   └── cron/                # daily + weekly digest jobs
 ├── services/
-│   ├── voice-agent/         # Python LiveKit Agents worker (Andra) + Dockerfile + fly.toml
-│   ├── livekit/             # self-host LiveKit config
+│   ├── elevenlabs-agent/    # Andra's agent config + Romanian prompt (applied by scripts/elevenlabs-agent.mjs)
 │   └── caddy/               # optional TLS reverse proxy
 ├── server/                  # minimal Express static host (self-hosting / Docker)
 ├── supabase/                # migrations (0001–0011) + seed
@@ -334,7 +332,7 @@ All tables live in the `fotbal` schema with **Row-Level Security enabled on ever
 
 - **Node 22.x** and **pnpm 10**
 - A **Supabase** project (free tier is fine)
-- _(optional, for AI/voice/WhatsApp features)_ LiveKit, ElevenLabs, Deepgram, an OpenAI-compatible key, and a WhatsApp gateway
+- _(optional, for AI/voice/WhatsApp features)_ ElevenLabs, an OpenAI-compatible key, and a WhatsApp gateway
 
 ### Install & run
 
@@ -400,9 +398,8 @@ Only the **Supabase** group is required to boot the site. The rest progressively
 
 | Group           | Variables                                                                                                                                                                                                                                                  |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **LiveKit**     | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_AGENT_NAME`                                                                                                                                                                               |
-| **Voice agent** | `DEEPGRAM_API_KEY`, `LIVEKIT_LLM_API_KEY` / `GEMINI_API_KEY`, `LIVEKIT_LLM_BASE_URL`, `LIVEKIT_LLM_MODEL`, `ELEVENLABS_API_KEY`, `ELEVEN_API_KEY`, `PIPECAT_WEBHOOK_SECRET`, `MAX_CALL_SECONDS`, `API_BASE`, `PUBLIC_BASE_URL`, `LEAD_LINK_SIGNING_SECRET` |
-| **ElevenLabs**  | `ELEVENLABS_API_KEY`, `ELEVENLABS_DEFAULT_AGENT_ID`, `ELEVENLABS_WEBHOOK_SECRET`                                                                                                                                                                           |
+| **AI interview** | `ELEVENLABS_API_KEY`, `ELEVENLABS_INTERVIEW_AGENT_ID`, `ELEVENLABS_WEBHOOK_SECRET`, `LEAD_LINK_SIGNING_SECRET`, `PUBLIC_BASE_URL`                                                                                                                       |
+| **ElevenLabs**  | `ELEVENLABS_DEFAULT_AGENT_ID` (welcome conversations)                                                                                                                                                                                                      |
 | **LLM (text)**  | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`                                                                                                                                                                                                        |
 | **WhatsApp**    | `WHATSAPP_PHONE_ID`, `WHATSAPP_ACCESS_TOKEN`, `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_API_INSTANCE`                                                                                                                                           |
 | **Web Push**    | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`                                                                                                                                                                                                   |
@@ -430,16 +427,16 @@ For production, set both `VITE_APP_URL` and `PUBLIC_BASE_URL` to
 `https://www.danmatei.ro` so OAuth, trainer invites, WhatsApp call links,
 assistant fallback links, sitemap and social metadata all use the custom domain.
 
-### Voice agent (Fly.io / Docker)
+### AI interview agent (ElevenLabs)
 
-The AI call agent runs separately from the web app:
+Andra runs on ElevenLabs; create or update her from the repo:
 
 ```bash
-cd services/voice-agent
-fly deploy            # Frankfurt, always-on machine
-# — or, local stack (LiveKit + voice worker + Evolution + Caddy):
-docker compose up -d
+ELEVENLABS_API_KEY=... node scripts/elevenlabs-agent.mjs
 ```
+
+The optional WhatsApp gateway (Evolution API + Caddy) runs with
+`docker compose up -d`. See `docs/OPERATIONALIZE.md`.
 
 ---
 

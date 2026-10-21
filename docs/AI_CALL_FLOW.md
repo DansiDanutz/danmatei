@@ -81,12 +81,6 @@ them on WhatsApp.
 Age routing happens when the lead is created (`trainer_slug_for_age`), with
 Dan Matei CC'd on every lead he isn't already assigned to.
 
-## Legacy LiveKit worker
-
-`services/voice-agent/` (LiveKit Agents on Fly.io) and `/api/voice/webhook`
-are no longer used by `/apel`. They stay until the ElevenLabs flow has run in
-production, so rolling back is a revert; then delete both and the Fly app.
-
 ## Privacy
 
 - The parent accepts GDPR consent on the lead form, and the agent's first

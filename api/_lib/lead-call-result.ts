@@ -1,11 +1,10 @@
 /**
  * Record a finished AI interview call and notify the lead's trainers.
  *
- * Shared by the voice-call webhooks (api/voice/webhook.ts for the legacy
- * LiveKit worker, api/voice/elevenlabs-webhook.ts for ElevenLabs
- * Conversational AI). Each webhook verifies + parses its vendor's payload into
- * a `LeadCallResult`; everything after that (idempotent `lead_calls` insert,
- * lead → routed, trainer notification fan-out) is identical.
+ * Used by api/voice/elevenlabs-webhook.ts after it verifies and parses the
+ * ElevenLabs post-call payload into a `LeadCallResult`: idempotent
+ * `lead_calls` insert, lead → routed, trainer notification fan-out. Rows
+ * from the retired LiveKit worker keep vendor = 'pipecat'.
  */
 import type { serviceClient } from "./supabase.js";
 import { sendWhatsappText } from "./whatsapp.js";
@@ -29,7 +28,7 @@ export interface LeadCallTurn {
 
 export interface LeadCallResult {
   leadId: string;
-  vendor: "pipecat" | "elevenlabs";
+  vendor: "elevenlabs";
   vendorCallId: string;
   startedAt: string | null;
   endedAt: string | null;

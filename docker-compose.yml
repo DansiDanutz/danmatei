@@ -1,61 +1,13 @@
 name: danmatei-voice
-# Self-hosted LiveKit voice-agent + WhatsApp stack for Academia Dan Matei.
+# Self-hosted WhatsApp stack (Evolution API) for Academia Dan Matei. The AI
+# interview runs on ElevenLabs Conversational AI (see docs/AI_CALL_FLOW.md).
 # See docs/OPERATIONALIZE.md for full deployment instructions.
 #
 # Bring up: docker compose --env-file .env up -d
-# Tail:     docker compose logs -f voice-agent
+# Tail:     docker compose logs -f evolution-api
 # Stop:     docker compose down
 
 services:
-  # ─────────────────────────────────────────────────────────────────────
-  # LiveKit — open-source WebRTC media server
-  # ─────────────────────────────────────────────────────────────────────
-  livekit:
-    image: livekit/livekit-server:latest
-    restart: unless-stopped
-    command: ["--config", "/etc/livekit.yaml"]
-    ports:
-      - "7880:7880" # WebSocket signalling
-      - "7881:7881" # TCP fallback
-      - "50000-50100:50000-50100/udp" # RTC media
-    volumes:
-      - ./services/livekit/livekit.yaml:/etc/livekit.yaml:ro
-    environment:
-      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
-
-  # ─────────────────────────────────────────────────────────────────────
-  # Voice agent — LiveKit Agents worker with direct cloud providers
-  # ─────────────────────────────────────────────────────────────────────
-  voice-agent:
-    build: ./services/voice-agent
-    restart: unless-stopped
-    depends_on:
-      livekit:
-        condition: service_started
-    ports:
-      - "8082:8081" # LiveKit Agents health/debug server
-    environment:
-      LIVEKIT_URL: ${LIVEKIT_URL:-ws://livekit:7880}
-      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
-      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
-      LIVEKIT_AGENT_NAME: ${LIVEKIT_AGENT_NAME:-danmatei-voice-agent}
-      API_BASE: ${API_BASE:-https://www.danmatei.ro}
-      PIPECAT_WEBHOOK_SECRET: ${PIPECAT_WEBHOOK_SECRET}
-      MAX_CALL_SECONDS: ${MAX_CALL_SECONDS:-360}
-      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
-      LIVEKIT_LLM_BASE_URL: ${LIVEKIT_LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
-      LIVEKIT_LLM_API_KEY: ${LIVEKIT_LLM_API_KEY:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      LIVEKIT_LLM_MODEL: ${LIVEKIT_LLM_MODEL:-gemini-2.0-flash}
-      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
-      ELEVEN_API_KEY: ${ELEVEN_API_KEY:-}
-      LIVEKIT_STT_MODEL: ${LIVEKIT_STT_MODEL:-deepgram/nova-3}
-      LIVEKIT_STT_LANGUAGE: ${LIVEKIT_STT_LANGUAGE:-ro}
-      LIVEKIT_STT_ENDPOINTING_MS: ${LIVEKIT_STT_ENDPOINTING_MS:-300}
-      LIVEKIT_TTS_MODEL: ${LIVEKIT_TTS_MODEL:-elevenlabs/eleven_turbo_v2_5}
-      LIVEKIT_TTS_VOICE: ${LIVEKIT_TTS_VOICE:-hpp4J3VqNfWAUOO0d1Us}
-
   # ─────────────────────────────────────────────────────────────────────
   # Evolution API — open-source WhatsApp gateway (Baileys based)
   # ─────────────────────────────────────────────────────────────────────
@@ -82,7 +34,7 @@ services:
   # ─────────────────────────────────────────────────────────────────────
   # Caddy — TLS termination + a stable public entrypoint.
   # Optional. If you point a domain at the host, this gives you HTTPS for
-  # LiveKit (wss://) and the Evolution API admin UI.
+  # the Evolution API admin UI.
   # ─────────────────────────────────────────────────────────────────────
   caddy:
     image: caddy:2-alpine

@@ -14,7 +14,7 @@
  * set it as ELEVENLABS_WEBHOOK_SECRET on Vercel, and the agent id as
  * ELEVENLABS_INTERVIEW_AGENT_ID.
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -92,9 +92,12 @@ async function main() {
   // Merge with earlier runs: an update run has no new webhook secret to save
   // and must not drop the one recorded when the webhook was created.
   const outFile = join(DIR, ".output.local.json");
-  const previous = existsSync(outFile)
-    ? JSON.parse(readFileSync(outFile, "utf8"))
-    : {};
+  let previous = {};
+  try {
+    previous = JSON.parse(readFileSync(outFile, "utf8"));
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
   writeFileSync(
     outFile,
     JSON.stringify({ ...previous, ...output }, null, 2) + "\n"
