@@ -38,7 +38,7 @@
       "silence_end_call_timeout": 30
     },
     "conversation": {
-      "max_duration_seconds": 210
+      "max_duration_seconds": 180
     }
   },
   "platform_settings": {
