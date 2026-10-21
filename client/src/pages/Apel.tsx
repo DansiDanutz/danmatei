@@ -321,11 +321,18 @@ function CallStage({
   };
 
   const conversation = useConversation({
+    // Applied by the SDK once the session exists (calling setVolume()
+    // before then throws "No active conversation").
+    volume: speakerMuted ? 0 : 1,
     onDisconnect: () => {
       if (!failedRef.current) onEnded();
     },
     onError: message => {
-      fail(message ? `Conexiune întreruptă: ${message}` : "Conexiune întreruptă.");
+      // The SDK's message is technical English; keep it for debugging only.
+      console.warn("[apel] ElevenLabs error:", message);
+      fail(
+        "Conexiunea cu Andra s-a întrerupt. Verifică internetul și apasă „Reia apelul”."
+      );
     },
   });
   const connected = conversation.status === "connected";
@@ -368,16 +375,16 @@ function CallStage({
   useEffect(() => {
     if (!connected) return;
     const t = window.setTimeout(() => {
-      conversationRef.current.sendContextualUpdate(
-        "Au trecut aproape trei minute. Încheie acum conversația politicos, cu formula de închidere, apoi închide apelul."
-      );
+      try {
+        conversationRef.current.sendContextualUpdate(
+          "Au trecut aproape trei minute. Încheie acum conversația politicos, cu formula de închidere, apoi închide apelul."
+        );
+      } catch {
+        // The call ended in the meantime; nothing to nudge.
+      }
     }, WRAP_UP_AT_S * 1000);
     return () => window.clearTimeout(t);
   }, [connected]);
-
-  useEffect(() => {
-    conversationRef.current.setVolume({ volume: speakerMuted ? 0 : 1 });
-  }, [speakerMuted]);
 
   // End-call handler: ask Andra to say goodbye instead of cutting her off.
   // She closes and ends the call herself; a safety net ends it locally after
