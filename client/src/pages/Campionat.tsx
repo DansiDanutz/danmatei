@@ -4,7 +4,8 @@
  *
  * Reads:
  *   - fotbal.trainers (with profile name) for each group
- *   - fotbal.schedule_events (kind='match') joined with match_results
+ *   - public_schedule(kind='match') + public_match_results (migration 0036):
+ *     visitors can't read schedule_events / match_results directly (RLS)
  */
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -80,7 +81,7 @@ export default function Campionat() {
                 setLoading(false);
         }, 6000);
     void (async () => {
-      const [trainersRes, eventsRes, trainerNames] = await Promise.all([
+      const [trainersRes, eventsRes, resultsRes, trainerNames] = await Promise.all([
         supabase
           .from("trainers")
           .select(
@@ -88,24 +89,51 @@ export default function Campionat() {
           )
           .eq("active", true)
           .order("display_order", { ascending: true }),
-        supabase
-          .from("schedule_events")
-          .select(
-            "id, trainer_id, title, starts_at, location, opponent, kind, results:match_results!match_results_event_id_fkey(our_score, opponent_score, recap_md)",
-          )
-          .eq("kind", "match")
-          .order("starts_at", { ascending: false }),
+        supabase.rpc("public_schedule", {
+          p_from: "-infinity",
+          p_to: "infinity",
+          p_kind: "match",
+        }),
+        supabase.rpc("public_match_results", { p_limit: 500 }),
         fetchTrainerNames(),
       ]);
+      type DbScheduleRow = {
+        id: string;
+        trainer_id: string | null;
+        title: string;
+        starts_at: string;
+        location: string | null;
+        opponent: string | null;
+      };
+      type DbResult = {
+        event_id: string;
+        our_score: number;
+        opponent_score: number;
+        recap_md: string | null;
+      };
       const trainers = trainersRes.data;
-      const events = eventsRes.data;
+      // Newest first, with each match's result attached by event id.
+      const resultByEvent = new Map(
+        ((resultsRes.data ?? []) as DbResult[]).map((r) => [r.event_id, r])
+      );
+      const events: DbEvent[] = ((eventsRes.data ?? []) as DbScheduleRow[])
+        .map((e) => {
+          const r = resultByEvent.get(e.id);
+          return {
+            ...e,
+            results: r
+              ? [{ our_score: r.our_score, opponent_score: r.opponent_score, recap_md: r.recap_md }]
+              : null,
+          };
+        })
+        .sort((a, b) => b.starts_at.localeCompare(a.starts_at));
 
       if (cancelled) return;
 
       type DbTrainer = { id: string; age_min: number; age_max: number; profile: { full_name: string } | null };
       type DbEvent = {
         id: string;
-        trainer_id: string;
+        trainer_id: string | null;
         title: string;
         starts_at: string;
         location: string | null;
@@ -133,7 +161,7 @@ export default function Campionat() {
         : trainerList;
 
       const blocks: GroupBlock[] = seeds.map((s) => {
-        const ms: MatchRow[] = ((events as DbEvent[] | null) ?? [])
+        const ms: MatchRow[] = events
           .filter((e) => e.trainer_id === s.trainerId)
           .map((e) => {
             const r = e.results?.[0];
