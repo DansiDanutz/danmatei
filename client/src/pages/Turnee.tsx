@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Trophy, Users } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import DemoBanner from "@/components/DemoBanner";
+import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -24,35 +24,6 @@ interface TournamentRow {
   trainer: { id?: string; age_min: number; age_max: number; profile: { full_name: string } | null } | null;
 }
 
-const FALLBACK: TournamentRow[] = [
-  {
-    id: "demo-1",
-    title: "Cupa Transilvaniei — U13",
-    starts_at: "2026-05-15T09:00:00Z",
-    ends_at: "2026-05-17T18:00:00Z",
-    location: "Cluj-Arena, Cluj-Napoca",
-    notes: "Turneu inter-academii, 16 echipe, 3 zile.",
-    trainer: {
-      age_min: 12,
-      age_max: 13,
-      profile: { full_name: "Cristian Ilea" },
-    },
-  },
-  {
-    id: "demo-2",
-    title: "Memorialul „Dan Matei” — U10",
-    starts_at: "2026-06-08T10:00:00Z",
-    ends_at: "2026-06-08T17:00:00Z",
-    location: "Baza Unirea, Mănăștur",
-    notes: "Tradiția anului. 8 echipe locale invitate.",
-    trainer: {
-      age_min: 10,
-      age_max: 11,
-      profile: { full_name: "Radu Mureșan" },
-    },
-  },
-];
-
 const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "numeric",
   month: "long",
@@ -63,26 +34,24 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
 export default function Turnee() {
   const [rows, setRows] = useState<TournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
         if (!isSupabaseConfigured) {
-                setUsingFallback(true);
-                setRows(FALLBACK);
+                setLoadFailed(true);
                 setLoading(false);
                 return;
         }
 
         const timeoutId = setTimeout(() => {
                 if (cancelled) return;
-                setUsingFallback(true);
-                setRows(FALLBACK);
+                setLoadFailed(true);
                 setLoading(false);
         }, 6000);
     void (async () => {
-      const [{ data }, trainerNames] = await Promise.all([
+      const [{ data, error }, trainerNames] = await Promise.all([
         supabase
           .from("schedule_events")
           .select(
@@ -94,6 +63,12 @@ export default function Turnee() {
       ]);
       if (cancelled) return;
               clearTimeout(timeoutId);
+      if (error) {
+        setLoadFailed(true);
+        setLoading(false);
+        return;
+      }
+      setLoadFailed(false);
       const items = ((data as unknown as TournamentRow[] | null) ?? []).map(
         (r) => {
           const name = r.trainer?.id ? trainerNames.get(r.trainer.id) : undefined;
@@ -102,9 +77,7 @@ export default function Turnee() {
             : r;
         }
       );
-      const fallback = items.length === 0;
-      setUsingFallback(fallback);
-      setRows(fallback ? FALLBACK : items);
+      setRows(items);
       setLoading(false);
     })();
     return () => {
@@ -131,7 +104,7 @@ export default function Turnee() {
       pageTitle="Turnee & evenimente"
       pageDescription="Turneele la care participă grupele academiei. Calendar complet, locație și grupa implicată."
     >
-      {usingFallback && <DemoBanner />}
+      {!loading && loadFailed && <LoadErrorState what="turneele" />}
 
       {loading && (
         <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
@@ -141,7 +114,7 @@ export default function Turnee() {
         </div>
       )}
 
-      {!loading && upcoming.length === 0 && past.length === 0 && (
+      {!loading && !loadFailed && upcoming.length === 0 && past.length === 0 && (
         <EmptyState
           icon={<Trophy className="size-6" />}
           title="Niciun turneu programat"

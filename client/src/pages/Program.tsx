@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, Dumbbell, MapPin, Swords, Trophy } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import DemoBanner from "@/components/DemoBanner";
+import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -24,48 +24,6 @@ interface EventRow {
   location: string | null;
   opponent: string | null;
 }
-
-const FALLBACK: EventRow[] = (() => {
-  const now = Date.now();
-  return [
-    {
-      id: "demo-1",
-      kind: "training",
-      title: "Antrenament U7–U9",
-      starts_at: new Date(now + 86400000).toISOString(),
-      ends_at: new Date(now + 86400000 + 60 * 60 * 1000).toISOString(),
-      location: "Baza Unirea, Mănăștur",
-      opponent: null,
-    },
-    {
-      id: "demo-2",
-      kind: "training",
-      title: "Antrenament U10–U13",
-      starts_at: new Date(now + 86400000 + 60 * 60 * 1000).toISOString(),
-      ends_at: new Date(now + 86400000 + 2.5 * 60 * 60 * 1000).toISOString(),
-      location: "Baza Unirea, Mănăștur",
-      opponent: null,
-    },
-    {
-      id: "demo-3",
-      kind: "match",
-      title: "U13 vs ACS Sănătatea",
-      starts_at: new Date(now + 5 * 86400000).toISOString(),
-      ends_at: new Date(now + 5 * 86400000 + 90 * 60 * 1000).toISOString(),
-      location: "Stadion Cetatea",
-      opponent: "ACS Sănătatea",
-    },
-    {
-      id: "demo-4",
-      kind: "tournament",
-      title: "Cupa Transilvaniei — U11",
-      starts_at: new Date(now + 12 * 86400000).toISOString(),
-      ends_at: null,
-      location: "Cluj Arena",
-      opponent: null,
-    },
-  ];
-})();
 
 const dayFormatter = new Intl.DateTimeFormat("ro-RO", {
   weekday: "long",
@@ -106,27 +64,25 @@ function weekdayRule(date: Date): string {
 export default function Program() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     if (!isSupabaseConfigured) {
-      setUsingFallback(true);
-      setEvents(FALLBACK);
+      setLoadFailed(true);
       setLoading(false);
       return;
     }
 
     const timeoutId = setTimeout(() => {
       if (cancelled) return;
-      setUsingFallback(true);
-      setEvents(FALLBACK);
+      setLoadFailed(true);
       setLoading(false);
     }, 6000);
     const horizon = new Date(Date.now() + 14 * 86400000).toISOString();
     void (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("schedule_events")
         .select("id, kind, title, starts_at, ends_at, location, opponent")
         .gte("starts_at", new Date().toISOString())
@@ -135,10 +91,14 @@ export default function Program() {
         .limit(60);
       if (cancelled) return;
       clearTimeout(timeoutId);
+      if (error) {
+        setLoadFailed(true);
+        setLoading(false);
+        return;
+      }
+      setLoadFailed(false);
       const rows = (data as EventRow[] | null) ?? [];
-      const fallback = rows.length === 0;
-      setUsingFallback(fallback);
-      setEvents(fallback ? FALLBACK : rows);
+      setEvents(rows);
       setLoading(false);
     })();
     return () => {
@@ -164,7 +124,7 @@ export default function Program() {
       pageTitle="Următoarele două săptămâni"
       pageDescription="Antrenamente, meciuri și turnee planificate pentru toate grupele."
     >
-      {usingFallback && <DemoBanner />}
+      {!loading && loadFailed && <LoadErrorState what="programul" />}
 
       {loading && (
         <div className="grid gap-3">
@@ -243,7 +203,7 @@ export default function Program() {
         ))}
       </div>
 
-      {!loading && events.length === 0 && (
+      {!loading && !loadFailed && events.length === 0 && (
         <EmptyState
           icon={<Calendar className="size-6" />}
           title="Niciun eveniment programat"

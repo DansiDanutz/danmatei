@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Trophy, TrendingUp } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import DemoBanner from "@/components/DemoBanner";
+import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -27,45 +27,6 @@ interface ResultRow {
   } | null;
 }
 
-const FALLBACK: ResultRow[] = [
-  {
-    id: "demo-1",
-    our_score: 4,
-    opponent_score: 1,
-    recap_md: "U13 împotriva ACS Sănătatea — control total în repriza a doua.",
-    event: {
-      title: "U13 vs ACS Sănătatea",
-      starts_at: new Date(Date.now() - 86400000 * 6).toISOString(),
-      location: "Stadion Cetatea",
-      opponent: "ACS Sănătatea",
-    },
-  },
-  {
-    id: "demo-2",
-    our_score: 2,
-    opponent_score: 2,
-    recap_md: "U11 — meci echilibrat, două goluri în ultimele 10 minute.",
-    event: {
-      title: "U11 vs LPS Cluj",
-      starts_at: new Date(Date.now() - 86400000 * 13).toISOString(),
-      location: "Baza Unirea, Mănăștur",
-      opponent: "LPS Cluj",
-    },
-  },
-  {
-    id: "demo-3",
-    our_score: 5,
-    opponent_score: 0,
-    recap_md: "U9 — cinci goluri, primul curat din partea grupei mici.",
-    event: {
-      title: "U9 vs CSȘ Cluj",
-      starts_at: new Date(Date.now() - 86400000 * 20).toISOString(),
-      location: "Baza Unirea, Mănăștur",
-      opponent: "CSȘ Cluj",
-    },
-  },
-];
-
 const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "numeric",
   month: "short",
@@ -82,26 +43,24 @@ function outcome(our: number, opp: number): "W" | "D" | "L" {
 export default function Rezultate() {
   const [results, setResults] = useState<ResultRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
         if (!isSupabaseConfigured) {
-                setUsingFallback(true);
-                setResults(FALLBACK);
+                setLoadFailed(true);
                 setLoading(false);
                 return;
         }
 
         const timeoutId = setTimeout(() => {
                 if (cancelled) return;
-                setUsingFallback(true);
-                setResults(FALLBACK);
+                setLoadFailed(true);
                 setLoading(false);
         }, 6000);
     void (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("match_results")
         .select(
           "id, our_score, opponent_score, recap_md, event:schedule_events!event_id(title, starts_at, location, opponent)"
@@ -110,10 +69,14 @@ export default function Rezultate() {
         .limit(40);
       if (cancelled) return;
               clearTimeout(timeoutId);
-      const rows = (data as ResultRow[] | null) ?? [];
-      const fallback = rows.length === 0;
-      setUsingFallback(fallback);
-      setResults(fallback ? FALLBACK : rows);
+      if (error) {
+        setLoadFailed(true);
+        setLoading(false);
+        return;
+      }
+      setLoadFailed(false);
+      const rows = (data as unknown as ResultRow[] | null) ?? [];
+      setResults(rows);
       setLoading(false);
     })();
     return () => {
@@ -134,7 +97,7 @@ export default function Rezultate() {
       pageTitle="Meciuri & scoruri"
       pageDescription="Cele mai recente rezultate ale grupelor școlii — campionat, turnee, amicale."
     >
-      {usingFallback && <DemoBanner />}
+      {!loading && loadFailed && <LoadErrorState what="rezultatele" />}
 
       {/* Win/draw/loss strip */}
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
@@ -168,7 +131,7 @@ export default function Rezultate() {
         </div>
       )}
 
-      {!loading && results.length === 0 && (
+      {!loading && !loadFailed && results.length === 0 && (
         <EmptyState
           icon={<TrendingUp className="size-6" />}
           title="Niciun rezultat încă"

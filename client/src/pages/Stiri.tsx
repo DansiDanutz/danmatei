@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, Newspaper, Tag } from "lucide-react";
 import PublicShell from "@/components/PublicShell";
-import DemoBanner from "@/components/DemoBanner";
+import LoadErrorState from "@/components/LoadErrorState";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -29,36 +29,6 @@ interface NewsRow {
   published_at: string | null;
 }
 
-const FALLBACK_NEWS: NewsRow[] = [
-  {
-    id: "demo-1",
-    title: "Înscrieri deschise pentru anul școlar 2026–2027",
-    body_md:
-      "Începem înscrierile pentru noul an. Avem locuri pentru U6 până la U15. Antrenamentele luni–vineri 16:00–19:00 la Baza Unirea (Mănăștur) și la Baza Cotton (Grigorescu).",
-    cover_path: null,
-    audience: "public",
-    published_at: new Date().toISOString(),
-  },
-  {
-    id: "demo-2",
-    title: "U13 câștigă Cupa Transilvaniei pentru a doua oară consecutiv",
-    body_md:
-      "Felicitări băieților și antrenorului Cristi Ilea! 5 victorii din 5 meciuri, 18 goluri marcate, 3 primite.",
-    cover_path: null,
-    audience: "public",
-    published_at: new Date(Date.now() - 86400000 * 14).toISOString(),
-  },
-  {
-    id: "demo-3",
-    title: "Nou antrenor pentru grupa U9 – Bun venit, Alexandru Popa!",
-    body_md:
-      "Alexandru Popa, licență UEFA B, se alătură echipei noastre tehnice pentru grupele mici. Antrenamentele continuă la Baza Unirea și Baza Cotton.",
-    cover_path: null,
-    audience: "public",
-    published_at: new Date(Date.now() - 86400000 * 30).toISOString(),
-  },
-];
-
 const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
   day: "numeric",
   month: "long",
@@ -69,15 +39,14 @@ const dateFormatter = new Intl.DateTimeFormat("ro-RO", {
 export default function Stiri() {
   const [posts, setPosts] = useState<NewsRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    // If Supabase is not configured, skip the query and show fallback immediately
+    // If Supabase is not configured there is nothing to load.
     if (!isSupabaseConfigured) {
-      setUsingFallback(true);
-      setPosts(FALLBACK_NEWS);
+      setLoadFailed(true);
       setLoading(false);
       return;
     }
@@ -86,8 +55,7 @@ export default function Stiri() {
     // an infinite spinner when the backend is unreachable.
     const timeoutId = setTimeout(() => {
       if (cancelled) return;
-      setUsingFallback(true);
-      setPosts(FALLBACK_NEWS);
+      setLoadFailed(true);
       setLoading(false);
     }, 6000);
 
@@ -104,19 +72,15 @@ export default function Stiri() {
         clearTimeout(timeoutId);
 
         if (error || !data) {
-          setUsingFallback(true);
-          setPosts(FALLBACK_NEWS);
+          setLoadFailed(true);
         } else {
-          const rows = data as NewsRow[];
-          const fallback = rows.length === 0;
-          setUsingFallback(fallback);
-          setPosts(fallback ? FALLBACK_NEWS : rows);
+          setLoadFailed(false);
+          setPosts(data as NewsRow[]);
         }
       } catch {
         if (cancelled) return;
         clearTimeout(timeoutId);
-        setUsingFallback(true);
-        setPosts(FALLBACK_NEWS);
+        setLoadFailed(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -134,7 +98,7 @@ export default function Stiri() {
       pageTitle="Ultimele noutăți"
       pageDescription="Articole, anunțuri, rezultate și momente importante din viața academiei."
     >
-      {usingFallback && <DemoBanner />}
+      {!loading && loadFailed && <LoadErrorState what="știrile" />}
       {loading && (
         <div className="grid gap-3 sm:gap-4">
           <SkeletonCard />
@@ -142,7 +106,7 @@ export default function Stiri() {
           <SkeletonCard />
         </div>
       )}
-      {!loading && posts.length === 0 && (
+      {!loading && !loadFailed && posts.length === 0 && (
         <EmptyState
           icon={<Newspaper className="size-6" />}
           title="Nicio știre încă"
