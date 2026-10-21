@@ -56,7 +56,12 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://www.danmatei.ro/notificari</loc>
+    <loc>https://www.danmatei.ro/contact</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.danmatei.ro/programare</loc>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>

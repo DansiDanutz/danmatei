@@ -138,6 +138,7 @@ export default async function handler(req: Req, res: Res) {
       .from("trainers")
       .select("id, age_min, age_max")
       .eq("profile_id", userId)
+      .eq("active", true)
       .maybeSingle(),
   ]);
   if (!prof) return res.status(401).json({ error: "no_profile" });

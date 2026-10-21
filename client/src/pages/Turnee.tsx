@@ -11,6 +11,7 @@ import DemoBanner from "@/components/DemoBanner";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { fetchTrainerNames } from "@/lib/trainer-names";
 import { expoOut } from "@/lib/motion";
 
 interface TournamentRow {
@@ -20,7 +21,7 @@ interface TournamentRow {
   ends_at: string | null;
   location: string | null;
   notes: string | null;
-  trainer: { age_min: number; age_max: number; profile: { full_name: string } | null } | null;
+  trainer: { id?: string; age_min: number; age_max: number; profile: { full_name: string } | null } | null;
 }
 
 const FALLBACK: TournamentRow[] = [
@@ -81,16 +82,26 @@ export default function Turnee() {
                 setLoading(false);
         }, 6000);
     void (async () => {
-      const { data } = await supabase
-        .from("schedule_events")
-        .select(
-          "id, title, starts_at, ends_at, location, notes, trainer:trainers!schedule_events_trainer_id_fkey(age_min, age_max, profile:profiles!trainers_profile_id_fkey(full_name))",
-        )
-        .eq("kind", "tournament")
-        .order("starts_at", { ascending: false });
+      const [{ data }, trainerNames] = await Promise.all([
+        supabase
+          .from("schedule_events")
+          .select(
+            "id, title, starts_at, ends_at, location, notes, trainer:trainers!schedule_events_trainer_id_fkey(id, age_min, age_max, profile:profiles!trainers_profile_id_fkey(full_name))",
+          )
+          .eq("kind", "tournament")
+          .order("starts_at", { ascending: false }),
+        fetchTrainerNames(),
+      ]);
       if (cancelled) return;
               clearTimeout(timeoutId);
-      const items = (data as unknown as TournamentRow[] | null) ?? [];
+      const items = ((data as unknown as TournamentRow[] | null) ?? []).map(
+        (r) => {
+          const name = r.trainer?.id ? trainerNames.get(r.trainer.id) : undefined;
+          return r.trainer && name
+            ? { ...r, trainer: { ...r.trainer, profile: { full_name: name } } }
+            : r;
+        }
+      );
       const fallback = items.length === 0;
       setUsingFallback(fallback);
       setRows(fallback ? FALLBACK : items);

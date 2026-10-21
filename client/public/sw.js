@@ -20,10 +20,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener("fetch", (event) => {
+self.addEventListener("fetch", () => {
   // Pass-through: do not intercept, do not cache. Live data + fresh auth
   // tokens are the priority while the app is in active development.
-  event.respondWith(fetch(event.request));
+  // Not calling respondWith() lets the browser fetch natively — re-fetching
+  // here made every <link rel="modulepreload"> chunk download twice.
 });
 
 // ─── Web Push ────────────────────────────────────────────────────────────────

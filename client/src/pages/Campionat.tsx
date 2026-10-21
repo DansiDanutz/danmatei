@@ -14,6 +14,7 @@ import DemoBanner from "@/components/DemoBanner";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { fetchTrainerNames } from "@/lib/trainer-names";
 import { TRAINERS } from "@/data/landing";
 import { expoOut } from "@/lib/motion";
 
@@ -79,7 +80,7 @@ export default function Campionat() {
                 setLoading(false);
         }, 6000);
     void (async () => {
-      const [trainersRes, eventsRes] = await Promise.all([
+      const [trainersRes, eventsRes, trainerNames] = await Promise.all([
         supabase
           .from("trainers")
           .select(
@@ -94,6 +95,7 @@ export default function Campionat() {
           )
           .eq("kind", "match")
           .order("starts_at", { ascending: false }),
+        fetchTrainerNames(),
       ]);
       const trainers = trainersRes.data;
       const events = eventsRes.data;
@@ -113,7 +115,7 @@ export default function Campionat() {
 
       const trainerList = ((trainers as DbTrainer[] | null) ?? []).map((t) => ({
         trainerId: t.id,
-        trainerName: t.profile?.full_name ?? "Antrenor",
+        trainerName: trainerNames.get(t.id) ?? t.profile?.full_name ?? "Antrenor",
         ageMin: t.age_min,
         ageMax: t.age_max,
       }));

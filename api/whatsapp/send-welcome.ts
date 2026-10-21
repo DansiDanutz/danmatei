@@ -12,6 +12,7 @@ import { randomBytes } from "node:crypto";
 import { serviceClient, userClient, getJwtFromHeader } from "../_lib/supabase.js";
 import { sendWhatsappText } from "../_lib/whatsapp.js";
 import { createConvAILink } from "../_lib/elevenlabs.js";
+import { checkRateLimit } from "../_lib/ratelimit.js";
 
 const Body = z.object({
   childId: z.string().uuid(),
@@ -32,6 +33,7 @@ interface ChildLookup {
   id: string;
   full_name: string;
   trainer_id: string | null;
+  assignment_status: string;
   parent: { id: string; full_name: string; phone: string | null } | null;
   trainer: {
     id: string;
@@ -66,7 +68,7 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
   const childQ = await u
     .from("children")
     .select(
-      "id, full_name, trainer_id, " +
+      "id, full_name, trainer_id, assignment_status, " +
         "parent:profiles!children_parent_id_fkey(id, full_name, phone), " +
         "trainer:trainers!children_trainer_id_fkey(id, elevenlabs_agent_id, whatsapp_number, profile:profiles!trainers_profile_id_fkey(full_name))",
     )
@@ -77,6 +79,24 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
     return res.status(404).json({ error: "Child not found or not owned by caller" });
   }
 
+  // The message announces a group placement, and each call sends a WhatsApp
+  // plus mints an ElevenLabs link: only once per accepted child, rate-limited.
+  if (child.assignment_status !== "accepted") {
+    return res.status(409).json({ error: "Child not accepted into a group yet" });
+  }
+  if (!checkRateLimit(`welcome:${child.parent.id}`, 3, 24 * 60 * 60 * 1000).ok) {
+    return res.status(429).json({ error: "rate_limited" });
+  }
+
+  const svc = serviceClient();
+  const existing = await svc
+    .from("ai_conversations")
+    .select("id", { head: true, count: "exact" })
+    .eq("child_id", childId);
+  if ((existing.count ?? 0) > 0) {
+    return res.status(409).json({ error: "Welcome already sent for this child" });
+  }
+
   const parentPhone = child.parent.phone;
   const trainerName = child.trainer?.profile?.full_name ?? "antrenorul tău";
   const agentId = child.trainer?.elevenlabs_agent_id ?? null;
@@ -85,7 +105,6 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
   const shareToken = randomBytes(12).toString("base64url");
   const linkResult = await createConvAILink(agentId, shareToken);
 
-  const svc = serviceClient();
   const insertConvo = await svc
     .from("ai_conversations")
     .insert({

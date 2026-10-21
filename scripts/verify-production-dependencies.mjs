@@ -6,9 +6,11 @@ const auditArgs = ["audit", ...(auditAll ? [] : ["--prod"]), "--json"];
 const audit = spawnSync("pnpm", auditArgs, {
   encoding: "utf8",
   maxBuffer: 20 * 1024 * 1024,
+  // pnpm is a .cmd shim on Windows, which spawnSync cannot run without a shell.
+  shell: process.platform === "win32",
 });
 
-if (!audit.stdout.trim()) {
+if (!audit.stdout?.trim()) {
   console.error(audit.stderr || "pnpm audit produced no JSON output");
   process.exit(1);
 }
@@ -52,12 +54,32 @@ const locallyMitigated = new Set([
   "GHSA-w3rx-r6r6-pgpr",
 ]);
 
+// Advisories with no upstream release, reachable only through the Expo CLI
+// developer toolchain (never bundled into the web app or the mobile runtime).
+// Accepted only while every finding path stays inside that toolchain.
+const toolchainOnly = new Map([
+  ["GHSA-86w9-cpqp-85rv", "apps__mobile>expo>@expo/cli>"], // node-forge
+  ["GHSA-vfj7-8cjw-p6xm", "apps__mobile>expo>@expo/cli>"], // braces
+]);
+const isToolchainOnly = (advisory) => {
+  const prefix = toolchainOnly.get(advisory.github_advisory_id);
+  const paths = (advisory.findings || []).flatMap((f) => f.paths || []);
+  return (
+    Boolean(prefix) &&
+    paths.length > 0 &&
+    paths.every((path) => path.startsWith(prefix))
+  );
+};
+
 const blocking = [];
 for (const advisory of Object.values(report.advisories || {})) {
   if (
     imageSizeMitigationReady &&
     locallyMitigated.has(advisory.github_advisory_id)
   ) {
+    continue;
+  }
+  if (isToolchainOnly(advisory)) {
     continue;
   }
   if (!auditAll && !new Set(["critical", "high"]).has(advisory.severity)) {

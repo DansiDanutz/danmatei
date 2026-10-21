@@ -20,6 +20,7 @@ import {
   getUserIdFromJwt,
 } from "../_lib/supabase.js";
 import { createConvAILink } from "../_lib/elevenlabs.js";
+import { checkRateLimit } from "../_lib/ratelimit.js";
 
 const Body = z.object({
   childId: z.string().uuid().optional(),
@@ -70,6 +71,10 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
     userId = await getUserIdFromJwt(jwt);
   } catch {
     return res.status(401).json({ error: "Not authenticated" });
+  }
+  // Each call hits the ElevenLabs API — cap per user (see api/_lib/ratelimit.ts).
+  if (!checkRateLimit(`convai:${userId}`, 5, 60 * 60 * 1000).ok) {
+    return res.status(429).json({ error: "rate_limited" });
   }
   const profileQ = await u.from("profiles").select("id").eq("id", userId).single();
   if (profileQ.error || !profileQ.data) {

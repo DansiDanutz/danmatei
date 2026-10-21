@@ -97,7 +97,6 @@ export default async function handler(req: Req, res: Res) {
         trainerName: g.trainer?.profile?.full_name ?? null,
         childCount: matched.length,
         players: matched.slice(0, SAMPLE_SIZE).map((c) => ({
-          id: c.id,
           name: maskName(c.full_name),
           yearOfBirth: birthYearFromDob(c.dob),
         })),
@@ -112,6 +111,7 @@ export default async function handler(req: Req, res: Res) {
     }
     return res.status(200).json({ groups: payload });
   } catch (e) {
-    return res.status(500).json({ error: (e as Error).message });
+    console.error("[api/groups]", e);
+    return res.status(500).json({ error: "groups_unavailable" });
   }
 }

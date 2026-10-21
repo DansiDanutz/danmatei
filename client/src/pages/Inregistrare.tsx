@@ -123,7 +123,7 @@ export default function Inregistrare() {
               aria-hidden="true"
               className="mt-1.5 inline-block size-1.5 shrink-0 rounded-full bg-brand-cyan"
             />
-            Pasul următor: adaugi profilul copilului și îl alegi grupa.
+            Pasul următor: adaugi profilul copilului și îi alegi grupa.
           </li>
         </ul>
 
