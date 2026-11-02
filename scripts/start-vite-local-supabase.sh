@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-env_dump="$(supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY)=')"
+env_dump="$(supabase status -o env 2>/dev/null | grep -E '^(API_URL|PUBLISHABLE_KEY)=' || true)"
 eval "$env_dump"
 
 : "${API_URL:?Local Supabase API_URL is unavailable. Run supabase start first.}"
