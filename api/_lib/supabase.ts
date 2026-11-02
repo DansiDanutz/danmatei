@@ -45,7 +45,13 @@ export function userClient(jwt: string): SupabaseClient<any, "fotbal"> {
   });
 }
 
-export async function getUserIdFromJwt(jwt: string): Promise<string> {
+/**
+ * Resolves the caller from a Supabase access token via Auth `/auth/v1/user`.
+ * `email` is null when Auth returns no email (or an empty one).
+ */
+export async function getAuthUser(
+  jwt: string
+): Promise<{ id: string; email: string | null }> {
   assertEnv();
   const response = await fetch(`${URL}/auth/v1/user`, {
     headers: {
@@ -56,11 +62,18 @@ export async function getUserIdFromJwt(jwt: string): Promise<string> {
   if (!response.ok) {
     throw new Error("Not authenticated");
   }
-  const user = (await response.json()) as { id?: string };
+  const user = (await response.json()) as {
+    id?: string;
+    email?: string | null;
+  };
   if (!user.id) {
     throw new Error("Not authenticated");
   }
-  return user.id;
+  return { id: user.id, email: user.email ? user.email : null };
+}
+
+export async function getUserIdFromJwt(jwt: string): Promise<string> {
+  return (await getAuthUser(jwt)).id;
 }
 
 export function getJwtFromHeader(auth: string | undefined): string | null {
