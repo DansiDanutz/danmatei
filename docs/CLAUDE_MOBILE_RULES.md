@@ -13,6 +13,7 @@ Rules Claude (or any contributor) must follow when working in `apps/mobile/`. Th
 9. **Server state → TanStack Query. Client state → Zustand.** Don't store remote data in Zustand; don't store ephemeral form state in Query.
 10. **No secrets in source.** Read from `process.env.EXPO_PUBLIC_*` via `src/lib/config.ts`. Update `.env.example` whenever you add a new variable.
 11. **Don't mutate the web app's `client/`, `api/`, `server/`, or `shared/` from mobile changes.** The web app stays intact.
+    - **Exception (recorded 2026-11-02):** the profile and chat routes in [`docs/designs/mobile-profile-and-chat-backend.md`](designs/mobile-profile-and-chat-backend.md) ship in the same PR as their mobile changes. That PR may add new files under `api/` (the routes), add the migration and tests under `supabase/`, and change `api/_lib/supabase.ts` (add `getAuthUser`; `getUserIdFromJwt` delegates to it). Nothing else under `client/`, `api/`, `server/` or `shared/` may change in it.
 12. **One concern per PR.** Mobile scaffolding, hyperframes compositions, and feature work go in separate PRs when possible.
 
 ## Definition of done for a mobile feature
@@ -21,5 +22,6 @@ Rules Claude (or any contributor) must follow when working in `apps/mobile/`. Th
 - Feature module under `src/features/<name>/` with at least: `service.ts` (or `queries.ts`), `schemas.ts` if it has forms, types in `src/types/`.
 - Loading + empty + error states implemented.
 - Works on iOS, Android, and Web (`pnpm --filter @danmatei/mobile web`).
+  - **Exception (recorded 2026-11-02):** the Profile and Chat tabs are not supported on Web until CORS is added to the `/api` routes. No `/api` route answers the cross-origin preflight request today, so every API call from a Web build fails. Adding CORS is a separate change, outside the design linked under rule 11.
 - `pnpm --filter @danmatei/mobile check` passes.
 - Updated `.env.example` if new env vars were added.
