@@ -400,10 +400,14 @@ later without changing this design.
     Supabase client cannot order by
     `coalesce(last_message_at, created_at)`, so threads with no messages sort
     last.
-2.  Call `fotbal.chat_unread_counts()` once. It returns a row for every visible
-    thread; a thread created between the two calls is treated as 0. If the call
-    fails the whole request returns 500, because a made-up count would break
-    goal G6.
+2.  Call `fotbal.chat_unread_counts()` once, filtered to the ids of the threads
+    from step 1 (`.in("thread_id", ids)`). The function returns a row for every
+    visible thread in no particular order, and PostgREST caps a response at
+    `max_rows` (1000), so an unfiltered result for an owner with more threads
+    than that could omit some of the 100 returned threads, which would then
+    wrongly read 0. A thread created between the two calls has no row and is
+    treated as 0. With no threads the function is not called. If the call fails
+    the whole request returns 500, because a made-up count would break goal G6.
 3.  Map each row:
     *   `title`: `chat_threads.title` if set, otherwise a fixed Romanian label by
         kind: `parent_trainer` → "Antrenor", `group` → "Grupa",

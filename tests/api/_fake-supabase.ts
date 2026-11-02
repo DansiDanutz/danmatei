@@ -14,6 +14,7 @@ export type Call = { target: string; chain: [string, unknown[]][] };
 const CHAIN_METHODS = [
   "select",
   "eq",
+  "in",
   "order",
   "limit",
   "insert",

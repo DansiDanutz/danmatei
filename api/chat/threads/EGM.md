@@ -17,6 +17,7 @@ Lists the chat threads the signed-in user may see, for the mobile chat list. The
 - **Capped at 100, no pagination.** The query uses `.limit(100)`, so a caller with more threads loses the oldest ones silently. [index.ts]
 - **Order:** `last_message_at` descending with nulls last, then `created_at` descending, then `id` descending. Threads without messages therefore sort last; the order is not by `coalesce(last_message_at, created_at)`. [index.ts]
 - **A failed unread count fails the request.** If the `chat_unread_counts` call errors, the route returns 500 and does not send threads with made-up counts. [index.ts]
+- **Unread counts are filtered to the returned threads.** `chat_unread_counts()` returns a row for every visible thread in no particular order, and PostgREST caps a response at `max_rows` (1000), so the route filters the result with `.in("thread_id", ids)` for the (at most 100) threads it returns. With no threads it does not call the function. [index.ts]
 - **A thread created between the two queries counts as 0 unread**, because the count map has no entry for it. [index.ts]
 - **Titles are not personalised.** The route does not look up trainer or child names, so two `parent_trainer` threads without a stored title show the same `Antrenor` title. [_lib/mobile-api.ts:mapThread]
 

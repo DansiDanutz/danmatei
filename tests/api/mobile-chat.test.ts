@@ -162,15 +162,29 @@ describe("chat routes", () => {
       ]);
     });
 
-    it("returns an empty list when there are no threads", async () => {
-      use({
-        "from:chat_threads": [{ data: [] }],
-        "rpc:chat_unread_counts": [{ data: [] }],
+    it("asks for unread counts only for the threads it returns", async () => {
+      // chat_unread_counts() returns a row for every visible thread in no
+      // particular order, and PostgREST caps a response at max_rows (1000), so
+      // the result is filtered to the returned ids.
+      const db = use({
+        "from:chat_threads": [{ data: THREADS }],
+        "rpc:chat_unread_counts": [{ data: [{ thread_id: "t1", unread: 3 }] }],
       });
+      const { res } = makeRes();
+      await listThreads(makeReq({ method: "GET" }), res);
+      expect(db.calls[1].chain).toEqual([
+        ["rpc", ["chat_unread_counts", undefined]],
+        ["in", ["thread_id", ["t1", "t2"]]],
+      ]);
+    });
+
+    it("returns an empty list without calling the unread function when there are no threads", async () => {
+      const db = use({ "from:chat_threads": [{ data: [] }] });
       const { res, out } = makeRes();
       await listThreads(makeReq({ method: "GET" }), res);
       expect(out.status).toBe(200);
       expect(out.body).toEqual([]);
+      expect(db.calls.map(c => c.target)).toEqual(["from:chat_threads"]);
     });
 
     it("returns 500, not made-up zeros, when the unread call fails", async () => {
