@@ -1,7 +1,7 @@
 # api/chat/threads
 
 ## Overview
-Lists the chat threads the signed-in user may see, for the mobile chat list. The per-thread routes live in the child directory [`[id]/`](./[id]/EGM.md).
+Lists the chat threads the signed-in user may see, for the mobile chat list. The per-thread routes (messages and read) live in the parent directory, [api/chat](../EGM.md).
 
 ## Interface
 - **`GET /api/chat/threads`** (`index.ts`, built with `mobileRoute("chat/threads", ["GET"], ...)`): bearer JWT, no body.
@@ -10,7 +10,7 @@ Lists the chat threads the signed-in user may see, for the mobile chat list. The
     - `updatedAt` is `last_message_at`, falling back to `created_at`.
     - `unreadCount` comes from `chat_unread_counts()`, or 0 when the thread is not in its result.
   - Errors: 401 `missing_bearer` or `invalid_jwt`; 405 `method_not_allowed`; 500 `server_error`. Each body is `{error, message}` with a Romanian `message`. See [api/_lib](../../_lib/EGM.md).
-- Per-thread routes: [./[id]/EGM.md](./[id]/EGM.md).
+- Per-thread routes: [../EGM.md](../EGM.md).
 
 ## Invariants
 - **RLS decides which threads are returned.** The query selects from `chat_threads` through `userClient(jwt)` with no filter, so the `chat_threads visible` policy chooses the rows. An owner or super_admin sees every thread. [index.ts]

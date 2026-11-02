@@ -270,8 +270,9 @@ Expo app (apps/mobile)
 Vercel functions (api/)
   profile.ts                     GET, PUT    /api/profile
   chat/threads/index.ts          GET         /api/chat/threads
-  chat/threads/[id]/messages.ts  GET, POST   /api/chat/threads/:id/messages
-  chat/threads/[id]/read.ts      POST        /api/chat/threads/:id/read
+  chat/thread-messages.ts        GET, POST   /api/chat/threads/:id/messages
+  chat/thread-read.ts            POST        /api/chat/threads/:id/read
+  (vercel.json rewrites the two :id URLs to the last two files, with ?id=:id)
        │  1. method check, bearer token → 405 / 401
        │  2. getAuthUser(jwt) → 401 if invalid or expired
        │  3. userClient(jwt): every query runs as the caller, under RLS
@@ -571,7 +572,7 @@ Notes on behavior:
 | The 100-thread and 100-message caps truncate lists | An owner or a busy trainer misses old threads | Documented; no pagination yet (Non-Goals) |
 | Supabase Auth outage | Every route returns 401 or 500 | Same dependency as the web app's sign-in; no extra mitigation |
 | An older mobile build against a changed API | A build that predates a later change shows errors | The API is not versioned; keep response fields additive and release the mobile build after the API |
-| `[id]` route files do not resolve on Vercel | The chat message and read routes return a platform 404 | The preview must prove they resolve; fallback in "Conventions for the new API files" |
+| Bracket-named `[id]` function files did not resolve on Vercel (this happened: found on production right after the first merge, 2026-11-02) | `GET /api/chat/threads/:id/messages` returned the SPA's `index.html` and `POST` returned 405 | Plain function files plus explicit `vercel.json` rewrites placed before the generic ones; `tests/api/chat-rewrites.test.ts` guards the order and the files; probe a deployed route without a token (JSON 401 means it resolved, HTML means it did not) |
 | Per-instance rate limit | A determined user can exceed 30 messages a minute | Accepted; best-effort only |
 | The unread badge never clears until a thread screen exists | After release, the chat list shows a count that only grows, because nothing calls `markRead` yet and reading on the web never clears it | A known consequence of shipping unread tracking in this change. The thread screen is the follow-up that fixes it; keep it next in line after this change |
 | An owner or super_admin phone or session is lost | Every family's messages are readable, and any thread writable, with that session | Accepted: the same exposure as on the web, and no mobile-specific control in this change |
@@ -727,13 +728,17 @@ Technical Plan; here only what the Technical Plan does not say.
     `.js` (for example `../_lib/supabase.js`). Prettier settings from the repo:
     double quotes, semicolons, `printWidth: 80`, `trailingComma: es5`,
     `arrowParens: avoid`. Mobile files keep the style of the file being edited.
-*   **Dynamic routes.** `api/chat/threads/[id]/messages.ts` receives the thread
-    id in `req.query.id` through Vercel's file-system routing. The repo has no
-    `[id]` files yet. They are used so the mobile URLs and `vercel.json` stay
-    unchanged. The rewrite `/api/(.*)` → `/api/$1` is an identity rewrite and
-    should not interfere. **Fallback if the preview returns a platform 404:** one
-    catch-all file, `api/chat/[...path].ts`, that dispatches on the path, or a
-    rewrite in `vercel.json` (which then leaves the "must not change" list).
+*   **Routes with a thread id.** They are plain files, `api/chat/thread-messages.ts`
+    and `api/chat/thread-read.ts`, reached through two explicit rewrites in
+    `vercel.json`, listed before the generic ones (the first match wins):
+    `/api/chat/threads/:id/messages` → `/api/chat/thread-messages?id=:id` and
+    `/api/chat/threads/:id/read` → `/api/chat/thread-read?id=:id`. The handlers
+    read `req.query.id`, and the mobile URLs do not change. The first
+    implementation used bracket-named files (`api/chat/threads/[id]/messages.ts`)
+    and they did not resolve in production: the generic rewrites
+    (`/api/(.*)` → `/api/$1` and the SPA catch-all) took the request first. A
+    `[...path].ts` catch-all file would be the same kind of dynamic route, so it
+    was not used.
 *   **No new environment variables.**
 
 ### Target Files to Create/Modify
@@ -813,16 +818,31 @@ Technical Plan; here only what the Technical Plan does not say.
 *   **Proposed Changes**: as in "Chat: GET /api/chat/threads"; joins the unread
     counts by `thread_id` in memory.
 
-##### 8. `api/chat/threads/[id]/messages.ts` (Create)
+##### 8. `api/chat/thread-messages.ts` (Create)
 
 *   **Type / Scope**: Vercel function, `GET` and `POST
     /api/chat/threads/:id/messages`.
 *   **Proposed Changes**: as in the two message sections.
 
-##### 9. `api/chat/threads/[id]/read.ts` (Create)
+##### 9. `api/chat/thread-read.ts` (Create)
 
 *   **Type / Scope**: Vercel function, `POST /api/chat/threads/:id/read`.
 *   **Proposed Changes**: as in "Chat: POST .../read". Does not read `req.body`.
+
+##### 9a. `vercel.json` (Modify)
+
+*   **Type / Scope**: Vercel configuration.
+*   **Proposed Changes**: add the two chat rewrites described under "Conventions
+    for the new API files", before the generic `/api/(.*)` rewrite. Nothing else
+    in the file changes.
+
+##### 9b. `tests/api/chat-rewrites.test.ts` (Create)
+
+*   **Type / Scope**: unit test of `vercel.json` and the repository layout.
+*   **Proposed Changes**: the two rewrites exist with the right destinations and
+    come before the generic `/api/(.*)` rewrite, the SPA rewrite stays last, the
+    destination files exist, no bracket-named route files exist under
+    `api/chat`, and the mobile client calls the same URLs the rewrites match.
 
 #### Tests (Vitest, `tests/api/`)
 
@@ -898,14 +918,13 @@ handling; access rules are proved by the pgTAP tests (files 2 and 3).
 
 #### Contracts and docs
 
-##### 18. Three new contract files (Create)
+##### 18. Two new contract files (Create)
 
 *   **Type / Scope**: Markdown contracts, same format as the other `EGM.md` files
-    (Overview, Interface, Invariants, Side Effects, Verification; the first is a
-    blueprint with Overview and a Subdirectories list).
-*   **Proposed Changes**: `api/chat/EGM.md` (blueprint, links `./threads/EGM.md`);
-    `api/chat/threads/EGM.md` (list route, link to `./[id]/EGM.md`);
-    `api/chat/threads/[id]/EGM.md` (messages and read routes).
+    (Overview, Interface, Invariants, Side Effects, Verification).
+*   **Proposed Changes**: `api/chat/EGM.md` (the messages and read routes and the
+    rewrites that reach them; links `./threads/EGM.md`) and
+    `api/chat/threads/EGM.md` (the list route; links back to `../EGM.md`).
 
 ##### 19. Existing contracts and docs (Modify)
 
@@ -930,7 +949,7 @@ handling; access rules are proved by the pgTAP tests (files 2 and 3).
 
 #### Files that must not change
 
-`vercel.json` (unless the `[id]` fallback needs a rewrite), `.env.example`,
+`vercel.json` (except for the two chat rewrites in item 9a), `.env.example`,
 `tests/mobile-release-gate.test.ts`, every mobile screen under `apps/mobile/app/`
 except `app/tabs/profile.tsx`, and everything under `client/`. If the build shows
 any other file needs a change, stop and revise this plan.
@@ -991,7 +1010,11 @@ calls it yet.
     `role` returns 400; the chat list shows only that user's threads; marking a
     thread read sets its unread count to 0; and requesting
     `/api/chat/threads/<random uuid>/messages` returns our handler's JSON
-    `not_found`, not a platform HTML 404 (this proves the `[id]` route resolves).
+    `not_found`, not a platform HTML 404 (this proves the rewrite to
+    `thread-messages.ts` applies). The same request without a token answers JSON
+    `401 missing_bearer` when the route resolves; the SPA's HTML or a 405 means it
+    does not. Run that token-free probe on the preview and again on production
+    after every change to these routes or to `vercel.json`.
 *   **Contract check**: after editing contracts, re-run the EGM drift report on
     the changed `EGM.md` files. EGM contracts (the `EGM.md` files) describe each
     code directory's interface, invariants, side effects and verification

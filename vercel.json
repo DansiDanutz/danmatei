@@ -81,6 +81,14 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/chat/threads/:id/messages",
+      "destination": "/api/chat/thread-messages?id=:id"
+    },
+    {
+      "source": "/api/chat/threads/:id/read",
+      "destination": "/api/chat/thread-read?id=:id"
+    },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
