@@ -33,7 +33,7 @@ The signed-in area of the app: a bottom-tab layout with three tabs (Home, Chat a
   - Otherwise shows a `FlatList` keyed by `item.id`.
   - Shows the unread badge only when `unreadCount > 0`.
 - Sign-out (`onSignOut`) awaits `authService.signOut()`. Only after it succeeds does it run `queryClient.clear()`, then `reset()`, then `router.replace("/onboarding")`. If `signOut` rejects (for example offline), Supabase keeps the persisted session, so the screen stays signed in, shows an `Alert` ("Deconectare eșuată" with the error message) and does not clear or navigate.
-- Profile uses "Utilizator" as the name when `fullName` is missing, and `null` as the avatar when `avatarUrl` is missing.
+- Profile uses "Utilizator" as the name when `fullName` is missing, and always passes `null` as the avatar (`uri={null}`), because `Profile` has no avatar field.
 - The "Editează profilul" button has an empty `onPress` handler.
 - The tab screens and the tab layout have no auth guard. Session gating happens only in `app/index.tsx`.
 

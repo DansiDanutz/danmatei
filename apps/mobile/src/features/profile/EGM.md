@@ -7,13 +7,13 @@ A thin REST client for the current user's profile. It is built on `api` from `li
 ## Interface
 
 - `profileService.me()`: `GET /api/profile`, returns `Profile`.
-- `profileService.update(input: Partial<Profile>)`: `PUT /api/profile`, returns `Profile`.
+- `profileService.update(input: { fullName: string })`: `PUT /api/profile`, returns `Profile`.
 - `Profile` comes from `@/types/profile`.
 
 ## Invariants
 
-- No server handler for `GET /api/profile` or `PUT /api/profile` exists in this repo (`api/` has no `profile.ts` or `profile/`), so these calls have no backend here.
-- `update` sends any `Partial<Profile>`, including `id`, `role` and `email`. The client does not restrict which fields can be sent, so whichever server implements this route must enforce field permissions.
+- The routes are served by `api/profile.ts` (see [api](../../../../../api/EGM.md)). `GET` returns the caller's own profile, with the email taken from Supabase Auth.
+- `update` can send only `fullName` as far as the type goes. The server accepts only `fullName` (trimmed, 2 to 120 characters): any other key, such as `id`, `role` or `email`, rejects the whole request with 400 `forbidden_fields`, and a bad name returns 400 `invalid_body`. The type is not a runtime guard, so the server check is what enforces this.
 - Responses are cast to the generic type. Nothing validates them at runtime.
 
 ## Side Effects

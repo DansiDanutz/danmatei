@@ -18,6 +18,10 @@ Direct route files in this directory:
 - **`POST /api/notify`** (`notify.ts:handler`): bearer JWT; the role must be `owner` or `super_admin`.
   - Body (zod `Body`): `{target: 'all_parents'|'group'|'trainer', trainerId?, trainerProfileId?, title: 2..200, body: 2..2000, link?: ≤500}`.
   - Returns `{sent, recipients, push}`. When no recipients resolve, returns `{sent: 0, recipients: []}` with no `push` field, and inserts and pushes nothing.
+- **`GET /api/profile`** and **`PUT /api/profile`** (`profile.ts`, built with `mobileRoute` from `_lib/mobile-api.ts`): the signed-in user's profile for the mobile app, bearer JWT.
+  - `GET` returns `{id, fullName, email, role, createdAt}`. The email comes from Supabase Auth, not from `fotbal.profiles`.
+  - `PUT` accepts only `{fullName}` (trimmed, 2..120 characters) and returns the updated profile in the same shape. Any other key returns 400 `forbidden_fields`; a bad `fullName` or a non-object body returns 400 `invalid_body`.
+  - Other errors: 401 `missing_bearer` or `invalid_jwt`; 404 `not_found` when no row matches; 405 `method_not_allowed`; 500 `server_error`. Error bodies are `{error, message}`.
 - **`POST /api/trainers`** (`trainers.ts:handler`, zod `Body`): invites a trainer.
   - Body: `{email, fullName, phone?, whatsappNumber?, elevenlabsAgentId?, position?, bio?, ageMin 4..25, ageMax 4..25, certifications? ≤10}`.
   - Returns `{trainer, inviteEmailSent:true}`.
@@ -37,6 +41,7 @@ Subdirectories:
 - [`academy/`](./academy/EGM.md) - `GET /api/academy/players`: staff roster search.
 - [`ai/`](./ai/EGM.md) - `POST /api/ai/start-conversation` and `POST /api/ai/webhook`: parent ConvAI links and the signed transcript webhook.
 - [`attendance/`](./attendance/EGM.md) - `POST /api/attendance/confirm`: training RSVP upsert.
+- [`chat/`](./chat/EGM.md) - `GET /api/chat/threads` and the per-thread routes `GET` and `POST /api/chat/threads/:id/messages` and `POST /api/chat/threads/:id/read`: the mobile chat.
 - [`cron/`](./cron/EGM.md) - 7 `CRON_SECRET`-guarded jobs:
   - `daily`
   - `weekly-digest`
@@ -58,7 +63,7 @@ Subdirectories:
 - [`whatsapp/`](./whatsapp/EGM.md) - `POST /api/whatsapp/send-welcome`: one-time welcome with a ConvAI link.
 
 ## Invariants
-- **Authentication.** Authenticated routes extract the bearer token with `getJwtFromHeader` and resolve the user with `getUserIdFromJwt`. Exception: `lead/reply-draft` and `lead/status` parse the bearer with their own regex. Roles come from `fotbal.profiles.role`: `owner`, `super_admin`, `trainer`, or parent. Trainer scope comes from active `fotbal.trainers` rows. `_lib/supabase.ts` provides only the clients and JWT helpers; each handler queries `profiles` and `trainers` itself. [_lib/supabase.ts; notify.ts:handler]
+- **Authentication.** Authenticated routes extract the bearer token with `getJwtFromHeader` and resolve the user with `getUserIdFromJwt`. Exception: `lead/reply-draft` and `lead/status` parse the bearer with their own regex. Roles come from `fotbal.profiles.role`: `owner`, `super_admin`, `trainer`, or parent. Trainer scope comes from active `fotbal.trainers` rows. `_lib/supabase.ts` provides only the clients and JWT helpers; each handler queries `profiles` and `trainers` itself. The exceptions are `profile.ts` and the `chat/` routes: they resolve the caller (id and email) with `getAuthUser` through `authenticate` in `_lib/mobile-api.ts`, and query only through `userClient`, so they do not query `profiles` themselves for the role and RLS decides what the caller sees. [_lib/supabase.ts:getAuthUser; _lib/mobile-api.ts:authenticate; notify.ts:handler]
 - **Fail closed in production and preview.** Unsigned webhooks and a missing `CRON_SECRET` are allowed only in local dev. [_lib/cron-auth.ts; _lib/webhook-hmac.ts; _lib/elevenlabs-signature.ts]
 - **Rate limits are per instance.** `checkRateLimit` keeps its state in memory, so limits are not global. [_lib/ratelimit.ts]
 - **Groups never expose surnames.** `groups` returns only active groups and active children, with surnames masked by `maskName`. [groups.ts:handler]

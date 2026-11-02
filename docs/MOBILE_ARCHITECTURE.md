@@ -79,4 +79,4 @@ See `apps/mobile/.env.example`. Required:
 - `assets/onboarding-hero.mp4` — render via `pnpm render:hero` once Chrome is installed (`hyperframes browser install`).
 - Push notifications (expo-notifications).
 - Deep links beyond `danmatei://`.
-- `/api/profile`, `/api/chat/*` endpoints — the mobile app calls these but the web `api/` directory does not implement them yet.
+- The thread screen. The six routes now exist in `api/`: `GET` and `PUT /api/profile`, `GET /api/chat/threads`, `GET` and `POST /api/chat/threads/:id/messages`, and `POST /api/chat/threads/:id/read`. The thread screen is the only caller of `getMessages`, `sendMessage` and `markRead` in the mobile app, and it is not built yet, so those three have no caller.

@@ -7,4 +7,6 @@ export const chatService = {
     api.get<ChatMessage[]>(`/api/chat/threads/${threadId}/messages`),
   sendMessage: (threadId: string, content: string) =>
     api.post<ChatMessage>(`/api/chat/threads/${threadId}/messages`, { content }),
+  markRead: (threadId: string) =>
+    api.post<void>(`/api/chat/threads/${threadId}/read`),
 };
