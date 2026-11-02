@@ -2,7 +2,7 @@
 
 ## Overview
 
-Ordered PostgreSQL migrations (`0001` to `0041`, plus `00081`) that define the `fotbal` schema: tables, enums, views, RLS policies, `SECURITY DEFINER` RPCs, triggers, storage buckets/policies, and realtime publication membership. Later files frequently `create or replace` functions and policies from earlier ones, so the **latest** file that touches a symbol is authoritative.
+Ordered PostgreSQL migrations (`0001` to `0042`, plus `00081`) that define the `fotbal` schema: tables, enums, views, RLS policies, `SECURITY DEFINER` RPCs, triggers, storage buckets/policies, and realtime publication membership. Later files frequently `create or replace` functions and policies from earlier ones, so the **latest** file that touches a symbol is authoritative.
 
 How they are applied, per repo docs (not CI): `README.md` ("Database setup") says to run `supabase db push` or paste the files into the SQL editor in order. `.github/workflows/verify.yml` only applies them to a fresh local database (`supabase db start`) and runs `supabase test db`; it does not deploy to a hosted project.
 
@@ -35,6 +35,7 @@ How they are applied, per repo docs (not CI): `README.md` ("Database setup") say
 | `media` | 0001 | `event_id`, `group_id` 0019 |
 | `messages` | 0001 | `sender_role` (`trainer` or `parent`) 0013 |
 | `ai_conversations`, `chat_threads`, `chat_messages` | 0002 | |
+| `chat_reads` | 0042 | |
 | `groups` | 0003 | |
 | `attendance` | 0004 | |
 | `leads`, `lead_calls`, `lead_notifications` | 0006 | `leads.snoozed_until` 0009 |
@@ -59,6 +60,14 @@ How they are applied, per repo docs (not CI): `README.md` ("Database setup") say
 - Matches: `propose_match(...)`, `accept_match(p_event)`, `reject_match(p_event)`, `set_match_score(p_event, p_our, p_opp, p_scorers)` (0017); `add_match_photo(p_event, p_path, p_mime, p_bytes, p_kind)` (0019, 5-arg version in 0028)
 - Scheduling: `regenerate_trainings(p_trainer, p_weeks default 8)` (0024)
 - Public, anon-callable reads: `public_trainer_names()` (0031); `public_schedule(p_from, p_to, p_kind)` (0035, 3-arg in 0036); `public_tournaments()` (0035, without `notes` since 0037); `public_match_results(p_limit default 40)` (0035, dropped and recreated in 0036); `public_championship()` (0038 `returns table (...)`; dropped and recreated in 0039 to return `json`)
+
+### Chat read tracking (0042)
+
+`security invoker` functions, so the RLS policies on `chat_threads`, `chat_messages` and `chat_reads` apply to the caller. Both pin `search_path = fotbal, public`.
+
+- `fotbal.chat_unread_counts()` returns `table (thread_id uuid, unread int)` with one row for every thread the caller can see, including threads without messages. It counts messages whose `sender_id` is not the caller and whose `created_at` is strictly later than the caller's `chat_reads.last_read_at` (everything counts when there is no row). A message created exactly at `last_read_at` counts as read.
+- `fotbal.chat_mark_read(p_thread uuid)` returns `void`. It upserts `chat_reads (user_id = auth.uid(), thread_id, last_read_at = now())` using the database clock.
+- `chat_reads` has primary key `(user_id, thread_id)` and cascades on delete of the profile or the thread.
 
 ### Storage buckets (0001)
 
@@ -94,6 +103,12 @@ How they are applied, per repo docs (not CI): `README.md` ("Database setup") say
 - Grant model (0001, `0001_init.sql:327-333`): `anon` gets `SELECT` on all `fotbal` tables, and default privileges give `anon` `SELECT` on every later table and `EXECUTE` (with `authenticated`, `service_role`) on every later function. RLS still decides which rows `anon` sees. Later files must revoke `anon` explicitly to remove access.
 - `anon` grants are revoked from `v_child_stats`, `v_trainer_inbox`, `player_skills` (0023), `academy_settings` and `training_templates` (0024), and `group_fees`, `child_charges` and `child_payments` (0040). Those payment tables are granted only to `authenticated, service_role` (`0032_reconcile_payments_schema.sql:122`).
 - 0041 revokes all `anon` access to `chat_threads` and `chat_messages`. Their read policies apply to the `public` role and include `kind = 'parents'` with no sign-in check, so before 0041 anyone with the public anon key could read every `parents` thread and its messages; the production database had no threads when this was found. The policies are unchanged, so they now apply only to signed-in users. `supabase/tests/chat_anon_access.test.sql` checks the grants and the behavior.
+- 0042 `chat_reads`:
+  - RLS policies: `chat_reads select own` (`user_id = auth.uid()`), `chat_reads insert own` and `chat_reads update own` (`user_id = auth.uid()` and `thread_id` among the caller's visible `chat_threads`). There is no delete policy, so deletes are denied.
+  - Grants: `anon` gets nothing on the table. The migration grants `select, insert, update` to `authenticated` and `service_role`; the `0001` default privileges also give them `DELETE`, which RLS denies because there is no delete policy.
+  - Both functions have `EXECUTE` revoked from `public` and `anon` and granted to `authenticated, service_role`.
+  - A thread the caller cannot see, or that does not exist, makes `chat_mark_read` fail with SQLSTATE `42501`, because the policy check runs before the foreign key.
+  - The file comment says that, like every migration here, it is applied to production by hand and must be live before the `api/chat` routes are deployed. `supabase/tests/chat_reads.test.sql` and `supabase/tests/chat_access.test.sql` check these rules.
 - 0040 revokes `EXECUTE` on `enroll_hold`, `enroll_reject`, `regenerate_trainings` and `trainer_slug_for_age` from both `PUBLIC` and `anon` (Postgres grants new functions to `PUBLIC`, which every role inherits), and re-grants them to `authenticated, service_role`. `supabase/tests/grants.test.sql` checks these grants.
 - 0032 aborts if a legacy-shaped `child_charges` table still has rows.
 - Known caveats found in the code (unchanged):

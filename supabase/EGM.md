@@ -14,7 +14,7 @@ Supabase CLI project (`project_id = "danmatei"`) for the academy backend: local 
   - `[storage]`: 50MiB limit, no buckets declared here (buckets are created by migrations)
   - `[edge_runtime]`: enabled, but no `[functions.*]` entries
 - `seed.sql`: seeds `auth.users`, `fotbal.profiles`, `fotbal.trainers`, `fotbal.children`, `fotbal.landing_content` (`hero`, `owner`), `fotbal.news`, `fotbal.schedule_events`. Sample accounts: one owner, three trainers, one parent, with deterministic UUIDs.
-- `tests/` (test-only, not documented separately): `chat_anon_access.test.sql`, `children_access.test.sql`, `grants.test.sql`, `public_reads.test.sql`.
+- `tests/` (test-only, not documented separately): `chat_access.test.sql`, `chat_anon_access.test.sql`, `chat_reads.test.sql`, `children_access.test.sql`, `grants.test.sql`, `public_reads.test.sql`.
 
 ## Invariants
 
