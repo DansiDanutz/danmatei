@@ -22,6 +22,7 @@ Direct route files in this directory:
   - `GET` returns `{id, fullName, email, role, createdAt}`. The email comes from Supabase Auth, not from `fotbal.profiles`.
   - `PUT` accepts only `{fullName}` (trimmed, 2..120 characters) and returns the updated profile in the same shape. Any other key returns 400 `forbidden_fields`; a bad `fullName` or a non-object body returns 400 `invalid_body`.
   - Other errors: 401 `missing_bearer` or `invalid_jwt`; 404 `not_found` when no row matches; 405 `method_not_allowed`; 500 `server_error`. Error bodies are `{error, message}`.
+  - CORS: `OPTIONS` answers 204 without authentication, and responses carry the allow-origin header for allowed Expo Web origins (`mobileRoute`, see [_lib](./_lib/EGM.md)).
 - **`POST /api/trainers`** (`trainers.ts:handler`, zod `Body`): invites a trainer.
   - Body: `{email, fullName, phone?, whatsappNumber?, elevenlabsAgentId?, position?, bio?, ageMin 4..25, ageMax 4..25, certifications? ≤10}`.
   - Returns `{trainer, inviteEmailSent:true}`.

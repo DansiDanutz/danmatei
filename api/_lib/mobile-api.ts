@@ -113,9 +113,58 @@ export async function authenticate(
   }
 }
 
+// Origins of the Expo Web dev server (Metro and the legacy webpack port).
+const DEV_WEB_ORIGINS = ["http://localhost:8081", "http://localhost:19006"];
+
 /**
- * Wraps a route: method check (405), authentication (401), then `fn`. Anything
- * `fn` throws becomes a logged 500.
+ * Origins allowed to call these routes from a browser: the Expo Web dev server
+ * plus the comma-separated `MOBILE_WEB_ORIGINS` (exact origins, no paths).
+ */
+export function allowedWebOrigins(): string[] {
+  const extra = (process.env.MOBILE_WEB_ORIGINS ?? "")
+    .split(",")
+    .map(o => o.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+  return [...DEV_WEB_ORIGINS, ...extra];
+}
+
+/**
+ * CORS for browser callers (Expo Web). Auth is a bearer header, never a cookie,
+ * so no credentials mode is needed and only listed origins get the headers.
+ * Returns true when it answered a preflight (OPTIONS), which carries no
+ * credentials and so is answered before the method check and authentication.
+ */
+export function applyCors(
+  req: Req,
+  res: Res,
+  methods: readonly string[]
+): boolean {
+  const origin = readHeader(req, "origin");
+  res.setHeader?.("Vary", "Origin");
+  if (origin && allowedWebOrigins().includes(origin)) {
+    res.setHeader?.("Access-Control-Allow-Origin", origin);
+    if (req.method === "OPTIONS") {
+      res.setHeader?.(
+        "Access-Control-Allow-Methods",
+        [...methods, "OPTIONS"].join(", ")
+      );
+      res.setHeader?.(
+        "Access-Control-Allow-Headers",
+        "Authorization, Content-Type"
+      );
+      res.setHeader?.("Access-Control-Max-Age", "600");
+    } else {
+      res.setHeader?.("Access-Control-Expose-Headers", "Retry-After");
+    }
+  }
+  if (req.method !== "OPTIONS") return false;
+  res.status(204).end();
+  return true;
+}
+
+/**
+ * Wraps a route: CORS (and the OPTIONS preflight), method check (405),
+ * authentication (401), then `fn`. Anything `fn` throws becomes a logged 500.
  */
 export function mobileRoute(
   route: string,
@@ -123,6 +172,7 @@ export function mobileRoute(
   fn: (ctx: MobileContext) => Promise<unknown>
 ) {
   return async function handler(req: Req, res: Res) {
+    if (applyCors(req, res, methods)) return;
     if (!req.method || !methods.includes(req.method)) {
       return sendError(res, 405, "method_not_allowed");
     }

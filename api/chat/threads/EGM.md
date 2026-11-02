@@ -9,6 +9,7 @@ Lists the chat threads the signed-in user may see, for the mobile chat list. The
     - `title` is `chat_threads.title` when it is a non-empty string. Otherwise it comes from the thread kind: `parent_trainer` is `Antrenor`, `group` is `Grupa`, `parents` is `Părinți`. An unknown kind gives `""`.
     - `updatedAt` is `last_message_at`, falling back to `created_at`.
     - `unreadCount` comes from `chat_unread_counts()`, or 0 when the thread is not in its result.
+  - CORS: `OPTIONS` answers 204 without authentication, and responses carry the allow-origin header for allowed Expo Web origins (`mobileRoute`).
   - Errors: 401 `missing_bearer` or `invalid_jwt`; 405 `method_not_allowed`; 500 `server_error`. Each body is `{error, message}` with a Romanian `message`. See [api/_lib](../../_lib/EGM.md).
 - Per-thread routes: [../EGM.md](../EGM.md).
 

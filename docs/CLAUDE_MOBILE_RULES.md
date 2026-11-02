@@ -14,6 +14,7 @@ Rules Claude (or any contributor) must follow when working in `apps/mobile/`. Th
 10. **No secrets in source.** Read from `process.env.EXPO_PUBLIC_*` via `src/lib/config.ts`. Update `.env.example` whenever you add a new variable.
 11. **Don't mutate the web app's `client/`, `api/`, `server/`, or `shared/` from mobile changes.** The web app stays intact.
     - **Exception (recorded 2026-11-02):** the profile and chat routes in [`docs/designs/mobile-profile-and-chat-backend.md`](designs/mobile-profile-and-chat-backend.md) ship in the same PR as their mobile changes. That PR may add new files under `api/` (the routes), add the migration and tests under `supabase/`, and change `api/_lib/supabase.ts` (add `getAuthUser`; `getUserIdFromJwt` delegates to it). Nothing else under `client/`, `api/`, `server/` or `shared/` may change in it.
+    - **Exception (recorded 2026-11-02):** CORS for those same routes, so Expo Web can call them. It changes `api/_lib/mobile-api.ts` only (`applyCors` and `allowedWebOrigins`, called from `mobileRoute`), plus its test and the `MOBILE_WEB_ORIGINS` entry in `.env.example`. It does not touch any other `api/` route, `vercel.json` or the web app.
 12. **One concern per PR.** Mobile scaffolding, hyperframes compositions, and feature work go in separate PRs when possible.
 
 ## Definition of done for a mobile feature
@@ -22,6 +23,6 @@ Rules Claude (or any contributor) must follow when working in `apps/mobile/`. Th
 - Feature module under `src/features/<name>/` with at least: `service.ts` (or `queries.ts`), `schemas.ts` if it has forms, types in `src/types/`.
 - Loading + empty + error states implemented.
 - Works on iOS, Android, and Web (`pnpm --filter @danmatei/mobile web`).
-  - **Exception (recorded 2026-11-02):** the Profile and Chat tabs are not supported on Web until CORS is added to the `/api` routes. No `/api` route answers the cross-origin preflight request today, so every API call from a Web build fails. Adding CORS is a separate change, outside the design linked under rule 11.
+  - The Profile and Chat tabs call `/api/profile` and `/api/chat/*`, which answer the browser's preflight and send CORS headers only for allowed origins: `http://localhost:8081`, `http://localhost:19006` and the comma-separated `MOBILE_WEB_ORIGINS` server variable. A deployed Web build must have its exact origin in `MOBILE_WEB_ORIGINS`, set on the server (Vercel), or its API calls are blocked by the browser. The other `/api` routes still send no CORS headers.
 - `pnpm --filter @danmatei/mobile check` passes.
 - Updated `.env.example` if new env vars were added.

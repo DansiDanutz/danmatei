@@ -18,6 +18,7 @@ All three routes need a bearer JWT. The thread id is read by `readThreadId`, whi
 - **`POST /api/chat/threads/:id/read`** (`thread-read.ts`, `["POST"]`): no body is read. Returns 204 with no body.
   - Errors: 400 `invalid_thread_id`; 404 `not_found` on Postgres `42501`; plus the common errors below.
 - **Common errors:** 401 `missing_bearer` or `invalid_jwt`; 405 `method_not_allowed`; 500 `server_error`. Every error body is `{error, message}`.
+- **CORS:** `OPTIONS` answers 204 without authentication, and responses (errors included) carry `Access-Control-Allow-Origin` for the allowed Expo Web origins. See `mobileRoute` in [api/_lib](../_lib/EGM.md).
 - **Routing:** the public URLs are `/api/chat/threads/:id/messages` and `/api/chat/threads/:id/read`. They reach these files through the first two entries in `vercel.json` `rewrites`. [vercel.json; tests/api/chat-rewrites.test.ts]
 - Child directory: [`threads/`](./threads/EGM.md) - `GET /api/chat/threads`.
 
