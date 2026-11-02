@@ -30,7 +30,7 @@ The signed-in area of the app: a bottom-tab layout with three tabs (Home, Chat a
   - Uses "antrenor" as the name when `fullName` is missing.
 - Chat:
   - Shows a spinner while loading, an error card with refetch on error, and an empty-state card when there are no threads.
-  - Otherwise shows a `FlatList` keyed by `item.id`.
+  - Otherwise shows a `FlatList` keyed by `item.id`. Each row is a `Pressable` that runs `router.push` to `/chat/[id]` with params `id` and `title` ([app/chat](../chat/EGM.md)).
   - Shows the unread badge only when `unreadCount > 0`.
 - Sign-out (`onSignOut`) awaits `authService.signOut()`. Only after it succeeds does it run `queryClient.clear()`, then `reset()`, then `router.replace("/onboarding")`. If `signOut` rejects (for example offline), Supabase keeps the persisted session, so the screen stays signed in, shows an `Alert` ("Deconectare eșuată" with the error message) and does not clear or navigate.
 - Profile uses "Utilizator" as the name when `fullName` is missing, and always passes `null` as the avatar (`uri={null}`), because `Profile` has no avatar field.
