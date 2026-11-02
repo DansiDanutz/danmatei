@@ -1,6 +1,12 @@
 /**
  * GET and POST /api/chat/threads/:id/messages
  *
+ * Served from this plain file through a rewrite in vercel.json
+ * (/api/chat/threads/:id/messages -> /api/chat/thread-messages?id=:id), so the
+ * thread id arrives as `req.query.id`. A bracket-named file
+ * (`threads/[id]/messages.ts`) did not resolve in production: the generic
+ * rewrites in vercel.json took the request first.
+ *
  * GET returns the newest 100 messages of a thread, oldest first. (The web chat
  * loads the oldest 100; this route deliberately does not copy that.)
  *
@@ -16,8 +22,8 @@
  *
  * Auth: bearer JWT. Design: docs/designs/mobile-profile-and-chat-backend.md.
  */
-import { userClient } from "../../../_lib/supabase.js";
-import { checkRateLimit } from "../../../_lib/ratelimit.js";
+import { userClient } from "../_lib/supabase.js";
+import { checkRateLimit } from "../_lib/ratelimit.js";
 import {
   mapMessage,
   mobileRoute,
@@ -25,7 +31,7 @@ import {
   pgCode,
   readThreadId,
   sendError,
-} from "../../../_lib/mobile-api.js";
+} from "../_lib/mobile-api.js";
 
 const COLUMNS = "id, thread_id, sender_id, body, created_at";
 

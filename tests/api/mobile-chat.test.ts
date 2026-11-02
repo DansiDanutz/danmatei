@@ -43,8 +43,8 @@ vi.mock("../../api/_lib/supabase.js", async importOriginal => {
 });
 
 import listThreads from "../../api/chat/threads/index";
-import messages from "../../api/chat/threads/[id]/messages";
-import read from "../../api/chat/threads/[id]/read";
+import messages from "../../api/chat/thread-messages";
+import read from "../../api/chat/thread-read";
 
 function use(responses: Parameters<typeof fakeDb>[0]) {
   const db = fakeDb(responses);

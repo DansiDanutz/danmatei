@@ -1,6 +1,10 @@
 /**
  * POST /api/chat/threads/:id/read
  *
+ * Served from this plain file through a rewrite in vercel.json
+ * (/api/chat/threads/:id/read -> /api/chat/thread-read?id=:id), so the thread id
+ * arrives as `req.query.id`. See thread-messages.ts for why not a `[id]` file.
+ *
  * Marks a thread as read for the caller by calling fotbal.chat_mark_read
  * (migration 0042), which upserts the caller's chat_reads row using the
  * database clock. A thread the caller cannot see, or that does not exist, fails
@@ -11,13 +15,13 @@
  *
  * Auth: bearer JWT. Design: docs/designs/mobile-profile-and-chat-backend.md.
  */
-import { userClient } from "../../../_lib/supabase.js";
+import { userClient } from "../_lib/supabase.js";
 import {
   mobileRoute,
   pgCode,
   readThreadId,
   sendError,
-} from "../../../_lib/mobile-api.js";
+} from "../_lib/mobile-api.js";
 
 export default mobileRoute(
   "chat/threads/[id]/read",
