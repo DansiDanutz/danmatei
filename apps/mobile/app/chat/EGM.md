@@ -21,7 +21,7 @@ The chat thread screen. The Chat tab opens it when the user taps a thread. It li
 - A successful send clears the input only if its text is unchanged since submit; text typed while the send was pending is kept. A failed send (including 429 `rate_limited`) shows an `Alert` with the server's message and keeps the text.
 - `markRead` is called once, after the messages have loaded. The header shows `title`, or "Conversație" when the param is missing.
 - The list has no live updates or polling: new messages from others appear after leaving and re-opening the thread. Only the newest 100 messages are loaded.
-- Not supported on Expo Web until CORS is added to the `/api` routes (see `docs/CLAUDE_MOBILE_RULES.md`).
+- On Expo Web the `/api` routes answer the browser's preflight and send CORS headers only for the Expo Web dev origins and `MOBILE_WEB_ORIGINS` ([api/_lib](../../../../api/_lib/EGM.md)). A deployed web build must have its origin in that variable.
 
 ## Side Effects
 
