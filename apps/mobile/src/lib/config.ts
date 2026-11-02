@@ -16,8 +16,10 @@ export const config = {
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     "EXPO_PUBLIC_SUPABASE_ANON_KEY",
   ),
-  apiBaseUrl:
-    process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://danmatei.example.com",
+  apiBaseUrl: required(
+    process.env.EXPO_PUBLIC_API_BASE_URL,
+    "EXPO_PUBLIC_API_BASE_URL",
+  ),
 } as const;
 
 export type AppConfig = typeof config;

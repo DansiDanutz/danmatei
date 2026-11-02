@@ -1,5 +1,5 @@
 import { Avatar, Button, Card, Screen } from "@danmatei/ui";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { ActivityIndicator, Text, View } from "react-native";
 
@@ -9,15 +9,20 @@ import { useAuthStore } from "@/stores/auth-store";
 
 export default function Profile() {
   const reset = useAuthStore((state) => state.reset);
+  const queryClient = useQueryClient();
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", "me"],
     queryFn: profileService.me,
   });
 
   const onSignOut = async () => {
-    await authService.signOut();
-    reset();
-    router.replace("/onboarding");
+    try {
+      await authService.signOut();
+    } finally {
+      queryClient.clear();
+      reset();
+      router.replace("/onboarding");
+    }
   };
 
   if (isLoading) {
