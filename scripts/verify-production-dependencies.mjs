@@ -68,6 +68,24 @@ const toolchainOnly = new Map([
   // decode-uri-component: the fix (>=0.5) is ESM-only and breaks the
   // CommonJS query-string@7 that expo-router requires. Mobile app only.
   ["GHSA-vcc3-ghjq-m6fr", ["apps__mobile>expo-router>query-string>"]],
+  ["GHSA-qr28-fpjm-wq7f", ["apps__mobile>expo-router>query-string>"]],
+  // zod 3: the fix is only in zod >=4.6.6, a major that the Expo CLI and
+  // puppeteer's chromium-bidi (hyperframes video-render CLI) can't take.
+  // Developer toolchains only; the web app, /api and mobile app use zod 4.
+  [
+    "GHSA-mrhx-c7xc-m3w5",
+    [
+      "apps__mobile>expo>@expo/cli>",
+      ".>hyperframes>",
+      "apps__mobile>hyperframes>",
+    ],
+  ],
+  // glob, minimatch: the fixes are majors (glob 14, minimatch 11) under the
+  // Expo CLI's own glob. Expo CLI developer toolchain only.
+  ["GHSA-3g3m-2fjr-6pw4", ["apps__mobile>expo>@expo/cli>"]],
+  ["GHSA-g3hv-75wg-m249", ["apps__mobile>expo>@expo/cli>"]],
+  // deepmerge: no upstream release; Expo config loading at build time only.
+  ["GHSA-gcqx-w48m-w2h4", ["apps__mobile>expo>@expo/config>"]],
   // postcss-selector-parser: the fix (>=7.1.6) is a major that Tailwind 3 /
   // NativeWind don't support. Mobile build-time CSS only.
   [
