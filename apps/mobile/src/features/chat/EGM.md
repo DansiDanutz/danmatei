@@ -13,10 +13,13 @@ A thin REST client for chat threads and messages. It is built on `api` from `lib
 - `ChatThread` and `ChatMessage` come from `@/types/chat`.
 - `useThread(threadId)` (`use-thread.ts`): returns `{ messages, send }`.
   - `messages` is a `useQuery` on `messagesKey(threadId)` = `["chat", "threads", threadId, "messages"]` with `getMessages`.
-  - `send` is a `useMutation` that calls `sendMessage`. On success it appends the returned message to the cached list and invalidates the thread list (`["chat", "threads"]`, exact) so the thread moves to the top.
-  - On mount, and when `threadId` changes, it calls `markRead` once. On success it sets `unreadCount` to 0 for that thread in the cached list. A failure is silent: the badge stays and the next open tries again.
+  - `send` is a `useMutation` that calls `sendMessage`. On success `applySentMessage` runs.
+  - It calls `markRead` once per thread, after the messages have loaded successfully (`shouldMarkRead`). On success `applyMarkedRead` sets `unreadCount` to 0 for that thread in the cached list. A failure is silent: the badge stays and the next open tries again. A failed message load does not mark the thread read.
 - `messageSchema` (`schemas.ts`): `{ content }`, trimmed, 1 to 4000 characters, Romanian messages. Same limits as the server.
-- `appendMessage`, `clearUnread`, `threadsKey`, `messagesKey` (`cache.ts`): pure cache helpers. `appendMessage` ignores a message whose id is already cached.
+- `cache.ts`: cache helpers and keys (`threadsKey`, `messagesKey`).
+  - `appendMessage` ignores a message whose id is already cached. `clearUnread` zeroes one thread.
+  - `applySentMessage(queryClient, threadId, message)` first cancels any in-flight message fetch, so an older snapshot cannot overwrite the sent message. It then appends to the cached list, or, when nothing is cached, invalidates the messages query so the full history loads. It also invalidates the thread list (exact) so the thread moves up.
+  - `applyMarkedRead` and `shouldMarkRead` as described above.
 - `MessageBubble` (`MessageBubble.tsx`): one message; right-aligned and brand-colored when `mine`.
 
 ## Invariants
@@ -38,4 +41,4 @@ A thin REST client for chat threads and messages. It is built on `api` from `lib
 ## Verification
 
 - Run: `pnpm --filter @danmatei/mobile check`
-- Run: `pnpm test tests/mobile-chat-thread.test.ts` (schema and cache helpers)
+- Run: `pnpm test tests/mobile-chat-thread.test.ts` (schema and cache logic against a real `QueryClient`)

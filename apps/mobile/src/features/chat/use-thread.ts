@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
-import { appendMessage, clearUnread, messagesKey, threadsKey } from "./cache";
+import {
+  applyMarkedRead,
+  applySentMessage,
+  messagesKey,
+  shouldMarkRead,
+} from "./cache";
 import { chatService } from "./chat-service";
-import type { ChatMessage, ChatThread } from "@/types/chat";
 
 export function useThread(threadId: string) {
   const queryClient = useQueryClient();
@@ -13,29 +17,24 @@ export function useThread(threadId: string) {
     queryFn: () => chatService.getMessages(threadId),
   });
 
-  // Opening the thread marks it read. A failure is not shown: the badge stays
-  // and the next open tries again.
+  // Opening the thread marks it read, after its messages have loaded. A failure
+  // is not shown: the badge stays and the next open tries again.
   const markRead = useMutation({
     mutationFn: () => chatService.markRead(threadId),
-    onSuccess: () =>
-      queryClient.setQueryData<ChatThread[]>(threadsKey, (threads) =>
-        clearUnread(threads, threadId),
-      ),
+    onSuccess: () => applyMarkedRead(queryClient, threadId),
   });
   const { mutate: markReadNow } = markRead;
+  const markedFor = useRef<string | null>(null);
   useEffect(() => {
+    if (!shouldMarkRead(messages.isSuccess, markedFor.current, threadId))
+      return;
+    markedFor.current = threadId;
     markReadNow();
-  }, [markReadNow, threadId]);
+  }, [messages.isSuccess, markReadNow, threadId]);
 
   const send = useMutation({
     mutationFn: (content: string) => chatService.sendMessage(threadId, content),
-    onSuccess: (message) => {
-      queryClient.setQueryData<ChatMessage[]>(messagesKey(threadId), (cached) =>
-        appendMessage(cached, message),
-      );
-      // The thread moves to the top of the list.
-      void queryClient.invalidateQueries({ queryKey: threadsKey, exact: true });
-    },
+    onSuccess: (message) => applySentMessage(queryClient, threadId, message),
   });
 
   return { messages, send };

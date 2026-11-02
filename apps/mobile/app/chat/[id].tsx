@@ -21,7 +21,7 @@ export default function ChatThreadScreen() {
   const { id, title } = useLocalSearchParams<{ id: string; title?: string }>();
   const userId = useAuthStore((s) => s.user?.id);
   const { messages, send } = useThread(id);
-  const { control, handleSubmit, reset } = useForm<MessageInput>({
+  const { control, handleSubmit, reset, getValues } = useForm<MessageInput>({
     resolver: zodResolver(messageSchema),
     defaultValues: { content: "" },
   });
@@ -29,7 +29,8 @@ export default function ChatThreadScreen() {
   const onSend = handleSubmit(async ({ content }) => {
     try {
       await send.mutateAsync(content);
-      reset();
+      // Keep anything typed while the send was pending.
+      if (getValues("content").trim() === content) reset();
     } catch (error) {
       Alert.alert(
         "Mesajul nu a fost trimis",

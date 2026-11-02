@@ -18,8 +18,8 @@ The chat thread screen. The Chat tab opens it when the user taps a thread. It li
 - Messages are shown newest at the bottom: the list is an inverted `FlatList` over the cached oldest-first array, reversed.
 - A message is "mine" when `authorId` equals `useAuthStore` `user.id`.
 - The screen shows a spinner while loading, an error card with a "Reîncearcă" refetch on error, and an empty-state card when there are no messages.
-- A successful send clears the input. A failed send (including 429 `rate_limited`) shows an `Alert` with the server's message and keeps the text.
-- Opening the screen calls `markRead` once. The header shows `title`, or "Conversație" when the param is missing.
+- A successful send clears the input only if its text is unchanged since submit; text typed while the send was pending is kept. A failed send (including 429 `rate_limited`) shows an `Alert` with the server's message and keeps the text.
+- `markRead` is called once, after the messages have loaded. The header shows `title`, or "Conversație" when the param is missing.
 - The list has no live updates or polling: new messages from others appear after leaving and re-opening the thread. Only the newest 100 messages are loaded.
 - Not supported on Expo Web until CORS is added to the `/api` routes (see `docs/CLAUDE_MOBILE_RULES.md`).
 
