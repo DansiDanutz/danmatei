@@ -111,7 +111,7 @@ export default async function handler(req: Req, res: Res) {
 
   const { data: prof } = await supabase
     .from("profiles")
-    .select("id, role, full_name")
+    .select("id, role")
     .eq("id", userId)
     .maybeSingle();
   if (!prof) return res.status(401).json({ error: "no_profile" });
@@ -119,7 +119,9 @@ export default async function handler(req: Req, res: Res) {
 
   const { data: trainerRow } = await supabase
     .from("trainers")
-    .select("id, profile_id")
+    .select(
+      "id, profile_id, profile:profiles!trainers_profile_id_fkey(full_name)"
+    )
     .eq("id", trainerId)
     .maybeSingle();
   if (!trainerRow) return res.status(404).json({ error: "trainer_not_found" });
@@ -163,7 +165,11 @@ export default async function handler(req: Req, res: Res) {
   }
 
   // 2) Resolve push recipients per audience.
-  const trainerName = (prof.full_name as string | null) ?? "Antrenor";
+  // The sending trainer's name — not the caller's: an owner may post on a
+  // trainer's behalf.
+  const trainerName =
+    (trainerRow.profile as { full_name?: string | null } | null)?.full_name ??
+    "Antrenor";
   const recipientIds = new Set<string>();
   if (audience === "group") {
     const { data: kids } = await supabase

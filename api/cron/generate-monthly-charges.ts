@@ -16,6 +16,7 @@
  * Output: { ok, ranAt, generated: N } — N is the number of rows successfully
  * inserted in this run.
  */
+import { requireCron } from "../_lib/cron-auth.js";
 import { serviceClient } from "../_lib/supabase.js";
 
 type Req = {
@@ -26,11 +27,6 @@ type Res = {
   status: (n: number) => Res;
   json: (body: unknown) => Res;
 };
-
-function readHeader(req: Req, key: string): string | undefined {
-  const v = req.headers?.[key.toLowerCase()] ?? req.headers?.[key];
-  return Array.isArray(v) ? v[0] : v;
-}
 
 const RO_MONTHS = [
   "ianuarie",
@@ -47,8 +43,8 @@ const RO_MONTHS = [
   "decembrie",
 ];
 
-/** Current month/year in Europe/Bucharest. */
-function todayMonthYear(): { month: number; year: number } {
+/** Current day/month/year in Europe/Bucharest. */
+function todayMonthYear(): { day: number; month: number; year: number } {
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Bucharest",
     year: "numeric",
@@ -59,6 +55,7 @@ function todayMonthYear(): { month: number; year: number } {
     fmt.formatToParts(new Date()).map(p => [p.type, p.value])
   ) as { year: string; month: string; day: string };
   return {
+    day: Number(parts.day),
     month: Number(parts.month),
     year: Number(parts.year),
   };
@@ -69,28 +66,7 @@ export default async function handler(req: Req, res: Res) {
     return res.status(405).json({ error: "method_not_allowed" });
   }
 
-  // Cron auth — fail-closed. Vercel sets the Authorization header
-  // automatically; we refuse to run in prod/preview when CRON_SECRET is
-  // unset so an unconfigured deploy can't be triggered by anyone.
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    if (
-      process.env.NODE_ENV === "production" ||
-      process.env.VERCEL_ENV === "production" ||
-      process.env.VERCEL_ENV === "preview"
-    ) {
-      return res.status(503).json({ error: "cron_secret_unset" });
-    }
-    // dev-only: log a warn and continue
-    console.warn(
-      "[cron/generate-monthly-charges] CRON_SECRET unset — allowing in dev only"
-    );
-  } else {
-    const auth = readHeader(req, "authorization") ?? "";
-    if (auth !== `Bearer ${expected}`) {
-      return res.status(401).json({ error: "unauthorized" });
-    }
-  }
+  if (!requireCron(req, res, "cron/generate-monthly-charges")) return;
 
   const ranAt = new Date().toISOString();
 
@@ -104,10 +80,10 @@ export default async function handler(req: Req, res: Res) {
     });
   }
 
-  const { month, year } = todayMonthYear();
+  const { day, month, year } = todayMonthYear();
   const dueDate = `${year}-${String(month).padStart(2, "0")}-15`;
   const todayIso = `${year}-${String(month).padStart(2, "0")}-${String(
-    new Date().getUTCDate()
+    day
   ).padStart(2, "0")}`;
   const label = `Taxă lunară ${RO_MONTHS[month - 1]} ${year}`;
 

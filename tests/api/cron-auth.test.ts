@@ -9,7 +9,13 @@
  * testable (allow) only in local dev when no secret is configured.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { timingSafeEqual } from "node:crypto";
 import { requireCron } from "../../api/_lib/cron-auth";
+
+vi.mock("node:crypto", async importOriginal => {
+  const actual = await importOriginal<typeof import("node:crypto")>();
+  return { ...actual, timingSafeEqual: vi.fn(actual.timingSafeEqual) };
+});
 
 function makeRes() {
   const calls: { status: number; body: unknown }[] = [];
@@ -55,6 +61,29 @@ describe("requireCron", () => {
     process.env.CRON_SECRET = "s3cret";
     const { res, calls } = makeRes();
     const ok = requireCron({ headers: { authorization: "Bearer nope" } }, res);
+    expect(ok).toBe(false);
+    expect(calls[0].status).toBe(401);
+  });
+
+  it("compares the secret in constant time", () => {
+    process.env.CRON_SECRET = "s3cret";
+    const { res, calls } = makeRes();
+    const ok = requireCron(
+      { headers: { authorization: "Bearer s3creX" } },
+      res
+    );
+    expect(ok).toBe(false);
+    expect(calls[0].status).toBe(401);
+    expect(vi.mocked(timingSafeEqual)).toHaveBeenCalled();
+  });
+
+  it("rejects a token of a different length with 401", () => {
+    process.env.CRON_SECRET = "s3cret";
+    const { res, calls } = makeRes();
+    const ok = requireCron(
+      { headers: { authorization: "Bearer s3cret-longer" } },
+      res
+    );
     expect(ok).toBe(false);
     expect(calls[0].status).toBe(401);
   });

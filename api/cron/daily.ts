@@ -15,6 +15,7 @@
  * Output: { ok, ranAt, birthdays: <count>, notified: <recipients> } so the
  * Vercel logs surface a clean daily summary.
  */
+import { requireCron } from "../_lib/cron-auth.js";
 import { serviceClient } from "../_lib/supabase.js";
 import { sendPushToUsers } from "../_lib/push.js";
 
@@ -26,11 +27,6 @@ type Res = {
   status: (n: number) => Res;
   json: (body: unknown) => Res;
 };
-
-function readHeader(req: Req, key: string): string | undefined {
-  const v = req.headers?.[key.toLowerCase()] ?? req.headers?.[key];
-  return Array.isArray(v) ? v[0] : v;
-}
 
 /** Today's MM-DD in Europe/Bucharest. */
 function todayMonthDay(): { month: number; day: number; year: number } {
@@ -55,26 +51,7 @@ export default async function handler(req: Req, res: Res) {
     return res.status(405).json({ error: "method_not_allowed" });
   }
 
-  // Cron auth — fail-closed. Vercel sets the Authorization header
-  // automatically; we refuse to run in prod/preview when CRON_SECRET is
-  // unset so an unconfigured deploy can't be triggered by anyone.
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    if (
-      process.env.NODE_ENV === "production" ||
-      process.env.VERCEL_ENV === "production" ||
-      process.env.VERCEL_ENV === "preview"
-    ) {
-      return res.status(503).json({ error: "cron_secret_unset" });
-    }
-    // dev-only: log a warn and continue
-    console.warn("[cron/daily] CRON_SECRET unset — allowing in dev only");
-  } else {
-    const auth = readHeader(req, "authorization") ?? "";
-    if (auth !== `Bearer ${expected}`) {
-      return res.status(401).json({ error: "unauthorized" });
-    }
-  }
+  if (!requireCron(req, res, "cron/daily")) return;
 
   const ranAt = new Date().toISOString();
 
@@ -182,12 +159,15 @@ export default async function handler(req: Req, res: Res) {
     }
   }
 
+  let notificationsOk = true;
   if (notificationRows.length > 0) {
     const { error: insErr } = await supabase
       .from("notifications")
       .insert(notificationRows);
     if (insErr) {
+      // Same rule as the RSVP path: no notification row, no push.
       console.warn("cron/daily: notification insert failed", insErr.message);
+      notificationsOk = false;
     }
   }
 
@@ -197,7 +177,7 @@ export default async function handler(req: Req, res: Res) {
   let pushSent = 0;
   let pushSkipped = 0;
   let pushRemoved = 0;
-  for (const k of todaysBirthdays) {
+  for (const k of notificationsOk ? todaysBirthdays : []) {
     const firstName = k.full_name.split(/\s+/)[0] ?? k.full_name;
     const ageNow = year - parseInt(k.dob.slice(0, 4), 10);
     const recipients: string[] = [];

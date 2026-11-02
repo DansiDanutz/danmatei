@@ -27,7 +27,7 @@
  *                             - Local Ollama via Tailscale:
  *                               http://100.79.10.102:11434/v1
  *   OPENAI_MODEL          — default "gpt-4o-mini"
- *                           Auto-corrected to "gemini-2.0-flash" when the
+ *                           Auto-corrected to "gemini-2.5-flash" when the
  *                           base URL is Gemini and the model still has the
  *                           gpt-* default — avoids 404s after a half-set env.
  *
