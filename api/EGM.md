@@ -13,11 +13,12 @@ Direct route files in this directory:
 
 - **`GET /api/groups`** (`groups.ts:handler`): public, no auth. A request with no method passes the method check.
   - Returns `{groups:[{id, label, birthYearMin, birthYearMax, trainerName, childCount, players:[{name, yearOfBirth}]}]}`. `players` holds at most `SAMPLE_SIZE = 4` entries.
-  - On error returns 500 `groups_unavailable`.
+  - On error returns 500 `groups_unavailable`. A method other than GET returns 405 `{error:"Method not allowed"}` [groups.ts:handler].
   - Exports the pure helper `maskName(full)`, which turns `"First Last"` into `"First L."`.
 - **`POST /api/notify`** (`notify.ts:handler`): bearer JWT; the role must be `owner` or `super_admin`.
   - Body (zod `Body`): `{target: 'all_parents'|'group'|'trainer', trainerId?, trainerProfileId?, title: 2..200, body: 2..2000, link?: ≤500}`.
   - Returns `{sent, recipients, push}`. When no recipients resolve, returns `{sent: 0, recipients: []}` with no `push` field, and inserts and pushes nothing.
+  - Errors (free-text `{error}` bodies): 405 `Method not allowed`; 401 `Missing bearer token`, or 401 with the underlying message when the JWT or profile lookup fails; 403 `Owner or super_admin role required`; 400 `Invalid body` with `issues`; 400 when `trainerId` (group) or `trainerProfileId` (trainer) is missing; 500 with the message when recipient resolution or the `notifications` insert fails [notify.ts:handler].
 - **`GET /api/profile`** and **`PUT /api/profile`** (`profile.ts`, built with `mobileRoute` from `_lib/mobile-api.ts`): the signed-in user's profile for the mobile app, bearer JWT.
   - `GET` returns `{id, fullName, email, role, createdAt}`. The email comes from Supabase Auth, not from `fotbal.profiles`.
   - `PUT` accepts only `{fullName}` (trimmed, 2..120 characters) and returns the updated profile in the same shape. Any other key returns 400 `forbidden_fields`; a bad `fullName` or a non-object body returns 400 `invalid_body`.
@@ -26,6 +27,7 @@ Direct route files in this directory:
 - **`POST /api/trainers`** (`trainers.ts:handler`, zod `Body`): invites a trainer.
   - Body: `{email, fullName, phone?, whatsappNumber?, elevenlabsAgentId?, position?, bio?, ageMin 4..25, ageMax 4..25, certifications? ≤10}`.
   - Returns `{trainer, inviteEmailSent:true}`.
+  - Errors (free-text `{error}` bodies, shared with DELETE): 405 `Method not allowed`; 401 `Missing bearer token`, or 401 with the underlying message when the JWT or profile lookup fails; 403 `Owner role required`; 400 `Invalid body`; 400 `ageMax must be >= ageMin`; 400 with the raw Auth message when the invite fails; 500 `Auth invite returned no user id`; 500 when the `fotbal.trainers` insert fails [trainers.ts:handler].
 - **`DELETE /api/trainers`** (`trainers.ts:handler`, `DeleteBody`): body `{profileId: uuid}`.
   - Returns `{deleted:true}`. A foreign-key-style failure returns 409; any other Auth delete failure returns 400 with the raw Auth error message.
   - Returns 404 `Trainer not found` when no `fotbal.trainers` row exists for `profileId` or its profile role is not `trainer`.
@@ -85,7 +87,7 @@ Subdirectories:
   - Sets `Cache-Control: public, s-maxage=60, stale-while-revalidate=300`.
 - **`notify`.**
   - Inserts `fotbal.notifications` rows with `kind = target`.
-  - Sends Web Push with tag `notify-<target>`.
+  - Sends Web Push with tag `notify-<target>`. The push `url` is `link`, or `/dashboard` when `link` is absent [notify.ts:handler].
   - Needs the VAPID env vars.
 - **`trainers` POST.**
   - Sends an invite email through Supabase Auth admin `inviteUserByEmail`, redirecting to `${configuredPublicBaseUrl()}/seteaza-parola`.

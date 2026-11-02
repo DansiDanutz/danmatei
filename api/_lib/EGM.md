@@ -91,6 +91,7 @@ Shared server-only helpers for the Vercel route handlers under `api/`. These fil
 - **Env vars read:**
   - Supabase: `SUPABASE_URL`/`VITE_SUPABASE_URL`, `SUPABASE_ANON_KEY`/`VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE`
   - Cron and runtime: `CRON_SECRET`, `NODE_ENV`, `VERCEL_ENV`
+  - Mobile CORS: `MOBILE_WEB_ORIGINS`, read by `allowedWebOrigins()` [mobile-api.ts:allowedWebOrigins]
   - LLM: `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`
   - Web Push: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
   - WhatsApp: `WHATSAPP_PHONE_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_API_VERSION`

@@ -14,7 +14,7 @@ The browser voice-interview flow for leads:
 - **`POST /api/voice/elevenlabs-webhook`** (`elevenlabs-webhook.ts:handler`): `bodyParser: false`. The raw body is limited to 2 MiB (413 when exceeded).
   - Verified with `verifyElevenLabsSignature` on the `elevenlabs-signature` header.
   - Any `type` other than `post_call_transcription` gets 200 `{ok:true, ignored: type ?? "unknown"}`. A payload without a valid `call_token` gets 200 `{ok:true, ignored:'no_call_token'}`.
-  - Otherwise it returns the status and body from `recordLeadCall`.
+  - Otherwise it returns the status and body from `recordLeadCall`: 200 (including `{duplicate:true}`), 404 `lead_not_found`, or 500 `call_lookup_failed` or `call_insert_failed` [../_lib/lead-call-result.ts:recordLeadCall].
   - Errors: 400 `body_read_failed`, `invalid_json`, or `invalid_body` (zod failure); 401 with the verifier's reason (`secret_unset`, `missing_signature`, `missing_timestamp`, `timestamp_skew` or `invalid_signature`); 405 `method_not_allowed`; 413; 503 `supabase_unavailable`.
 - **Exports:**
   - type `ElevenLabsPostCall`
@@ -28,6 +28,7 @@ The browser voice-interview flow for leads:
 - **Idempotency:** a call recorded twice with the same `(vendor, vendor_call_id)` returns 200 `{duplicate:true}`. [../_lib/lead-call-result.ts:recordLeadCall]
 - **`toLeadCallResult` mapping:**
   - Status is `failed` when `data.status` is set and is not `done`; `completed` when a parent turn exists; otherwise `abandoned`.
+  - A transcript turn whose role is anything other than `agent` is recorded as `parent`, so any non-agent role counts as a parent turn for `completed`. [elevenlabs-webhook.ts:toLeadCallResult]
   - Empty turns are dropped.
   - `summary` joins `analysis.transcript_summary` with the `child_experience` and `availability` data-collection values. [elevenlabs-webhook.ts:trainerSummary]
   - `nextSteps` is split on newlines or `;`, with bullet and number prefixes stripped.
