@@ -45,7 +45,7 @@ export default function Profile() {
   return (
     <Screen scroll>
       <Card elevated className="items-center gap-3 py-8">
-        <Avatar uri={profile?.avatarUrl ?? null} name={profile?.fullName} size={80} />
+        <Avatar uri={null} name={profile?.fullName} size={80} />
         <Text className="text-xl font-semibold text-ink dark:text-white">
           {profile?.fullName ?? "Utilizator"}
         </Text>

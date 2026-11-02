@@ -9,11 +9,17 @@ A thin REST client for chat threads and messages. It is built on `api` from `lib
 - `chatService.listThreads()`: `GET /api/chat/threads`, returns `ChatThread[]`.
 - `chatService.getMessages(threadId)`: `GET /api/chat/threads/${threadId}/messages`, returns `ChatMessage[]`.
 - `chatService.sendMessage(threadId, content)`: `POST /api/chat/threads/${threadId}/messages` with body `{ content }`, returns `ChatMessage`.
+- `chatService.markRead(threadId)`: `POST /api/chat/threads/${threadId}/read` with no body, resolves to `void` (the server answers 204).
 - `ChatThread` and `ChatMessage` come from `@/types/chat`.
 
 ## Invariants
 
-- No server handler for `/api/chat/threads` or `/api/chat/threads/:id/messages` exists in this repo (`api/` has no `chat/` folder), so these calls have no backend here.
+- The routes are served by [api/chat](../../../../../api/chat/EGM.md):
+  - `listThreads` gets up to 100 threads that RLS lets the caller see, most recent message first, each with `unreadCount`.
+  - `getMessages` gets the newest 100 messages of the thread, oldest first, and returns 404 for a thread the caller cannot see.
+  - `sendMessage` returns 201 with the new message. The server sets the sender to the caller, trims `content` and requires 1 to 4000 characters. It answers 429 after 30 posts in a minute.
+  - `markRead` records a read for the caller and returns 404 for a thread the caller cannot see.
+- `getMessages`, `sendMessage` and `markRead` have no caller yet: the thread screen is not built, and only `listThreads` is used (by the Chat tab).
 - `threadId` is inserted into the path without URL encoding.
 - Responses are cast to the generic type. Nothing validates them at runtime.
 

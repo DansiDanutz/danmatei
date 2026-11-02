@@ -49,7 +49,7 @@ Shared UI primitives come from the workspace package `@danmatei/ui` (`/packages/
 
 - At runtime the app:
   - talks to Supabase Auth and keeps the session in AsyncStorage;
-  - calls the REST API at `EXPO_PUBLIC_API_BASE_URL` (`/api/profile` and `/api/chat/threads...`) with a Supabase bearer token. No handler for these routes exists in this repo (`api/` has no `profile` or `chat/` entry), so they would return 404 against this repo's backend.
+  - calls the REST API at `EXPO_PUBLIC_API_BASE_URL` (`/api/profile` and `/api/chat/threads...`) with a Supabase bearer token. The handlers are `api/profile.ts` and the routes under [api/chat](../../api/chat/EGM.md).
 - `render:hero` writes `./assets/onboarding-hero.mp4`.
 
 ## Verification
