@@ -2,7 +2,7 @@
  * DOB / age helpers shared by signup, child profile, and admin re-match.
  *
  *   currentAge('2017-05-14')   → number (years)
- *   ageGroupLabel(7)           → "U7–U9"
+ *   ageGroupLabel(7)           → "U6–U7"
  *   matchTrainers(age, list)   → trainers whose [age_min, age_max] contains age
  */
 

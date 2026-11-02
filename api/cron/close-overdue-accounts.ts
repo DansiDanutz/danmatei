@@ -13,6 +13,7 @@
  *
  * Output: { ok, ranAt, flipped: N } — N children moved to closed_unpaid.
  */
+import { requireCron } from "../_lib/cron-auth.js";
 import { serviceClient } from "../_lib/supabase.js";
 import { computePaymentStatus } from "../_lib/payment-status.js";
 
@@ -25,34 +26,12 @@ type Res = {
   json: (body: unknown) => Res;
 };
 
-function readHeader(req: Req, key: string): string | undefined {
-  const v = req.headers?.[key.toLowerCase()] ?? req.headers?.[key];
-  return Array.isArray(v) ? v[0] : v;
-}
-
 export default async function handler(req: Req, res: Res) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
   }
 
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    if (
-      process.env.NODE_ENV === "production" ||
-      process.env.VERCEL_ENV === "production" ||
-      process.env.VERCEL_ENV === "preview"
-    ) {
-      return res.status(503).json({ error: "cron_secret_unset" });
-    }
-    console.warn(
-      "[cron/close-overdue-accounts] CRON_SECRET unset — allowing in dev only"
-    );
-  } else {
-    const auth = readHeader(req, "authorization") ?? "";
-    if (auth !== `Bearer ${expected}`) {
-      return res.status(401).json({ error: "unauthorized" });
-    }
-  }
+  if (!requireCron(req, res, "cron/close-overdue-accounts")) return;
 
   const ranAt = new Date().toISOString();
 

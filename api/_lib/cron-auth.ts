@@ -10,6 +10,8 @@
  * Returns true if the caller is authorized to proceed. When it returns false it
  * has already written the response (401/503) — the handler must just return.
  */
+import { timingSafeEqual } from "node:crypto";
+
 type CronReq = { headers?: Record<string, string | string[] | undefined> };
 type CronRes = { status: (n: number) => { json: (b: unknown) => unknown } };
 
@@ -32,7 +34,9 @@ export function requireCron(req: CronReq, res: CronRes, label = "cron"): boolean
     console.warn(`[${label}] CRON_SECRET unset — allowing in dev only`);
     return true;
   }
-  if (readAuth(req) !== `Bearer ${expected}`) {
+  const got = Buffer.from(readAuth(req));
+  const want = Buffer.from(`Bearer ${expected}`);
+  if (got.length !== want.length || !timingSafeEqual(got, want)) {
     res.status(401).json({ error: "unauthorized" });
     return false;
   }

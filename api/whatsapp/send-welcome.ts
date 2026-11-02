@@ -9,7 +9,12 @@
  */
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
-import { serviceClient, userClient, getJwtFromHeader } from "../_lib/supabase.js";
+import {
+  serviceClient,
+  userClient,
+  getJwtFromHeader,
+  getUserIdFromJwt,
+} from "../_lib/supabase.js";
 import { sendWhatsappText } from "../_lib/whatsapp.js";
 import { createConvAILink } from "../_lib/elevenlabs.js";
 import { checkRateLimit } from "../_lib/ratelimit.js";
@@ -55,6 +60,13 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
         : undefined;
   const jwt = getJwtFromHeader(auth);
   if (!jwt) return res.status(401).json({ error: "Missing bearer token" });
+  // Reject an invalid/expired token up front — otherwise the RLS lookup
+  // below just finds nothing and the caller gets a misleading 404.
+  try {
+    await getUserIdFromJwt(jwt);
+  } catch {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
 
   const parsed = Body.safeParse(req.body);
   if (!parsed.success) {

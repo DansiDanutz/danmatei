@@ -70,7 +70,9 @@ See `apps/mobile/.env.example`. Required:
 
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-- `EXPO_PUBLIC_API_BASE_URL` (defaults to the production API)
+- `EXPO_PUBLIC_API_BASE_URL`
+
+`src/lib/config.ts` throws at import if any of these is missing or empty.
 
 ## What's not wired yet
 

@@ -81,15 +81,12 @@ export default function NotificationBell() {
 
   const markAllRead = async () => {
     if (!profile) return;
-    const unread = items.filter((n) => !n.read_at);
-    if (unread.length === 0) return;
+    if (unreadCount === 0) return;
     await supabase
       .from("notifications")
       .update({ read_at: new Date().toISOString() })
-      .in(
-        "id",
-        unread.map((n) => n.id),
-      );
+      .eq("recipient_id", profile.id)
+      .is("read_at", null);
     const now = new Date().toISOString();
     setItems((prev) => prev.map((n) => (n.read_at ? n : { ...n, read_at: now })));
   };

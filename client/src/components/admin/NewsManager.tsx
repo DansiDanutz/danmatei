@@ -237,7 +237,9 @@ export default function NewsManager() {
         published_at: v.published_at
           ? new Date(v.published_at).toISOString()
           : new Date().toISOString(),
-        cover_path: coverPath,
+        // Only overwrite cover_path when a new cover was uploaded, so editing
+        // a post without picking a file keeps its existing cover.
+        ...(coverPath ? { cover_path: coverPath } : {}),
       };
 
       if (editingId) {

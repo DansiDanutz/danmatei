@@ -60,7 +60,14 @@ export function signToken(leadId: string, opts: SignTokenOptions = {}): string {
 }
 
 export function verifyToken(token: string): { leadId: string } | null {
-  const secret = resolveSecret();
+  // Fail closed: an unconfigured prod deploy rejects every token instead of
+  // throwing out of the caller.
+  let secret: string;
+  try {
+    secret = resolveSecret();
+  } catch {
+    return null;
+  }
   const [payloadB64, sig] = token.split(".");
   if (!payloadB64 || !sig) return null;
   let payload: string;

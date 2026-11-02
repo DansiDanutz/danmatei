@@ -185,9 +185,13 @@ export default async function handler(req: Req, res: Res) {
     })
   );
 
-  if (tips.length > 0) {
-    await supabase.from("coaching_tips").insert(
-      tips.map((t) => ({
+  // Insert each tip row on its own so one failure (e.g. a concurrent run
+  // already wrote today's row) doesn't drop the others. Only recipients whose
+  // tip row landed get a notification + push and count as delivered — a
+  // missing row would otherwise break tomorrow's idempotency check.
+  const inserted = await Promise.all(
+    tips.map(async t => {
+      const { error } = await supabase.from("coaching_tips").insert({
         recipient_id: t.recipientId,
         age_band: bandLabel(t.band),
         theme: t.theme,
@@ -195,11 +199,21 @@ export default async function handler(req: Req, res: Res) {
         body_md: t.body,
         source: t.source,
         tip_date: todayStr,
-      }))
-    );
+      });
+      if (error) {
+        console.warn(
+          `[cron/coaching-digest] tip insert failed for ${t.recipientId}: ${error.message}`
+        );
+        return null;
+      }
+      return t;
+    })
+  );
+  const delivered = inserted.filter((t): t is GeneratedTip => t !== null);
 
-    await supabase.from("notifications").insert(
-      tips.map((t) => ({
+  if (delivered.length > 0) {
+    const { error: notifErr } = await supabase.from("notifications").insert(
+      delivered.map(t => ({
         recipient_id: t.recipientId,
         kind: "coaching_tip",
         title: `💡 Sfatul zilei: ${t.title}`,
@@ -207,9 +221,14 @@ export default async function handler(req: Req, res: Res) {
         link: t.band === "owner" ? "/admin" : "/antrenor",
       }))
     );
+    if (notifErr) {
+      console.warn(
+        `[cron/coaching-digest] notification insert failed: ${notifErr.message}`
+      );
+    }
 
     await Promise.all(
-      tips.map((t) =>
+      delivered.map(t =>
         sendPushToUsers([t.recipientId], {
           title: `💡 ${t.title}`,
           body: t.body.length > 160 ? `${t.body.slice(0, 157)}…` : t.body,
@@ -222,15 +241,16 @@ export default async function handler(req: Req, res: Res) {
 
   // Honest reporting: aiGenerated = tips the LLM actually produced;
   // fromLibrary = curated fallbacks (LLM off, timed out, errored, or unparseable).
-  const aiGenerated = tips.filter((t) => t.fromAi).length;
+  const aiGenerated = delivered.filter(t => t.fromAi).length;
   return res.status(200).json({
     ok: true,
     date: todayStr,
     recipients: recipients.length,
-    delivered: tips.length,
+    delivered: delivered.length,
     skipped: recipients.length - tips.length,
+    failed: tips.length - delivered.length,
     aiConfigured: aiOn,
     aiGenerated,
-    fromLibrary: tips.length - aiGenerated,
+    fromLibrary: delivered.length - aiGenerated,
   });
 }

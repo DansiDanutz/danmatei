@@ -117,6 +117,17 @@
     if (buffer.length > maxSize) buffer.splice(0, buffer.length - maxSize);
   }
 
+  // Caps a captured request body to the same size limit used for responses.
+  function capBody(value) {
+    try {
+      var s = typeof value === "string" ? value : JSON.stringify(value);
+      if (s && s.length > CONFIG.maxBodyLength) {
+        return s.slice(0, CONFIG.maxBodyLength) + "...[truncated]";
+      }
+    } catch (e) {}
+    return value;
+  }
+
   function tryParseJson(str) {
     if (typeof str !== "string") return str;
     try {
@@ -470,7 +481,10 @@
     var requestHeaders = {};
     try {
       if (init.headers) {
-        requestHeaders = Object.fromEntries(new Headers(init.headers).entries());
+        // sanitizeValue redacts Authorization, apikey, cookie (sensitiveFields)
+        requestHeaders = sanitizeValue(
+          Object.fromEntries(new Headers(init.headers).entries())
+        );
       }
     } catch (e) {
       requestHeaders = { _parseError: true };
@@ -483,7 +497,9 @@
       url: url,
       request: {
         headers: requestHeaders,
-        body: init.body ? sanitizeValue(tryParseJson(init.body)) : null,
+        body: init.body
+          ? capBody(sanitizeValue(tryParseJson(init.body)))
+          : null,
       },
       response: null,
       duration: null,
@@ -615,7 +631,9 @@
       xhr._manusData.url.indexOf("/__manus__/") !== 0
     ) {
       xhr._manusData.startTime = Date.now();
-      xhr._manusData.requestBody = body ? sanitizeValue(tryParseJson(body)) : null;
+      xhr._manusData.requestBody = body
+        ? capBody(sanitizeValue(tryParseJson(body)))
+        : null;
 
       xhr.addEventListener("load", function () {
         var contentType = (xhr.getResponseHeader("content-type") || "").toLowerCase();

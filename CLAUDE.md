@@ -54,8 +54,15 @@ pnpm check         # tsc --noEmit (strict)
 pnpm format        # prettier --write .
 ```
 
-### Tests (Playwright)
-The full suite is `e2e/`. There is no `pnpm test` script — invoke Playwright directly.
+### Tests
+Unit tests run with Vitest: `pnpm test` (`vitest run`) picks up `tests/**/*.test.ts` in a Node environment (`vitest.config.ts`); `pnpm test:watch` runs Vitest in watch mode.
+
+```bash
+pnpm test                                                  # all unit tests (vitest run)
+pnpm test tests/api                                        # one folder or file
+```
+
+The end-to-end suite is `e2e/`, run with Playwright (`pnpm test:e2e` wraps the default config).
 
 ```bash
 pnpm exec playwright test                                  # all e2e specs

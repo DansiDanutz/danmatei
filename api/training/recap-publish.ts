@@ -201,20 +201,22 @@ export default async function handler(req: Req, res: Res) {
         .insert(rows);
       // Don't fail the whole publish on notification insert error; the recap
       // is already saved and the trainer can manually retry the notify.
+      // Nobody was notified, so report 0 and skip the push.
       if (notifErr) {
         console.warn(
           "recap-publish: notification insert failed",
           notifErr.message
         );
+        recipientCount = 0;
+      } else {
+        // 2b) Best-effort Web Push fan-out (no-op when VAPID not configured)
+        pushSummary = await sendPushToUsers(recipientIds, {
+          title,
+          body: `${dateRO} — ${bodyShort}`,
+          tag: `training-recap-${eventId}`,
+          url: link,
+        });
       }
-
-      // 2b) Best-effort Web Push fan-out (no-op when VAPID not configured)
-      pushSummary = await sendPushToUsers(recipientIds, {
-        title,
-        body: `${dateRO} — ${bodyShort}`,
-        tag: `training-recap-${eventId}`,
-        url: link,
-      });
     }
   }
 
