@@ -32,7 +32,7 @@ The signed-in area of the app: a bottom-tab layout with three tabs (Home, Chat a
   - Shows a spinner while loading, an error card with refetch on error, and an empty-state card when there are no threads.
   - Otherwise shows a `FlatList` keyed by `item.id`.
   - Shows the unread badge only when `unreadCount > 0`.
-- Sign-out (`onSignOut`) awaits `authService.signOut()` inside `try`, and its `finally` always runs `queryClient.clear()`, then `reset()`, then `router.replace("/onboarding")`. If `signOut` rejects, the local cleanup and navigation still happen and the rejection still propagates from `onSignOut`.
+- Sign-out (`onSignOut`) awaits `authService.signOut()`. Only after it succeeds does it run `queryClient.clear()`, then `reset()`, then `router.replace("/onboarding")`. If `signOut` rejects (for example offline), Supabase keeps the persisted session, so the screen stays signed in, shows an `Alert` ("Deconectare eșuată" with the error message) and does not clear or navigate.
 - Profile uses "Utilizator" as the name when `fullName` is missing, and `null` as the avatar when `avatarUrl` is missing.
 - The "Editează profilul" button has an empty `onPress` handler.
 - The tab screens and the tab layout have no auth guard. Session gating happens only in `app/index.tsx`.
@@ -40,7 +40,7 @@ The signed-in area of the app: a bottom-tab layout with three tabs (Home, Chat a
 ## Side Effects
 
 - Network fetches through React Query: `profileService.me` and `chatService.listThreads`, plus a manual `refetch()`.
-- Sign-out calls Supabase Auth, clears the whole React Query cache (`queryClient.clear()`), resets the Zustand auth store and navigates.
+- Sign-out calls Supabase Auth. On success it clears the whole React Query cache (`queryClient.clear()`), resets the Zustand auth store and navigates; on failure it only shows an `Alert`.
 
 ## Verification
 

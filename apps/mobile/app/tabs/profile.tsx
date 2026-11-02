@@ -1,7 +1,7 @@
 import { Avatar, Button, Card, Screen } from "@danmatei/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Text, View } from "react-native";
 
 import { authService } from "@/features/auth/auth-service";
 import { profileService } from "@/features/profile/profile-service";
@@ -18,11 +18,18 @@ export default function Profile() {
   const onSignOut = async () => {
     try {
       await authService.signOut();
-    } finally {
-      queryClient.clear();
-      reset();
-      router.replace("/onboarding");
+    } catch (error) {
+      // Supabase keeps the persisted session when sign-out fails, so stay
+      // signed in rather than showing a logout that would not last.
+      Alert.alert(
+        "Deconectare eșuată",
+        error instanceof Error ? error.message : "Încearcă din nou."
+      );
+      return;
     }
+    queryClient.clear();
+    reset();
+    router.replace("/onboarding");
   };
 
   if (isLoading) {
