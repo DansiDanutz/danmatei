@@ -18,7 +18,7 @@ A thin REST client for chat threads and messages. It is built on `api` from `lib
 - `messageSchema` (`schemas.ts`): `{ content }`, trimmed, 1 to 4000 characters, Romanian messages. Same limits as the server.
 - `cache.ts`: cache helpers and keys (`threadsKey`, `messagesKey`).
   - `appendMessage` ignores a message whose id is already cached. `clearUnread` zeroes one thread.
-  - `applySentMessage(queryClient, threadId, message)` first cancels any in-flight message fetch, so an older snapshot cannot overwrite the sent message. It then appends to the cached list, or, when nothing is cached, invalidates the messages query so the full history loads. It also invalidates the thread list (exact) so the thread moves up.
+  - `applySentMessage(queryClient, threadId, message)` first cancels any in-flight message fetch, so an older snapshot cannot overwrite the sent message. It then appends to the cached list (when there is one) and always invalidates the messages query, so the history is refetched and replies received since the last visit load. It also invalidates the thread list (exact) so the thread moves up.
   - `applyMarkedRead` and `shouldMarkRead` as described above.
 - `MessageBubble` (`MessageBubble.tsx`): one message; right-aligned and brand-colored when `mine`.
 

@@ -95,6 +95,8 @@ describe("applySentMessage", () => {
     await applySentMessage(qc, "t1", msg("b"));
     expect(ids(qc.getQueryData(messagesKey("t1")))).toEqual(["a", "b"]);
     expect(qc.getQueryState(threadsKey)?.isInvalidated).toBe(true);
+    // Replies that arrived since the last visit still have to load.
+    expect(qc.getQueryState(messagesKey("t1"))?.isInvalidated).toBe(true);
   });
 
   it("keeps the sent message when an older history fetch resolves late", async () => {

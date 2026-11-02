@@ -37,8 +37,10 @@ export function shouldMarkRead(
 }
 
 // A history fetch that started before the send could resolve after it with an
-// older snapshot and drop the sent message. Cancel it first. With nothing cached
-// (the first load was cancelled) append would hide the history, so refetch.
+// older snapshot and drop the sent message. Cancel it first, show the sent
+// message at once, then refetch: the cancelled request may have been the only
+// refresh, so replies received since the last visit still have to load. The
+// refetch starts after the POST finished, so it includes the sent message.
 export async function applySentMessage(
   queryClient: QueryClient,
   threadId: string,
@@ -52,9 +54,8 @@ export async function applySentMessage(
       key,
       appendMessage(cached, message),
     );
-  } else {
-    void queryClient.invalidateQueries({ queryKey: key, exact: true });
   }
+  void queryClient.invalidateQueries({ queryKey: key, exact: true });
   // The thread moves to the top of the list.
   void queryClient.invalidateQueries({ queryKey: threadsKey, exact: true });
 }
