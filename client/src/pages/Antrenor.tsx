@@ -1603,7 +1603,7 @@ function TrainerProfileForm({
       })
       .eq("id", trainer.id)
       .select(
-        "id, position, bio, age_min, age_max, certifications, active, hero_photo_path"
+        "id, position, bio, age_min, age_max, certifications, active, hero_photo_path, whatsapp_number, elevenlabs_agent_id"
       )
       .single();
     if (error || !data) {
