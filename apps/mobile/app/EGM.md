@@ -15,6 +15,7 @@ The Expo Router route tree. `_layout.tsx` sets up the global providers and a Sta
   - auth: [./auth/EGM.md](./auth/EGM.md) - `/auth/login`, `/auth/register`, `/auth/forgot-password`.
   - onboarding: [./onboarding/EGM.md](./onboarding/EGM.md) - `/onboarding`.
   - tabs: [./tabs/EGM.md](./tabs/EGM.md) - `/tabs/home`, `/tabs/chat`, `/tabs/profile`.
+  - chat: [./chat/EGM.md](./chat/EGM.md) - `/chat/[id]`, the thread screen.
 
 ## Invariants
 

@@ -1,6 +1,13 @@
 import { Card, Screen } from "@danmatei/ui";
 import { useQuery } from "@tanstack/react-query";
-import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import { router } from "expo-router";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
 
 import { chatService } from "@/features/chat/chat-service";
 import { formatRelativeDate } from "@/utils/format";
@@ -58,23 +65,33 @@ export default function Chat() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 20, gap: 12 }}
         renderItem={({ item }) => (
-          <Card elevated>
-            <View className="flex-row justify-between items-start">
-              <Text className="text-base font-semibold text-ink dark:text-white flex-1">
-                {item.title}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              router.push({
+                pathname: "/chat/[id]",
+                params: { id: item.id, title: item.title },
+              })
+            }
+          >
+            <Card elevated>
+              <View className="flex-row justify-between items-start">
+                <Text className="text-base font-semibold text-ink dark:text-white flex-1">
+                  {item.title}
+                </Text>
+                {item.unreadCount > 0 ? (
+                  <View className="bg-brand-600 rounded-full px-2 py-0.5">
+                    <Text className="text-xs text-white font-semibold">
+                      {item.unreadCount}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text className="text-xs text-slate-500 mt-2">
+                {formatRelativeDate(item.updatedAt)}
               </Text>
-              {item.unreadCount > 0 ? (
-                <View className="bg-brand-600 rounded-full px-2 py-0.5">
-                  <Text className="text-xs text-white font-semibold">
-                    {item.unreadCount}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            <Text className="text-xs text-slate-500 mt-2">
-              {formatRelativeDate(item.updatedAt)}
-            </Text>
-          </Card>
+            </Card>
+          </Pressable>
         )}
       />
     </Screen>
