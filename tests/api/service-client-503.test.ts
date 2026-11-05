@@ -1,7 +1,8 @@
 /**
- * `serviceClient()` throws when SUPABASE_SERVICE_ROLE (or the URL) is missing.
- * These four handlers used to let that escape as an uncaught platform 500; like
- * the other handlers they now answer 503 `supabase_unavailable`.
+ * `serviceClient()` throws when SUPABASE_SERVICE_ROLE (or the URL) is missing,
+ * and `userClient()` throws when the URL or anon key is missing. These handlers
+ * used to let that escape as an uncaught platform 500; like the other handlers
+ * they now answer 503 `supabase_unavailable`.
  *
  * Each handler is also run with a working service client, so the 503 cannot be
  * an unconditional response.
@@ -11,6 +12,7 @@ import { fakeDb } from "./_fake-supabase";
 
 const state = vi.hoisted(() => ({
   serviceThrows: true,
+  userThrows: false,
   service: undefined as unknown,
   user: undefined as unknown,
 }));
@@ -26,7 +28,10 @@ vi.mock("../../api/_lib/supabase.js", async importActual => ({
     }
     return state.service;
   },
-  userClient: () => state.user,
+  userClient: () => {
+    if (state.userThrows) throw new Error("SUPABASE_ANON_KEY is not set");
+    return state.user;
+  },
 }));
 vi.mock("../../api/_lib/elevenlabs.js", async importActual => ({
   ...(await importActual<object>()),
@@ -75,6 +80,7 @@ const subscription = {
 
 beforeEach(() => {
   state.serviceThrows = true;
+  state.userThrows = false;
   state.service = undefined;
   state.user = undefined;
   createConvAILink.mockReset();
@@ -184,5 +190,26 @@ describe("with a working service client the handlers carry on", () => {
     const r = await run(startConversation, {});
     expect(createConvAILink).toHaveBeenCalledTimes(1);
     expect(r.status).toBe(500);
+  });
+});
+
+describe("a missing anon key or URL answers 503 supabase_unavailable", () => {
+  beforeEach(() => {
+    state.userThrows = true;
+  });
+
+  it("whatsapp/send-welcome", async () => {
+    const r = await run(sendWelcome, { childId: CHILD });
+    expect(r.status).toBe(503);
+    expect(r.body.error).toBe("supabase_unavailable");
+    expect(r.body.message).toContain("SUPABASE_ANON_KEY");
+  });
+
+  it("ai/start-conversation, before the ElevenLabs link is created", async () => {
+    const r = await run(startConversation, {});
+    expect(r.status).toBe(503);
+    expect(r.body.error).toBe("supabase_unavailable");
+    expect(r.body.message).toContain("SUPABASE_ANON_KEY");
+    expect(createConvAILink).not.toHaveBeenCalled();
   });
 });

@@ -76,7 +76,15 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
 
   // Resolve child + parent + trainer through the user JWT (so RLS confirms
   // the caller actually owns this child).
-  const u = userClient(jwt);
+  let u;
+  try {
+    u = userClient(jwt);
+  } catch (err) {
+    return res.status(503).json({
+      error: "supabase_unavailable",
+      message: err instanceof Error ? err.message : "service unavailable",
+    });
+  }
   const childQ = await u
     .from("children")
     .select(
