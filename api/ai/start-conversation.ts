@@ -65,7 +65,15 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
   const { childId } = parsed.data;
 
   // Identify the calling parent.
-  const u = userClient(jwt);
+  let u;
+  try {
+    u = userClient(jwt);
+  } catch (err) {
+    return res.status(503).json({
+      error: "supabase_unavailable",
+      message: err instanceof Error ? err.message : "service unavailable",
+    });
+  }
   let userId: string;
   try {
     userId = await getUserIdFromJwt(jwt);
