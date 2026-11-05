@@ -2,6 +2,8 @@ import { Platform } from "react-native";
 
 import { supabase } from "@/lib/supabase";
 
+import { hasRecoveryLinkError } from "./recovery-url";
+
 export const authService = {
   async signIn(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -37,6 +39,14 @@ export const authService = {
   },
 
   async hasSession() {
+    // A failed link must not fall back to a session already stored in this
+    // browser, which could belong to a different account.
+    if (
+      Platform.OS === "web" &&
+      hasRecoveryLinkError(window.location.hash, window.location.search)
+    ) {
+      return false;
+    }
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
     return data.session !== null;

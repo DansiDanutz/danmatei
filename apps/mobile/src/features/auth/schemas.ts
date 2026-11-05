@@ -16,7 +16,7 @@ export const registerSchema = z
     password: passwordSchema,
     confirmPassword: passwordSchema,
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine(data => data.password === data.confirmPassword, {
     path: ["confirmPassword"],
     message: "Parolele nu coincid",
   });
@@ -28,7 +28,7 @@ export const resetPasswordSchema = z
     password: passwordSchema,
     confirmPassword: passwordSchema,
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine(data => data.password === data.confirmPassword, {
     path: ["confirmPassword"],
     message: "Parolele nu coincid",
   });

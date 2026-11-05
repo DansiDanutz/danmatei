@@ -11,7 +11,7 @@ Email/password authentication for the mobile app. This package wraps Supabase Au
   - `signUp(email, password)`: calls `supabase.auth.signUp` and returns its `data`.
   - `signOut(): Promise<void>`
   - `resetPassword(email): Promise<void>`: calls `supabase.auth.resetPasswordForEmail`. On web it passes `redirectTo` `${window.location.origin}/auth/reset-password`; on native it passes none.
-  - `hasSession(): Promise<boolean>`: whether `supabase.auth.getSession()` returns a session.
+  - `hasSession(): Promise<boolean>`: whether `supabase.auth.getSession()` returns a session. On web it returns false when the URL carries an `error` (see `hasRecoveryLinkError` in `recovery-url.ts`), so a stored session of another account is never used.
   - `updatePassword(password): Promise<void>`: calls `supabase.auth.updateUser({ password })`.
 - Schemas (`schemas.ts`)
   - `emailSchema`: `z.string().trim().email("Adresă de email invalidă")`
