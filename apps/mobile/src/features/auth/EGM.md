@@ -10,14 +10,17 @@ Email/password authentication for the mobile app. This package wraps Supabase Au
   - `signIn(email, password)`: calls `supabase.auth.signInWithPassword` and returns its `data`.
   - `signUp(email, password)`: calls `supabase.auth.signUp` and returns its `data`.
   - `signOut(): Promise<void>`
-  - `resetPassword(email): Promise<void>`: calls `supabase.auth.resetPasswordForEmail`.
+  - `resetPassword(email): Promise<void>`: calls `supabase.auth.resetPasswordForEmail`. On web it passes `redirectTo` `${window.location.origin}/auth/reset-password`; on native it passes none.
+  - `hasSession(): Promise<boolean>`: whether `supabase.auth.getSession()` returns a session.
+  - `updatePassword(password): Promise<void>`: calls `supabase.auth.updateUser({ password })`.
 - Schemas (`schemas.ts`)
   - `emailSchema`: `z.string().trim().email("Adresă de email invalidă")`
   - `passwordSchema`: `z.string().min(8, "Parola trebuie să aibă cel puțin 8 caractere")`
   - `loginSchema`: `{ email, password }`
   - `registerSchema`: `{ email, password, confirmPassword }`, with a `.refine` check that the two passwords match
   - `forgotPasswordSchema`: `{ email }`
-  - Types `LoginInput`, `RegisterInput` and `ForgotPasswordInput`, all from `z.infer`
+  - `resetPasswordSchema`: `{ password, confirmPassword }`, with the same match check as `registerSchema`
+  - Types `LoginInput`, `RegisterInput`, `ForgotPasswordInput` and `ResetPasswordInput`, all from `z.infer`
 - `useSession()` (`use-session.ts`): returns `{ session, user, initialized }` read from `useAuthStore`.
 
 ## Invariants
