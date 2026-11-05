@@ -6,11 +6,11 @@ Sends a parent a one-time WhatsApp welcome containing a ConvAI share link, after
 ## Interface
 - **`POST /api/whatsapp/send-welcome`** (`send-welcome.ts:handler`): bearer JWT. Body (zod `Body`): `{childId: uuid}`.
   - Reads `children` with joined `parent` (`profiles`) and `trainer` (`trainers`) through the RLS `userClient`.
-  - Validates the JWT with `getUserIdFromJwt` before the lookup. A missing bearer returns 401 `Missing bearer token`; an invalid or expired JWT returns 401 `Not authenticated`.
+  - Validates the JWT with `getUserIdFromJwt` before the lookup. A missing bearer returns 401 `Missing bearer token` (checked first); an invalid or expired JWT returns 401 `Not authenticated`.
   - Returns 200 `{success, conversationId, link, whatsapp}`.
   - Errors: 400; 401; 404 (child not visible); 405 for a method other than POST; 409 `Child not accepted into a group yet`; 409 `Welcome already sent for this child`; 429; 500 when the claim update or the `ai_conversations` insert fails; 503 `supabase_unavailable` when `userClient(jwt)` or `serviceClient()` throws.
   - Body strings: 405 `Method not allowed` and 429 `{error:"rate_limited"}`.
-  - `userClient(jwt)` (before the child lookup) and `serviceClient()` (just before the claim) are each built inside a try/catch. When one throws (a missing `SUPABASE_URL`, anon key or service-role env var) the response is 503 `{error:"supabase_unavailable", message:<the error message>}`. In practice a missing URL or anon key already fails earlier: `getUserIdFromJwt` hits the same check and the handler answers 401 `Not authenticated`, so the `userClient` guard is defensive. [send-welcome.ts:handler]
+  - `userClient(jwt)` is built inside a try/catch right after the bearer check and before `getUserIdFromJwt`, and `serviceClient()` inside one just before the claim. When one throws (a missing `SUPABASE_URL`, anon key or service-role env var) the response is 503 `{error:"supabase_unavailable", message:<the error message>}`. Because `userClient` runs first, a missing URL or anon key is a 503, not the 401 `Not authenticated` that `getUserIdFromJwt` would give for the same missing config; a token Auth rejects is still 401. [send-welcome.ts:handler]
   - A delivery failure is not an error response: with no parent phone, WhatsApp not configured or a failed Meta call the response is still 200 with `success:false` and `whatsapp:{sent:false, reason}`, and the claim is released. [send-welcome.ts:handler]
 
 ## Invariants
@@ -36,5 +36,5 @@ Sends a parent a one-time WhatsApp welcome containing a ConvAI share link, after
 - Shared helpers are documented in [api/_lib](../_lib/EGM.md).
 
 ## Verification
-- Run: `pnpm test tests/api` (`service-client-503.test.ts` covers the 503)
+- Run: `pnpm test tests/api` (`service-client-503.test.ts` and `send-welcome-missing-env.test.ts` cover the 503s)
 - Typecheck: `pnpm check:api`

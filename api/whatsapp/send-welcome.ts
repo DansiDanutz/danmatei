@@ -60,6 +60,18 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
         : undefined;
   const jwt = getJwtFromHeader(auth);
   if (!jwt) return res.status(401).json({ error: "Missing bearer token" });
+  // Built before the JWT check: userClient() throws when SUPABASE_URL or the
+  // anon key is missing, the same check that would make getUserIdFromJwt
+  // fail. That is a server config problem (503), not a bad token (401).
+  let u;
+  try {
+    u = userClient(jwt);
+  } catch (err) {
+    return res.status(503).json({
+      error: "supabase_unavailable",
+      message: err instanceof Error ? err.message : "service unavailable",
+    });
+  }
   // Reject an invalid/expired token up front — otherwise the RLS lookup
   // below just finds nothing and the caller gets a misleading 404.
   try {
@@ -76,15 +88,6 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
 
   // Resolve child + parent + trainer through the user JWT (so RLS confirms
   // the caller actually owns this child).
-  let u;
-  try {
-    u = userClient(jwt);
-  } catch (err) {
-    return res.status(503).json({
-      error: "supabase_unavailable",
-      message: err instanceof Error ? err.message : "service unavailable",
-    });
-  }
   const childQ = await u
     .from("children")
     .select(
