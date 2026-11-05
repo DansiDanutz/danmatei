@@ -19,6 +19,8 @@ const CHAIN_METHODS = [
   "limit",
   "insert",
   "update",
+  "delete",
+  "is",
   "maybeSingle",
   "single",
 ] as const;
