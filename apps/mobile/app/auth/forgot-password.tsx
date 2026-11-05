@@ -3,7 +3,7 @@ import { Button, Input, Screen } from "@danmatei/ui";
 import { Link, router } from "expo-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Alert, Text, View } from "react-native";
+import { Alert, Platform, Text, View } from "react-native";
 
 import { authService } from "@/features/auth/auth-service";
 import {
@@ -13,6 +13,9 @@ import {
 
 export default function ForgotPassword() {
   const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(
+    null
+  );
   const {
     control,
     handleSubmit,
@@ -22,20 +25,27 @@ export default function ForgotPassword() {
     defaultValues: { email: "" },
   });
 
+  // Alert.alert does nothing on web, so there the result is shown inline and
+  // the screen stays open.
   const onSubmit = async ({ email }: ForgotPasswordInput) => {
     setSubmitting(true);
+    setNotice(null);
     try {
       await authService.resetPassword(email);
-      Alert.alert(
-        "Email trimis",
-        "Verifică inboxul pentru linkul de resetare a parolei.",
-      );
-      router.back();
+      const text = "Verifică inboxul pentru linkul de resetare a parolei.";
+      if (Platform.OS === "web") {
+        setNotice({ error: false, text: `Email trimis. ${text}` });
+      } else {
+        Alert.alert("Email trimis", text);
+        router.back();
+      }
     } catch (error) {
-      Alert.alert(
-        "Eroare",
-        error instanceof Error ? error.message : "Încearcă din nou.",
-      );
+      const text = error instanceof Error ? error.message : "Încearcă din nou.";
+      if (Platform.OS === "web") {
+        setNotice({ error: true, text });
+      } else {
+        Alert.alert("Eroare", text);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -68,6 +78,15 @@ export default function ForgotPassword() {
             />
           )}
         />
+
+        {notice ? (
+          <Text
+            className={notice.error ? "text-red-600" : "text-brand-600"}
+            accessibilityRole="alert"
+          >
+            {notice.text}
+          </Text>
+        ) : null}
 
         <Button
           label="Trimite link"
