@@ -20,17 +20,17 @@ Shared UI primitives come from the workspace package `@danmatei/ui` (`/packages/
   - `check` runs `tsc --noEmit`.
   - `render:hero` runs `hyperframes render ./hyperframes/onboarding-hero --output ./assets/onboarding-hero.mp4`.
 - Expo config (`app.json`):
-  - name "Dan Matei", slug `danmatei-mobile`, deep-link scheme `danmatei`, portrait only;
-  - iOS bundle ID and Android package `com.danmatei.mobile`;
-  - plugins `expo-router`, `expo-splash-screen` (background `#0b1020`) and `expo-font`;
+  - name "Dan Matei", slug `danmatei-mobile`, deep-link scheme `danmatei`, portrait only, `userInterfaceStyle: "automatic"` [app.json:expo.userInterfaceStyle];
+  - iOS bundle ID and Android package `com.danmatei.mobile`; `ios.supportsTablet: true` and Android `adaptiveIcon.backgroundColor` `#0b1020` [app.json:ios, app.json:android];
+  - plugins `expo-router`, `expo-splash-screen` (background `#0b1020`, `resizeMode: "contain"`) and `expo-font`;
   - `experiments.typedRoutes: true`;
   - web build uses Metro with `static` output.
 - Path aliases (`tsconfig.json`): `@/*` maps to `./src/*`, and `@ui/*` maps to `../../packages/ui/*`.
 - Environment variables (`.env.example`, typed in `expo-env.d.ts`): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` and `EXPO_PUBLIC_API_BASE_URL`.
 - Build config:
   - `babel.config.js`: `babel-preset-expo` with `jsxImportSource: "nativewind"`, plus `nativewind/babel` and `react-native-worklets/plugin`.
-  - `metro.config.js`: wrapped in `withNativeWind` with input `./global.css`.
-  - `tailwind.config.js`: preset `nativewind/preset`, `darkMode: "class"`, theme colors `brand`, `ink` and `surface`, `borderRadius` `xl` (16px), `2xl` (20px) and `3xl` (28px), and `fontFamily.sans` `["Inter", "system-ui", "sans-serif"]`. No file loads an `Inter` font, although the `expo-font` plugin is configured in `app.json`. Its content globs cover `app/`, `src/` and `../../packages/ui`.
+  - `metro.config.js`: wrapped in `withNativeWind` with input `./global.css` and `configPath` `tailwind.config.js` (resolved from the project root) [metro.config.js:withNativeWind].
+  - `tailwind.config.js`: preset `nativewind/preset`, `darkMode: "class"`, theme colors `brand` (shades 50, 500, 600, 900), `ink` (`DEFAULT`, `muted`) and `surface` (`DEFAULT`, `dark`, `card`, `cardDark`), `borderRadius` `xl` (16px), `2xl` (20px) and `3xl` (28px), and `fontFamily.sans` `["Inter", "system-ui", "sans-serif"]`. No file loads an `Inter` font, although the `expo-font` plugin is configured in `app.json`. Its content globs cover `app/`, `src/` and `../../packages/ui`.
   - `nativewind-env.d.ts`: references `nativewind/types`; included by `tsconfig.json`.
 - Unused dependency: `package.json` declares `react-native-mmkv`, but nothing in `app/` or `src/` imports it. Session storage uses AsyncStorage.
 - Subdirectories:
@@ -43,7 +43,7 @@ Shared UI primitives come from the workspace package `@danmatei/ui` (`/packages/
 - TypeScript runs with `strict: true` and `noUncheckedIndexedAccess: true`, and the config extends `expo/tsconfig.base`.
 - `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` and `EXPO_PUBLIC_API_BASE_URL` must be set. `src/lib/config.ts` throws at import time if any of them is missing or empty.
 - The Tailwind content globs include `../../packages/ui`, so class names used in shared UI components are compiled into the app's styles.
-- The brand palette in this app (`brand.500` / `colors.brand` `#3b82f6`, `ink` `#0b1020`) is defined separately in `tailwind.config.js` and `src/constants/colors.ts`. It does not match the web `DESIGN_SYSTEM.md` tokens.
+- The brand palette in this app (`brand.500` / `colors.brand` `#3b82f6`, `ink` `#0b1020`) is defined separately in `tailwind.config.js` and `src/constants/colors.ts`. It does not match the web `DESIGN_SYSTEM.md` tokens. The two files agree on `ink` `#0b1020` and `brand` `#3b82f6`, but `colors.brandDark` is `#1d4ed8` while Tailwind `brand.600` is `#2563eb` [src/constants/colors.ts:brandDark, tailwind.config.js:brand].
 
 ## Side Effects
 

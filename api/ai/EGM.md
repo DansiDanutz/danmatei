@@ -8,10 +8,15 @@ Parent-facing ElevenLabs ConvAI conversations. `start-conversation` creates a sh
   - Body (zod `Body`): `{childId?: uuid}`.
   - Calls `createConvAILink(agentId, shareToken)`, where `shareToken` is 12 random bytes in base64url.
   - Returns 200 `{conversationId, link, token, source}`; 400, 401, 404, 405 (not POST), 429 or 500.
+  - The 429 check runs before the `profiles` lookup. A missing `profiles` row returns 401 `Not authenticated`, the same body as an invalid JWT.
+  - `serviceClient()` is not wrapped in try/catch here, so there is no 503; a throw from it or from `createConvAILink` is not caught.
 - **`POST /api/ai/webhook`** (`webhook.ts:handler`): `export const config = { api: { bodyParser: false } }`. The raw body is limited to 256 KiB (`MAX_BODY_BYTES`, 413 when exceeded).
   - Verified with `verifyHmac(rawBody, headers, "ELEVENLABS_WEBHOOK_SECRET", {bindTimestamp:false})`. Signature headers: `x-elevenlabs-signature` or `elevenlabs-signature`. Timestamp headers: `x-elevenlabs-timestamp` or `elevenlabs-timestamp`.
   - Payload (zod `Payload`): `{type?, data:{conversation_id?, agent_id?, status?, conversation_token?}, conversation_id?, agent_id?}`.
-  - Responses: 200; 202 `{matched:false}`; 400; 401; 405 (not POST); 500 when the `ai_conversations` lookup or update fails, or the `notifications` insert fails with an error other than `23505`; 503 `elevenlabs_webhook_secret_unset` or `supabase_unavailable`.
+  - The timestamp header is required (`verifyHmac` defaults `checkTimestamp` to true) even though it is not part of the signed payload. A missing or non-numeric timestamp returns 401 `missing_timestamp`; one more than 5 minutes from now returns 401 `timestamp_skew`. [webhook.ts:handler; _lib/webhook-hmac.ts:verifyHmac]
+  - Responses: 200; 202 `{matched:false}`; 400; 401; 405 (not POST); 413 (body over the limit); 500 when the `ai_conversations` lookup or update fails, or the `notifications` insert fails with an error other than `23505`; 503 `elevenlabs_webhook_secret_unset` or `supabase_unavailable`.
+  - 400 bodies: `body_read_failed` (with `detail`), `Invalid payload` (bad JSON or failed zod parse) and `Missing conversation_id` (absent from both the top level and `data`). [webhook.ts:handler]
+  - 401 bodies: `Invalid signature` for a bad signature; otherwise the `verifyHmac` reason (`missing_timestamp`, `timestamp_skew` or `secret_unset`). [webhook.ts:handler]
 
 ## Invariants
 - **`start-conversation`:**
@@ -23,7 +28,9 @@ Parent-facing ElevenLabs ConvAI conversations. `start-conversation` creates a sh
 - **`webhook` idempotency:**
   - A row that is already `completed` with both `ended_at` and `transcript_md` returns 200 `{duplicate:true}` and does nothing else.
   - The trainer is notified only on the first completion. A `23505` on `notifications.dedupe_key` is ignored. [webhook.ts:handler, isUniqueViolation]
-- **`webhook` status values:** the stored status is limited to `completed`, `failed` or `in_progress`. [webhook.ts:handler]
+- **`webhook` status values:** the stored status is limited to `completed`, `failed` or `in_progress`.
+  - The input is `data.status ?? type ?? "completed"`. Any value other than `completed` or `failed` is stored as `in_progress`; when both fields are absent the input is `completed`.
+  - `ended_at` is set to now on every non-duplicate update, including `failed` and `in_progress`. [webhook.ts:handler]
 
 ## Side Effects
 - **`start-conversation`:**

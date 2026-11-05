@@ -336,3 +336,195 @@ No drift detected.
 - Doc: "`Grupe` and `Campionat` fall back to the static `TRAINERS` list and show `DemoBanner`" without conditions. `Campionat` falls back only when the DB returns no active trainers (client/src/pages/Campionat.tsx:80-84) and shows `LoadErrorState`, not the fallback, when Supabase is unconfigured (Campionat.tsx:49-52). `Grupe` falls back when unconfigured, after a 6000 ms timeout, or when no active trainers are returned (Grupe.tsx:49-60, 93-95).
 - `Grupe` also reads `children` (`trainer_id`, `status='active'`) to count kids per trainer (client/src/pages/Grupe.tsx:70), and `Program` fetches only a 14-day horizon (client/src/pages/Program.tsx:77); neither detail is documented.
 
+
+
+---
+
+# Run 2: all EGM.md contracts under `api/` and `apps/mobile/` (main at `c33a8ff`, after PRs #159 to #161)
+
+37 contracts checked. 14 have drift (8 under `api/`, 6 under `apps/mobile/`); the other 23 have none. Almost all findings are omissions: the contract is silent about something the code does. Nothing was changed in this run; it is a report only.
+
+**Status (same day):** every finding below was confirmed against the code and fixed in the contracts (the code was not changed). The `file:line` numbers in this run are unreliable: several reviewers cited lines past the end of the file, so the contracts cite `[file:symbol]` instead.
+
+## api/EGM.md
+
+- Omitted error responses: `notify.ts` returns 405 (lines 41-43), 401 "Missing bearer token" (52), 401 on auth or profile lookup failure (67), 403 "Owner or super_admin role required" (70), 400 "Invalid body" with `issues` (75-77), and 500 on recipient resolution or insert error (118, 136). `trainers.ts` returns 405 (79-81), 401 (90, 105), 403 "Owner role required" (108), 400 "Invalid body" (121-124, 152-155), 400 "ageMax must be >= ageMin" (158; the contract states it as an invariant with no status), 400 with the raw Auth message when the invite fails (180), 500 "Auth invite returned no user id" (184) and 500 when the trainer insert fails (216). `groups.ts` returns 405 (48).
+- `notify` sets the push payload `url` to `/dashboard` when `link` is absent (`notify.ts:145`); Side Effects do not say so.
+
+## api/_lib/EGM.md
+
+- The Side Effects "env vars read" list omits `MOBILE_WEB_ORIGINS`, read by `allowedWebOrigins()` (`mobile-api.ts:124`). The Interface section does mention it.
+- `requireCron` sends 401 `{error:"unauthorized"}` on a bad or missing bearer (`cron-auth.ts:40`); the contract says only "401 or 503".
+- `sendWhatsappText` also returns `reason` = the Meta error message or `http_<status>` on a non-OK response, or the exception message or `network_error` on a network failure (`whatsapp.ts:68-78`). The contract documents only the two config and argument reasons.
+
+## api/academy/EGM.md
+
+No drift detected
+
+## api/ai/EGM.md
+
+- The webhook timestamp is mandatory but the contract does not say so. `verifyHmac` defaults `checkTimestamp` to true (`api/_lib/webhook-hmac.ts:115, 130-139`), so a missing or non-numeric timestamp returns 401 `missing_timestamp` and one more than 5 minutes off returns 401 `timestamp_skew`.
+- The 401 body strings are not documented: `invalid_signature` is mapped to the capitalised "Invalid signature"; other reasons pass through as `missing_timestamp`, `timestamp_skew` or `secret_unset` (`webhook.ts:276-280`).
+- The contract's 400 is undifferentiated. The code has four: `body_read_failed`, "Invalid payload" (bad JSON or failed zod parse) and "Missing conversation_id" when it is absent from both the top level and `data` (`webhook.ts:252, 287, 292, 298`). Only the zod `Payload` is described, not the required `conversation_id`.
+- `status` falls back to `data.status ?? type ?? "completed"` (`webhook.ts:296`). The contract says only that the stored value is `completed`, `failed` or `in_progress`; an unrecognised or absent status stores `in_progress`, or `completed` when neither field is present.
+- `ended_at` is set to now on every non-duplicate update, including `in_progress` and `failed` (`webhook.ts:383`); not in the contract.
+- `serviceClient()` is not wrapped in try/catch in `start-conversation.ts` (line 111), so there is no 503 there; a throw there or from `createConvAILink` propagates.
+- In `start-conversation.ts` the rate limit (line 76) runs before the `profiles` lookup (line 79), which returns 401 "Not authenticated" when there is no profile row; the contract does not give this order.
+
+## api/attendance/EGM.md
+
+No drift detected
+
+## api/chat/EGM.md
+
+No drift detected
+
+## api/chat/threads/EGM.md
+
+No drift detected
+
+## api/cron/EGM.md
+
+- The 500 list omits `weekly-digest`, which returns 500 `fetch_failed` with `detail` when the children query fails (`weekly-digest.ts:300-303`).
+- `generate-monthly-charges` is described as creating one `monthly_fee` charge per active child that has a group. It also skips any child whose group has no `group_fees` row with `effective_from <= today` (`generate-monthly-charges.ts:488-489`); the invariants cover which fee is picked, not this skip.
+- `generate-monthly-charges` returns 200 `{ok:true, ranAt, generated:0}` early when there are no active grouped children (lines 449-451); not in the contract.
+- `schedule-reminder` returns `trainersMissingSchedule`, but the value is `notifiedTrainers` (`schedule-reminder.ts:189-222`): trainers with no schedule and no recipients (no `profile_id` and no owners) are skipped and not counted. The contract implies it counts all trainers missing a schedule.
+- `daily` returns `{ok, ranAt, birthdays:0, notified:0}` on the early exit (`daily.ts:114-121`), omitting `push` and `rsvpChecks`. In the full response `rsvpChecks` is `{events, pushed, skippedExisting, pushSent, pushRemoved}` and `push` is `{sent, skipped, removed}`; neither shape is documented.
+- `coaching-digest` and `schedule-reminder` do not check errors from their initial `trainers`, `profiles`, `schedule_events` and `coaching_tips` reads, so they have no 500 path. This matches the contract only by omission.
+
+## api/enrollment/EGM.md
+
+No drift detected
+
+## api/lead/EGM.md
+
+- `POST /api/lead/status` returns more than the contract lists (400 `note_single_only`, 403 `forbidden`, 404 `lead_not_found`): 401 `missing_bearer` (`status.ts:840`), 401 `invalid_jwt` (878), 401 `no_profile` (891), 400 `invalid_body` (848), 503 `supabase_unavailable` (867), 500 `fetch_failed` (902) and 500 `update_failed` (970). `reply-draft` has its error list in the contract, so `status` is inconsistent with it.
+- `GET /api/lead/list` has no error codes in the contract. The handler returns 405 `method_not_allowed` (`list.ts:416`), 401 `missing_bearer_token` (420), 400 `invalid_query` (425), 401 `not_authenticated` (434), 403 `trainer_role_required` (450), 503 `supabase_unavailable` (458), 403 `trainer_profile_required` (475) and 500 `query_failed` (521).
+- The contract's 500 for `create.ts` is not named; it is `lead_insert_failed` (`create.ts:300`). The per-phone limit also fails open: when the count query errors, the request proceeds (`create.ts:271`).
+
+## api/leads/EGM.md
+
+No drift detected
+
+## api/match/EGM.md
+
+No drift detected
+
+## api/messages/EGM.md
+
+No drift detected
+
+## api/news/EGM.md
+
+No drift detected
+
+## api/push/EGM.md
+
+- `serviceClient()` is called outside any try/catch in `subscribe.ts:101` and `unsubscribe.ts:206`. Unlike the other handlers, neither returns 503 `supabase_unavailable`, so a missing service role throws an unhandled error. The contract is silent on this.
+- The contract says only "401". The code returns `{error:"Missing bearer token"}` for no bearer, or `{error:(e as Error).message}` for an invalid JWT (`subscribe.ts:81, 87`; `unsubscribe.ts:190, 196`). These are free-text messages, not codes. The 405 body is `{error:"Method not allowed"}`, not `method_not_allowed` (`subscribe.ts:71`, `unsubscribe.ts:180`, `vapid-key.ts:237`).
+
+## api/schedule/EGM.md
+
+No drift detected
+
+## api/training/EGM.md
+
+No drift detected
+
+## api/voice/EGM.md
+
+- The Errors list for `elevenlabs-webhook` omits statuses the handler can return through `recordLeadCall` (`elevenlabs-webhook.ts:478-479`): 404 `lead_not_found` (`lead-call-result.ts:150-155`) and 500 `call_lookup_failed` or `call_insert_failed` (`lead-call-result.ts:167-172, 227-230`). The contract says only that it returns the status and body from `recordLeadCall`.
+- `toLeadCallResult` maps any transcript role other than `agent` to `parent` (`elevenlabs-webhook.ts:374`). Since "completed" depends on a `parent` turn, any non-agent role counts as the parent speaking; the contract says only "completed when a parent turn exists".
+
+## api/whatsapp/EGM.md
+
+- Possible gap in the invariant "The claim is released when ... WhatsApp does not send": the claim (`welcome_claimed_at`) is released only on an insert failure (`send-welcome.ts:189-194`) or when WhatsApp does not send (line 193-195 after the send). If anything throws between the claim and those points, the claim stays set and the child is locked out with 409 "Welcome already sent". The reviewer suspected `createConvAILink` (`send-welcome.ts:174`); checked, its fetch is wrapped in try/catch with a stub fallback (`api/_lib/elevenlabs.ts:87-103`), so that path does not throw. Other unguarded calls in that window were not traced.
+- The contract lists no 503 and does not mention that `serviceClient()` (`send-welcome.ts:141`) and `userClient(jwt)` (115) are called outside any try/catch. They throw when Supabase env vars such as `SUPABASE_SERVICE_ROLE` are missing (`api/_lib/supabase.ts:21-24`), giving an uncaught platform 500, where other handlers return 503 `supabase_unavailable`.
+- The contract says "Returns 200 `{success, conversationId, link, whatsapp}`". The code also returns 200 with `success:false` and `whatsapp:{sent:false, reason}` when the parent has no phone, WhatsApp is not configured, or the Meta call fails (`send-welcome.ts:208-233`). The contract describes the claim release but not that the response is still 200.
+- The 429 body is `{error:"rate_limited"}` and the 405 body is `Method not allowed`; the contract does not say these differ from the snake_case codes used elsewhere.
+
+## apps/mobile/EGM.md
+
+- Expo config omissions (`app.json`): `userInterfaceStyle: "automatic"` (line 8), `ios.supportsTablet: true` (10), `android.adaptiveIcon.backgroundColor "#0b1020"` (15-17) and the splash plugin's `resizeMode: "contain"` (29).
+- `metro.config.js:8-11` also passes `configPath: path.resolve(projectRoot, "tailwind.config.js")` to `withNativeWind`; the contract mentions only the `./global.css` input.
+- `tailwind.config.js:13-18, 23-28`: the contract says only theme colors `brand`, `ink` and `surface`. The code defines `brand` shades 50/500/600/900, `ink.DEFAULT` and `ink.muted`, and `surface` DEFAULT/dark/card/cardDark.
+- The palette invariant is imprecise: `src/constants/colors.ts` shares `ink` `#0b1020` with Tailwind, but `colors.ts:28` has `brandDark` `#1d4ed8` where Tailwind has `brand.600` `#2563eb`.
+
+## apps/mobile/app/EGM.md
+
+No drift detected
+
+## apps/mobile/app/auth/EGM.md
+
+- The Invariants cover only the Login error alert title ("Autentificare eșuată"). Missing: Register's error alert "Înregistrare eșuată" (`register.tsx:32-35`); ForgotPassword's success alert "Email trimis" / "Verifică inboxul pentru linkul de resetare a parolei." before `router.back()` (`forgot-password.tsx:29-33`) and its error alert "Eroare" (35-38). The line about `error.message` in error alerts holds for all three screens.
+- Register's success alert "Cont creat" also has body text "Verifică emailul pentru confirmare, apoi autentifică-te." (`register.tsx:26-29`), not stated.
+- The zod messages shown under each field are not in the contract: "Adresă de email invalidă", "Parola trebuie să aibă cel puțin 8 caractere" and "Parolele nu coincid" on `confirmPassword`. The 8-character minimum also applies to `confirmPassword` (`schemas.ts:3-22`).
+
+## apps/mobile/app/chat/EGM.md
+
+- Send validation is missing: `messageSchema` (`features/chat/schemas.ts:4-10`) trims and requires 1 to 4000 characters. Its errors "Scrie un mesaj" and "Mesajul poate avea cel mult 4000 de caractere" show under the `Input` (`[id].tsx:117`); an empty or whitespace-only submit never reaches `send`.
+- UI texts are missing: error card "Eroare la încărcarea mesajelor" (`[id].tsx:72`), empty state "Niciun mesaj încă" / "Scrie primul mesaj mai jos." (92-95), placeholder "Scrie un mesaj", button "Trimite", back control "Înapoi".
+- The failed-send alert title "Mesajul nu a fost trimis" (`[id].tsx:36`) and the fallback "Încearcă din nou." are not stated.
+- `KeyboardAvoidingView` is used, with `behavior="padding"` on iOS only (`[id].tsx:44-47`); not in the contract.
+
+## apps/mobile/app/onboarding/EGM.md
+
+- The hero is hardcoded: "Școala de Fotbal" / "Dan Matei" (amber text) and the tagline "Pasiune · Disciplină · Performanță" (`index.tsx:11-21`), in a container `h-[55%] bg-brand-900`. The video asset from `hyperframes/onboarding-hero` is not used.
+- The cards use `elevated` (`index.tsx:25`), with an accent bar colored by `slide.accent`, `titleRo` as the title and `bodyRo` as the body.
+- "Creează cont nou" uses `variant="secondary"` (`index.tsx:48`).
+
+## apps/mobile/app/tabs/EGM.md
+
+- Profile has no error state. It shows a spinner while `isLoading` and otherwise renders; if `profileService.me` fails, `profile` is undefined, so the screen shows "Utilizator" and an empty email with no error card or refetch (`profile.tsx:13-16, 35-53`). The contract says nothing about Profile's loading or error behavior.
+- Profile renders `profile?.email` under the name (`profile.tsx:52`); the sign-out button is labeled "Ieși din cont" with `variant="danger"`, and the edit button is `variant="secondary"` (56-57).
+- `TabsLayout` also sets `tabBarStyle` (borderTopWidth 0, elevation 0, height 64, paddingBottom 8, paddingTop 8) and `tabBarLabelStyle` (fontSize 12, fontWeight "500") (`_layout.tsx:13-20`).
+- Home texts are not in the contract: "Bună, {fullName ?? 'antrenor'}", "Iată ce e nou la academie.", card labels "Următorul antrenament" and "Notificări noi", and the error card "Nu am putut încărca datele" with the error message (or "Eroare necunoscută") and "Reîncearcă" (`home.tsx:15-46`).
+- Chat tab texts are not in the contract: "Eroare la încărcarea conversațiilor" with "Reîncearcă", and the empty state "Nicio conversație încă" / "Mesajele cu antrenorii vor apărea aici." (`chat.tsx:35-55`).
+
+## apps/mobile/src/EGM.md
+
+No drift detected
+
+## apps/mobile/src/constants/EGM.md
+
+No drift detected
+
+## apps/mobile/src/features/EGM.md
+
+No drift detected
+
+## apps/mobile/src/features/auth/EGM.md
+
+No drift detected
+
+## apps/mobile/src/features/chat/EGM.md
+
+- The contract does not list the exported type `MessageInput = z.infer<typeof messageSchema>` (`schemas.ts:12`); it documents only `messageSchema` for `schemas.ts`.
+
+## apps/mobile/src/features/onboarding/EGM.md
+
+No drift detected
+
+## apps/mobile/src/features/profile/EGM.md
+
+No drift detected
+
+## apps/mobile/src/hooks/EGM.md
+
+No drift detected
+
+## apps/mobile/src/lib/EGM.md
+
+No drift detected
+
+## apps/mobile/src/stores/EGM.md
+
+No drift detected
+
+## apps/mobile/src/types/EGM.md
+
+No drift detected
+
+## apps/mobile/src/utils/EGM.md
+
+No drift detected

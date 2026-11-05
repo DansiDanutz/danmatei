@@ -16,15 +16,19 @@ Scheduled Vercel Cron handlers. Each file is a route at `/api/cron/<name>`. The 
 ## Interface
 All handlers accept `GET` or `POST` and return 405 for anything else. They all use `serviceClient()` and return 503 `supabase_unavailable` if it throws.
 
-Other 500 responses: `close-overdue-accounts` `fetch_children_failed`; `daily` `fetch_failed`; `generate-monthly-charges` `fetch_children_failed` or `fetch_fees_failed`; `reap-stale-calls` with the DB error message when the lookup or update fails.
+Other 500 responses: `close-overdue-accounts` `fetch_children_failed`; `daily` and `weekly-digest` `fetch_failed` (with `detail`); `generate-monthly-charges` `fetch_children_failed` or `fetch_fees_failed`; `reap-stale-calls` with the DB error message when the lookup or update fails.
+
+`coaching-digest` and `schedule-reminder` do not check errors from their initial reads (`trainers`, `profiles`, `schedule_events`, `coaching_tips`), so they have no 500 path. [coaching-digest.ts:handler; schedule-reminder.ts:handler]
 
 - `close-overdue-accounts.ts:handler`: closes accounts more than 3 months overdue. Returns `{ok, ranAt, flipped}`.
 - `coaching-digest.ts:handler`: sends a daily coaching tip to every active trainer and to owners/super_admins. Returns `{ok, date, recipients, delivered, skipped, failed, aiConfigured, aiGenerated, fromLibrary}`.
   - Also exports the pure helper `parseTip(text)`, which returns `{title, body, source} | null`.
 - `daily.ts:handler`: sends birthday notifications and runs the next-day training RSVP checks (`sendTomorrowRsvpChecks`). Returns `{ok, ranAt, birthdays, notified, push, rsvpChecks}`. When there are no birthdays it returns early, and the RSVP checks are skipped.
-- `generate-monthly-charges.ts:handler`: creates one `monthly_fee` charge per active child that has a group. Returns 200 `{ok:true, ranAt, generated}`, or 207 `{ok:false, ranAt, generated, failed, failures}`.
+  - The early response is `{ok, ranAt, birthdays:0, notified:0}`, with no `push` or `rsvpChecks`.
+  - In the full response `push` is `{sent, skipped, removed}` and `rsvpChecks` is `{events, pushed, skippedExisting, pushSent, pushRemoved}`. [daily.ts:handler, sendTomorrowRsvpChecks]
+- `generate-monthly-charges.ts:handler`: creates one `monthly_fee` charge per active child that has a group. Children whose group has no `group_fees` row with `effective_from <= today` are skipped. With no active grouped children it returns 200 `{ok:true, ranAt, generated:0}` early. Returns 200 `{ok:true, ranAt, generated}`, or 207 `{ok:false, ranAt, generated, failed, failures}`.
 - `reap-stale-calls.ts:handler`: marks leads stuck in `calling` as `failed`. Returns `{ok, ranAt, reaped, ids}`, or `{ok, ranAt, reaped:0}` with no `ids` when nothing is stuck.
-- `schedule-reminder.ts:handler`: notifies trainers with no training scheduled in the next 7 days, and owners. Returns `{ok, ranAt, trainersChecked, trainersMissingSchedule}`.
+- `schedule-reminder.ts:handler`: notifies trainers with no training scheduled in the next 7 days, and owners. Returns `{ok, ranAt, trainersChecked, trainersMissingSchedule}`. `trainersMissingSchedule` counts only trainers that were notified: a trainer with no upcoming training is skipped, and not counted, when they have no `profile_id` and there are no owners.
 - `weekly-digest.ts:handler`: sends each parent one digest covering all of their children. Parents with no activity in the period and no upcoming event are skipped. Returns `{ok, ranAt, parents, notified, push}`, where `parents` counts every parent with active children, not only those notified. With no active children it returns `{ok, ranAt, parents:0, notified:0}` with no `push`.
 
 ## Invariants
