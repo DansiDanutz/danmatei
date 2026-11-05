@@ -7,9 +7,9 @@ Parent-facing ElevenLabs ConvAI conversations. `start-conversation` creates a sh
 - **`POST /api/ai/start-conversation`** (`start-conversation.ts:handler`): bearer JWT. The caller must have a `profiles` row, read through the RLS `userClient`.
   - Body (zod `Body`): `{childId?: uuid}`.
   - Calls `createConvAILink(agentId, shareToken)`, where `shareToken` is 12 random bytes in base64url.
-  - Returns 200 `{conversationId, link, token, source}`; 400, 401, 404, 405 (not POST), 429 or 500.
+  - Returns 200 `{conversationId, link, token, source}`; 400, 401, 404, 405 (not POST), 429, 500 or 503 `supabase_unavailable`.
   - The 429 check runs before the `profiles` lookup. A missing `profiles` row returns 401 `Not authenticated`, the same body as an invalid JWT.
-  - `serviceClient()` is not wrapped in try/catch here, so there is no 503; a throw from it or from `createConvAILink` is not caught.
+  - `serviceClient()` is built inside a try/catch before `createConvAILink`, so a missing service role answers 503 `{error:"supabase_unavailable", message:<the error message>}` without creating an ElevenLabs link. `userClient(jwt)` is still called outside any try/catch.
 - **`POST /api/ai/webhook`** (`webhook.ts:handler`): `export const config = { api: { bodyParser: false } }`. The raw body is limited to 256 KiB (`MAX_BODY_BYTES`, 413 when exceeded).
   - Verified with `verifyHmac(rawBody, headers, "ELEVENLABS_WEBHOOK_SECRET", {bindTimestamp:false})`. Signature headers: `x-elevenlabs-signature` or `elevenlabs-signature`. Timestamp headers: `x-elevenlabs-timestamp` or `elevenlabs-timestamp`.
   - Payload (zod `Payload`): `{type?, data:{conversation_id?, agent_id?, status?, conversation_token?}, conversation_id?, agent_id?}`.
@@ -44,5 +44,5 @@ Parent-facing ElevenLabs ConvAI conversations. `start-conversation` creates a sh
 - Shared helpers are documented in [api/_lib](../_lib/EGM.md).
 
 ## Verification
-- Run: `pnpm test tests/api` (`webhook-idempotency.test.ts` exercises `webhook.ts`)
+- Run: `pnpm test tests/api` (`webhook-idempotency.test.ts` exercises `webhook.ts`; `service-client-503.test.ts` covers the 503 in `start-conversation.ts`)
 - Typecheck: `pnpm check:api`

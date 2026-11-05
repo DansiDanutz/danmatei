@@ -57,7 +57,15 @@ export default async function handler(req: Req, res: Res) {
       .json({ error: "Invalid body", issues: parsed.error.issues });
   }
 
-  const svc = serviceClient();
+  let svc;
+  try {
+    svc = serviceClient();
+  } catch (err) {
+    return res.status(503).json({
+      error: "supabase_unavailable",
+      message: err instanceof Error ? err.message : "service unavailable",
+    });
+  }
   // Scope the delete to the caller — defense in depth on top of RLS.
   const { error } = await svc
     .from("push_subscriptions")

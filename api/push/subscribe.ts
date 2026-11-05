@@ -71,7 +71,15 @@ export default async function handler(req: Req, res: Res) {
   // Endpoint is unique table-wide. Before inserting/updating we look it up
   // to make sure it doesn't already belong to a DIFFERENT user — otherwise
   // a known endpoint URL could be reassigned and notifications hijacked.
-  const svc = serviceClient();
+  let svc;
+  try {
+    svc = serviceClient();
+  } catch (err) {
+    return res.status(503).json({
+      error: "supabase_unavailable",
+      message: err instanceof Error ? err.message : "service unavailable",
+    });
+  }
 
   const existing = await svc
     .from("push_subscriptions")

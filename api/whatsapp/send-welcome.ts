@@ -102,7 +102,15 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
 
   // Claim the child's welcome atomically: of two overlapping requests only
   // one gets the row back. The claim is released below if delivery fails.
-  const svc = serviceClient();
+  let svc;
+  try {
+    svc = serviceClient();
+  } catch (err) {
+    return res.status(503).json({
+      error: "supabase_unavailable",
+      message: err instanceof Error ? err.message : "service unavailable",
+    });
+  }
   const claim = await svc
     .from("children")
     .update({ welcome_claimed_at: new Date().toISOString() })

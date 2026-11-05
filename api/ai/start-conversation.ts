@@ -104,11 +104,22 @@ export default async function handler(req: MinimalReq, res: MinimalRes) {
     agentId = child.trainer?.elevenlabs_agent_id ?? null;
   }
 
+  // Persist via service client (bypasses RLS — table is service-only writes).
+  // Built before the ElevenLabs call so a missing service role does not mint a
+  // link that is then thrown away.
+  let svc;
+  try {
+    svc = serviceClient();
+  } catch (err) {
+    return res.status(503).json({
+      error: "supabase_unavailable",
+      message: err instanceof Error ? err.message : "service unavailable",
+    });
+  }
+
   const shareToken = randomBytes(12).toString("base64url");
   const linkResult = await createConvAILink(agentId, shareToken);
 
-  // Persist via service client (bypasses RLS — table is service-only writes).
-  const svc = serviceClient();
   const insert = await svc
     .from("ai_conversations")
     .insert({

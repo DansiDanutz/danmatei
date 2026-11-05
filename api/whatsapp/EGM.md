@@ -8,9 +8,9 @@ Sends a parent a one-time WhatsApp welcome containing a ConvAI share link, after
   - Reads `children` with joined `parent` (`profiles`) and `trainer` (`trainers`) through the RLS `userClient`.
   - Validates the JWT with `getUserIdFromJwt` before the lookup. A missing bearer returns 401 `Missing bearer token`; an invalid or expired JWT returns 401 `Not authenticated`.
   - Returns 200 `{success, conversationId, link, whatsapp}`.
-  - Errors: 400; 401; 404 (child not visible); 405 for a method other than POST; 409 `Child not accepted into a group yet`; 409 `Welcome already sent for this child`; 429; 500 when the claim update or the `ai_conversations` insert fails.
+  - Errors: 400; 401; 404 (child not visible); 405 for a method other than POST; 409 `Child not accepted into a group yet`; 409 `Welcome already sent for this child`; 429; 500 when the claim update or the `ai_conversations` insert fails; 503 `supabase_unavailable` when `serviceClient()` throws.
   - Body strings: 405 `Method not allowed` and 429 `{error:"rate_limited"}`.
-  - `userClient(jwt)` and `serviceClient()` are called outside any try/catch, so missing Supabase env vars give an uncaught error rather than a 503. [send-welcome.ts:handler]
+  - `serviceClient()` is built inside a try/catch just before the claim; when it throws (a missing service-role env var) the response is 503 `{error:"supabase_unavailable", message:<the error message>}`. `userClient(jwt)` is still called outside any try/catch, so missing anon-key config there gives an uncaught error rather than a 503. [send-welcome.ts:handler]
   - A delivery failure is not an error response: with no parent phone, WhatsApp not configured or a failed Meta call the response is still 200 with `success:false` and `whatsapp:{sent:false, reason}`, and the claim is released. [send-welcome.ts:handler]
 
 ## Invariants
@@ -36,5 +36,5 @@ Sends a parent a one-time WhatsApp welcome containing a ConvAI share link, after
 - Shared helpers are documented in [api/_lib](../_lib/EGM.md).
 
 ## Verification
-- Run: `pnpm test tests/api`
+- Run: `pnpm test tests/api` (`service-client-503.test.ts` covers the 503)
 - Typecheck: `pnpm check:api`
